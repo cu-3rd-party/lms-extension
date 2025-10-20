@@ -267,6 +267,7 @@ if (!window.customSidebarObserverInitialized) {
         style.textContent = `
             .custom-courses-active > * { display: none !important; }
             .custom-courses-active > [data-dynamic-course="true"] { display: block !important; }
+
             .custom-expand-container {
                 display: grid;
                 grid-template-rows: 0fr;
@@ -285,6 +286,13 @@ if (!window.customSidebarObserverInitialized) {
     // --- ХЕЛПЕР ДЛЯ СОЗДАНИЯ КАРТОЧЕК ---
     const createCustomCourseCard = (courseData, templateCard, templateCourseId) => {
         const newCard = templateCard.cloneNode(true);
+        
+        // Этот блок делает внутренний квадрат с логотипом чёрным. Он работает правильно.
+        const imageContainer = newCard.querySelector('div[class*="image"]');
+        if (imageContainer) {
+            imageContainer.style.setProperty('background-color', 'black', 'important');
+        }
+
         newCard.style.display = '';
         newCard.dataset.dynamicCourse = 'true';
 
@@ -314,6 +322,45 @@ if (!window.customSidebarObserverInitialized) {
         const archiveButton = newCard.querySelector('.archive-button-container');
         if(archiveButton) archiveButton.remove();
 
+        if (courseData.course_id === 'readme') {
+            // Находим иконку внутри карточки, чтобы использовать её как отправную точку
+            const iconNode = newCard.querySelector('tui-icon[class*="course-icon"]');
+            if (iconNode) {
+                
+                // --- НОВЫЙ НАДЁЖНЫЙ ПОДХОД ---
+                // Ищем ближайшего родителя, который является основным элементом карточки.
+                // Селектор '[class*="course-card"]' найдет элемент, даже если у него сложный класс.
+                const mainCardElement = iconNode.closest('[class*="course-card"]');
+                
+                if (mainCardElement) {
+                    // Применяем черный фон к найденному главному контейнеру карточки.
+                    mainCardElement.style.setProperty('background', 'black', 'important');
+                }
+                // --- КОНЕЦ НОВОГО ПОДХОДА ---
+
+                const newImage = document.createElement('img');
+
+                try {
+                    newImage.src = chrome.runtime.getURL('icons/cu_3rd_party.png');
+                } catch (e) {
+                    try {
+                        newImage.src = browser.runtime.getURL('icons/cu_3rd_party.png');
+                    } catch (e2) {
+                        console.error('[CU Enhancer] Could not set README icon URL.', e2);
+                    }
+                }
+
+                newImage.className = iconNode.className;
+                newImage.style.setProperty('width', '100%', 'important');
+                newImage.style.setProperty('height', '100%', 'important');
+                newImage.style.setProperty('object-fit', 'contain', 'important');
+                newImage.style.setProperty('border', 'none', 'important');
+
+                if (iconNode.parentNode) {
+                    iconNode.parentNode.replaceChild(newImage, iconNode);
+                }
+            }
+        }
         return newCard;
     };
 
@@ -703,7 +750,6 @@ if (!window.customSidebarObserverInitialized) {
             event.preventDefault();
             if (authManager.isLoggedIn()) {
                 sessionStorage.setItem('shouldModifyPage', 'true');
-                // ИСПРАВЛЕНИЕ: Всегда принудительно переходим на страницу списка курсов
                 window.location.href = TARGET_URL;
             } else {
                 authUI.show();
@@ -726,16 +772,14 @@ if (!window.customSidebarObserverInitialized) {
             if (link.dataset.revertListenerAttached) return;
 
             link.addEventListener('click', (event) => {
-                // ИСПРАВЛЕНИЕ: Перехватываем клик, чтобы обойти роутер Angular
                 event.preventDefault();
                 event.stopPropagation();
                 
                 sessionStorage.removeItem('shouldModifyPage');
                 sessionStorage.removeItem(SESSION_STORAGE_KEY_COURSE_TARGET);
                 
-                // Принудительно перезагружаем страницу по нужному адресу
                 window.location.href = link.href;
-            }, true); // Используем фазу захвата, чтобы сработать раньше Angular
+            }, true); 
 
             link.dataset.revertListenerAttached = 'true';
         });
