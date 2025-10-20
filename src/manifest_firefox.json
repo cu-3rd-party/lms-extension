@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "CU LMS Enhancer",
-    "version": "1.3",
+    "version": "1.3.1",
     "description": "Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий",
     "permissions": [
         "storage",
@@ -9,7 +9,8 @@
         "webNavigation"
     ],
     "host_permissions": [
-        "https://my.centraluniversity.ru/*"
+        "https://my.centraluniversity.ru/*",
+        "https://id.centraluniversity.ru/*"
     ],
     "background": {
         "scripts": [
@@ -20,6 +21,13 @@
     "action": {
         "default_popup": "popup.html"
     },
+    "content_scripts": [
+        {
+            "matches": ["https://id.centraluniversity.ru/*"],
+            "js": ["fix_email_autocomplete.js"],
+            "run_at": "document_idle"
+        }
+    ],
     "web_accessible_resources": [
         {
             "resources": [
@@ -27,15 +35,14 @@
                 "icons/*.svg",
                 "icons/*.png",
                 "tasks_fix.js",
+                "course_card_simplifier.js",
                 "courses_fix.js",
                 "debug_utils.js",
                 "instant_doc_view_fix.js",
                 "style_oled.css",
                 "emoji_swap.js",
                 "style.css",
-                "dark_theme.js",
-                "icons/sun.svg",
-                "icons/moon.svg"
+                "dark_theme.js"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"

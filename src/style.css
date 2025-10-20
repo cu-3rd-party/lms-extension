@@ -391,7 +391,6 @@ button:hover .cu-navtab__main-element-text {
 }
 
 
-
 /*BTDEV: tasks ui hover fix color*/
 .task-table__task:hover td {
     background-color: var(--culms-dark-bg-hover) !important;
@@ -11712,3 +11711,62 @@ tui-chip.state-chip[data-culms-status="solved"] {
     background-color: var(--culms-status-solved) !important;
     color: white !important;
 }
+
+/* =================================================================== */
+/*  ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ДЛЯ ЦВЕТОВ КАРТОЧЕК КУРСОВ (ТЕМНАЯ ТЕМА)   */
+/* =================================================================== */
+
+/*
+ * ШАГ 1: Для всех карточек устанавливаем ОБЩИЕ правила:
+ * - Цвет текста (названия) делаем светлым, чтобы он был читаем на любом фоне.
+ * - Убираем любые странные фоны, которые могут быть применены к дочерним элементам.
+*/
+body .course-card .course-name {
+    color: var(--culms-dark-text-primary) !important;
+}
+body .course-card * {
+    background: transparent !important;
+}
+
+
+/*
+ * ШАГ 2: Принудительно возвращаем КАЖДОЙ категории её ОРИГИНАЛЬНЫЙ цвет.
+ * Эти правила имеют максимальный приоритет и "победят" стили сайта.
+*/
+body .course-card.general { background-color: #ff662c !important; }
+body .course-card.mathematics { background-color: #775aff !important; }
+body .course-card.design { background-color: #6e7277 !important; }
+body .course-card.stem { background-color: #3995a1 !important; }
+body .course-card.softSkills { background-color: #c1f229 !important; }
+body .course-card.ml { background-color: #06a2f1 !important; }
+body .course-card.business { background-color: #00a651 !important; }
+body .course-card.development { background-color: #be84fc !important; }
+
+/*
+ * ШАГ 3: ТОЧЕЧНО меняем фон ТОЛЬКО для карточек БЕЗ КАТЕГОРИИ.
+ * Это наше главное исправление для темной темы.
+*/
+body .course-card.withoutCategory {
+    background-color: var(--culms-dark-bg-secondary) !important;
+}
+
+
+/*
+ * ШАГ 4: Корректируем цвет ИКОНОК для читаемости на разных фонах.
+ * - По умолчанию иконка светлая.
+ * - На светлых фонах (softSkills) делаем иконку темной.
+*/
+body .course-card .course-icon {
+    color: var(--culms-dark-text-primary) !important;
+}
+body .course-card.softSkills .course-icon {
+    color: #1c1c1e !important; /* Темная иконка для светло-зеленого фона */
+}
+
+body .course-card .skill-level {
+    background-color: var(--culms-dark-bg-hover-light) !important;
+}
+
+/* body .course-card .skill-level tui-icon {
+    color: revert !important;
+} */

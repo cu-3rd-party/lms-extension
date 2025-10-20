@@ -1,33 +1,201 @@
-// courses_fix.js (кросс-браузерная версия)
+// courses_fix.js (версия с восстановлением цветов иконок skill-level)
 'use strict';
 
-/**
- * Главная функция-обертка.
- */
-function initializeCourseFix() {
-    if (document.querySelector('.archive-button-container')) {
-        return;
+let currentUrl = location.href;
+
+
+(async function() {
+    const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
+    const useOldDesign = !!designData.oldCoursesDesignToggle;
+
+    // Скрываем список курсов сразу при загрузке скрипта чтобы их отредачить
+    if (useOldDesign) {
+      const style = document.createElement('style');
+      style.id = 'course-archiver-preload-style';
+      style.textContent = `
+          ul.course-list {
+              opacity: 0 !important;
+              visibility: hidden !important;
+          }
+          ul.course-list.course-archiver-ready {
+              opacity: 1 !important;
+              visibility: visible !important
+          }
+      `;
+      document.head.appendChild(style);
     }
-    initializeCourseArchiver();
+})();
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', main);
+} else {
+    main();
+}
+
+// --- Основная логика ---
+
+/**
+ * Главная функция. Устанавливает наблюдателей и запускает первую отрисовку.
+ */
+function main() {
+    browser.storage.onChanged.addListener((changes) => {
+        if (changes.oldCoursesDesignToggle) {
+            window.location.reload();
+            return;
+        }
+
+        if (changes.archivedCourseIds || changes.themeEnabled) {
+            console.log('Course Archiver: Storage changed, re-rendering.');
+            const currentPath = window.location.pathname;
+            const isOnArchivedPage = currentPath.includes('/courses/view/archived');
+            browser.storage.sync.get('oldCoursesDesignToggle').then((designData) => {
+                const useOldDesign = !!designData.oldCoursesDesignToggle;
+                if (!isOnArchivedPage || !useOldDesign) {
+                    processCourses();
+                }
+            });
+        }
+    });
+
+    const observer = new MutationObserver(() => {
+        if (location.href !== currentUrl) {
+            currentUrl = location.href;
+            console.log('Course Archiver: URL changed, re-running logic.');
+            processCourses();
+        }
+    });
+    observer.observe(document.body, { subtree: true, childList: true });
+
+    processCourses();
 }
 
 /**
- * Основная логика.
+ * Главная функция-роутер. Запускает логику для страницы и исправляет стили.
  */
-async function initializeCourseArchiver() {
+async function processCourses() {
     try {
-        await waitForElement('ul.course-list', 10000);
-        await renderCoursesBasedOnState();
-        // ИЗМЕНЕНО: chrome.storage -> browser.storage
-        browser.storage.onChanged.addListener((changes) => {
-            if (changes.themeEnabled) {
-                renderCoursesBasedOnState();
-            }
-        });
-    } catch (error) {
-        console.error('Course Archiver: Failed to initialize:', error);
+        const courseList = await waitForElement('ul.course-list', 15000);
+        const currentPath = window.location.pathname;
+        const isOnArchivedPage = currentPath.includes('/courses/view/archived');
+
+        if (isOnArchivedPage) {
+            await renderArchivedPageFromScratch();
+        } else {
+            await updateExistingActiveCourses();
+        }
+
+        // ПОСЛЕ обработки курсов, принудительно восстанавливаем цвета иконок
+        restoreSkillLevelIconColors();
+        const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
+        const useOldDesign = !!designData.oldCoursesDesignToggle;
+        // берутся из course_card_simplifier.js
+        if (useOldDesign && typeof simplifyAllCourseCards === 'function') {
+            simplifyAllCourseCards();
+            observeCourseListChanges();
+            courseList.classList.add('course-archiver-ready');
+        }
+        
+
+    } catch (e) {
+        console.log("Course Archiver: Not a course page, or content failed to load in time.", e);
     }
 }
+
+
+// --- НОВАЯ ФУНКЦИЯ: Восстановление цветов иконок ---
+
+/**
+ * Находит все иконки-звёздочки, читает их оригинальный цвет из инлайн-стиля
+ * и применяет его заново с '!important', чтобы победить стили сайта.
+ * check
+ */
+function restoreSkillLevelIconColors() {
+    const icons = document.querySelectorAll('.course-card .skill-level tui-icon');
+    icons.forEach(icon => {
+        // Читаем цвет напрямую из атрибута style
+        const originalColor = icon.style.color;
+
+        // Если цвет был задан (не пустой), применяем его с !important
+        if (originalColor) {
+            icon.style.setProperty('color', originalColor, 'important');
+        }
+    });
+}
+
+
+// --- Логика обработки карточек курсов (без изменений) ---
+
+async function updateExistingActiveCourses() {
+    const allApiCourses = await fetchAllCoursesData();
+    const storedArchivedCourseIds = await getArchivedCoursesFromStorage();
+    const themeData = await browser.storage.sync.get('themeEnabled');
+    const isDarkTheme = !!themeData.themeEnabled;
+
+    const courseNameMap = new Map();
+    allApiCourses.forEach(course => courseNameMap.set(course.name.trim(), course));
+
+    function normalizeEmoji(str) {
+        return str.replace(/💙/g, '🔵').replace(/❤️/g, '🔴').replace(/🖤/g, '⚫️');
+    }
+
+    const courseCards = document.querySelectorAll('ul.course-list > li.course-card');
+    courseCards.forEach(card => {
+        const nameElement = card.querySelector('.course-name');
+        if (!nameElement) return;
+
+        const courseName = normalizeEmoji(nameElement.textContent.trim());
+        const courseData = courseNameMap.get(courseName);
+
+        if (!courseData) {
+            console.log(`Course Archiver: Не удалось найти данные для курса "${courseName}"`);
+            return;
+        }
+
+        const courseId = courseData.id;
+        const isLocallyArchived = storedArchivedCourseIds.has(courseId);
+
+        if (isLocallyArchived) {
+            card.style.display = 'none';
+        } else {
+            card.style.display = '';
+            addOrUpdateButton(card, courseId, isLocallyArchived, isDarkTheme);
+        }
+    });
+}
+
+async function renderArchivedPageFromScratch() {
+    const courseListContainer = document.querySelector('ul.course-list');
+    if (!courseListContainer) return;
+
+    const storedArchivedCourseIds = await getArchivedCoursesFromStorage();
+    const allApiCourses = await fetchAllCoursesData();
+    const themeData = await browser.storage.sync.get('themeEnabled');
+    const isDarkTheme = !!themeData.themeEnabled;
+
+    const templateLi = document.querySelector('li.course-card');
+    if (!templateLi) {
+        console.error("Course Archiver: Template element for cloning not found.");
+        return;
+    }
+
+    const coursesToDisplay = allApiCourses.filter(course => {
+        const isLocallyArchived = storedArchivedCourseIds.has(course.id);
+        const isApiArchived = course.isArchived;
+        return isApiArchived || isLocallyArchived;
+    });
+
+    courseListContainer.innerHTML = '';
+
+    coursesToDisplay.forEach(courseData => {
+        const newLi = createCourseCardElement(courseData, templateLi);
+        if (newLi) {
+            courseListContainer.appendChild(newLi);
+            addOrUpdateButton(newLi, courseData.id, storedArchivedCourseIds.has(courseData.id), isDarkTheme);
+        }
+    });
+}
+
+// --- Функции для работы с API и хранилищем (без изменений) ---
 
 async function fetchAllCoursesData() {
     try {
@@ -51,7 +219,6 @@ async function fetchAllCoursesData() {
 
 async function getArchivedCoursesFromStorage() {
     try {
-        // ИЗМЕНЕНО: chrome.storage -> browser.storage
         const data = await browser.storage.local.get('archivedCourseIds');
         return new Set(data.archivedCourseIds || []);
     } catch (e) {
@@ -62,7 +229,6 @@ async function getArchivedCoursesFromStorage() {
 
 async function setArchivedCoursesInStorage(archivedCourseIds) {
     try {
-        // ИЗМЕНЕНО: chrome.storage -> browser.storage
         await browser.storage.local.set({ archivedCourseIds: Array.from(archivedCourseIds) });
     } catch (e) {
         console.error("Course Archiver: Error saving data to storage", e);
@@ -70,148 +236,60 @@ async function setArchivedCoursesInStorage(archivedCourseIds) {
 }
 
 
-async function renderCoursesBasedOnState() {
-    const courseListContainer = document.querySelector('ul.course-list');
-    if (!courseListContainer) return;
-    const currentPath = window.location.pathname;
-    const isOnArchivedPage = currentPath.includes('/courses/view/archived');
-    const isOnActivePage = currentPath.includes('/courses/view/actual');
-    if (!isOnActivePage && !isOnArchivedPage) return;
+// --- Функции управления DOM (без изменений) ---
 
-    // ИЗМЕНЕНО: chrome.storage -> browser.storage
-    const themeData = await browser.storage.sync.get('themeEnabled');
-    const isDarkTheme = !!themeData.themeEnabled;
-
-    const storedArchivedCourseIds = await getArchivedCoursesFromStorage();
-    const allApiCourses = await fetchAllCoursesData();
-    const coursesToEvaluate = new Map();
-    allApiCourses.forEach(course => {
-        coursesToEvaluate.set(course.id, {
-            data: course,
-            isLocallyArchived: storedArchivedCourseIds.has(course.id),
-            isApiArchived: course.isArchived
-        });
-    });
-
-    courseListContainer.querySelectorAll('li').forEach(li => {
-        const courseId = getCourseIdFromLi(li);
-        if (!courseId) return;
-        const courseInfo = coursesToEvaluate.get(courseId);
-        let shouldShow = false;
-        if (courseInfo) {
-            if (isOnActivePage) shouldShow = !courseInfo.isApiArchived && !courseInfo.isLocallyArchived;
-            else if (isOnArchivedPage) shouldShow = courseInfo.isApiArchived || courseInfo.isLocallyArchived;
-        }
-        li.style.display = shouldShow ? '' : 'none';
-        if (shouldShow) {
-            updateCourseCard(li, courseId, storedArchivedCourseIds.has(courseId), isDarkTheme);
-            coursesToEvaluate.delete(courseId);
-        }
-    });
-
-    for (const [courseId, courseInfo] of coursesToEvaluate.entries()) {
-        const { data, isLocallyArchived, isApiArchived } = courseInfo;
-        let shouldShow = false;
-        if (isOnActivePage) shouldShow = !isApiArchived && !isLocallyArchived;
-        else if (isOnArchivedPage) shouldShow = isApiArchived || isLocallyArchived;
-
-        if (shouldShow) {
-            const courseLi = createCourseCardElement(data);
-            if (courseLi) {
-                courseListContainer.appendChild(courseLi);
-                updateCourseCard(courseLi, courseId, isLocallyArchived, isDarkTheme);
-            }
-        }
-    }
-}
-
-
-function getCourseIdFromLi(li) {
-    let courseId = li.getAttribute('data-course-id');
-    if (courseId) return parseInt(courseId, 10);
-    const courseLink = li.querySelector('a[href*="/learn/courses/view/"]');
-    if (courseLink) {
-        const hrefMatch = courseLink.href.match(/\/view\/(?:actual|archived)\/(\d+)/);
-        if (hrefMatch) return parseInt(hrefMatch[1], 10);
-    }
-    return null;
-}
-
-function createCourseCardElement(courseData) {
-    const templateLi = document.querySelector('ul.course-list li:not([style*="display: none"])');
-    if (!templateLi) return null;
+function createCourseCardElement(courseData, templateLi) {
     const newLi = templateLi.cloneNode(true);
     newLi.style.display = '';
     newLi.setAttribute('data-course-id', courseData.id);
-    const link = newLi.querySelector('a[href*="/learn/courses/view/"]');
-    if (link) {
-        link.href = `/learn/courses/view/actual/${courseData.id}`;
-        const title = link.querySelector('.course-card__title');
-        if (title) title.textContent = escapeHtml(courseData.name);
+    const title = newLi.querySelector('.course-name');
+    if (title) {
+        title.textContent = escapeHtml(courseData.name);
     }
-    newLi.querySelectorAll('.archive-button-container').forEach(el => el.remove());
+    const linkComponent = newLi.querySelector('cu-course-card');
+    if (linkComponent) {
+        const originalLink = linkComponent.querySelector('a');
+        if(originalLink) originalLink.remove();
+        linkComponent.onclick = () => {
+            window.location.href = `/learn/courses/view/actual/${courseData.id}`;
+        };
+        linkComponent.style.cursor = 'pointer';
+    }
     return newLi;
 }
 
-
-/**
- * Обновляет карточку курса: добавляет/обновляет кнопку архивации.
- * @param {HTMLLIElement} li - Элемент списка `<li>` карточки курса.
- * @param {number} courseId - ID курса.
- * @param {boolean} isLocallyArchived - Находится ли курс в локальном архиве.
- * @param {boolean} isDarkTheme - Включена ли темная тема.
- */
-function updateCourseCard(li, courseId, isLocallyArchived, isDarkTheme) {
-    const paragraphSection = li.querySelector('section.tui-island__paragraph');
-    if (!paragraphSection) return;
-
-    paragraphSection.style.cssText = 'position: relative; height: 100%;';
-
-    const titleElement = paragraphSection.querySelector('h2.course-card__title');
-    if (titleElement) {
-        titleElement.classList.remove('three-lines-text');
-        titleElement.style.paddingBottom = '32px';
-    }
-
+function addOrUpdateButton(li, courseId, isLocallyArchived, isDarkTheme) {
+    const imageAreaContainer = li.querySelector('div.course-card');
+    if (!imageAreaContainer) return;
+    imageAreaContainer.style.position = 'relative';
     let buttonContainer = li.querySelector('.archive-button-container');
     if (!buttonContainer) {
         buttonContainer = document.createElement('div');
         buttonContainer.className = 'archive-button-container';
-        paragraphSection.appendChild(buttonContainer);
+        imageAreaContainer.appendChild(buttonContainer);
     }
-
-    buttonContainer.style.cssText = '';
-    buttonContainer.style.position = 'absolute';
-    buttonContainer.style.right = '-0.3rem';
-    buttonContainer.style.bottom = '-0.5rem';
-
+    buttonContainer.style.cssText = `position: absolute; right: 8px; bottom: 4px; z-index: 10;`;
     buttonContainer.innerHTML = '';
-
     const archiveButton = document.createElement('button');
     archiveButton.style.cssText = `background: none; border: none; padding: 0; cursor: pointer; line-height: 0;`;
-
     const iconSpan = document.createElement('span');
-
-    // ИЗМЕНЕНО: chrome.runtime -> browser.runtime
     const iconUrl = isLocallyArchived
         ? browser.runtime.getURL('icons/unarchive.svg')
         : browser.runtime.getURL('icons/archive.svg');
-
-    const iconColor = isDarkTheme ? 'white' : '#4b5563';
-
-    iconSpan.style.display = 'inline-block';
-    iconSpan.style.width = '24px';
-    iconSpan.style.height = '24px';
-    iconSpan.style.setProperty('mask-image', `url(${iconUrl})`);
-    iconSpan.style.setProperty('-webkit-mask-image', `url(${iconUrl})`);
-    iconSpan.style.setProperty('mask-size', 'contain');
-    iconSpan.style.setProperty('-webkit-mask-size', 'contain');
-    iconSpan.style.setProperty('mask-repeat', 'no-repeat');
-    iconSpan.style.setProperty('background-color', iconColor, 'important');
-
+    const iconColor = isDarkTheme ? '#FFFFFF' : '#181a1c';
+    iconSpan.style.cssText = `
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        mask-image: url(${iconUrl});
+        -webkit-mask-image: url(${iconUrl});
+        mask-size: contain;
+        -webkit-mask-size: contain;
+        mask-repeat: no-repeat;
+        background-color: ${iconColor} !important;
+    `;
     archiveButton.appendChild(iconSpan);
     buttonContainer.appendChild(archiveButton);
-
     archiveButton.addEventListener('click', async (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -222,10 +300,31 @@ function updateCourseCard(li, courseId, isLocallyArchived, isDarkTheme) {
             currentArchivedCourseIds.add(courseId);
         }
         await setArchivedCoursesInStorage(currentArchivedCourseIds);
-        await renderCoursesBasedOnState();
+
+        const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
+        const useOldDesign = !!designData.oldCoursesDesignToggle;
+
+        if (useOldDesign) {
+          const isNowArchived = currentArchivedCourseIds.has(courseId);
+          const currentPath = window.location.pathname;
+          const isOnArchivedPage = currentPath.includes('/courses/view/archived');
+          
+          // Находим родительский li элемент
+          const cardLi = li.closest('li.course-card');
+          
+          if (!isOnArchivedPage && isNowArchived) {
+              // На странице активных курсов: скрываем заархивированный
+              if (cardLi) cardLi.style.display = 'none';
+          } else if (isOnArchivedPage && !isNowArchived) {
+              // На странице архива: скрываем разархивированный
+              if (cardLi) cardLi.style.display = 'none';
+          }
+        }
     });
 }
 
+
+// --- Вспомогательные функции (без изменений) ---
 
 function waitForElement(selector, timeout = 10000) {
     return new Promise((resolve, reject) => {
@@ -250,6 +349,3 @@ function escapeHtml(text) {
     const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
     return String(text).replace(/[&<>"']/g, m => map[m]);
 }
-
-
-initializeCourseFix();

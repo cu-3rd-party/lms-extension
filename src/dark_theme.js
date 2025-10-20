@@ -176,7 +176,7 @@ if (typeof window.darkThemeInitialized === 'undefined') {
         svg path[fill="currentColor"] { fill: #E8EAED !important; }
         button[appearance="whiteblock"] { background-color: rgb(40, 41, 44) !important; border-bottom-color: rgb(55, 56, 60) !important; }
         button[appearance="whiteblock"]:hover { background-color: rgb(55, 56, 60) !important; }
-        .data-list button[appearance="whiteblock"] div.t-wrapper { background-color: rgb(40, 41, 44) !important; border: none !important; box-shadow: none !important; border-bottom: 1px solid rgb(55, 56, 60) !important; }
+        .data-list button[appearance="whiteblock"] div.t-wrapper { background-color: var(--culms-dark-bg-secondary) !important; border: none !important; box-shadow: none !important; border-bottom: 1px solid rgb(55, 56, 60) !important; }
         .data-list button[appearance="whiteblock"]:hover div.t-wrapper { background-color: rgb(55, 56, 60) !important; border-bottom-color: rgb(85, 86, 90) !important; }
         .data-list button[appearance="whiteblock"] .title__text { color: #E8EAED !important; }
         .data-list button[appearance="whiteblock"] informer-copy-category-link-button svg path { fill: #BDC1C6 !important; }

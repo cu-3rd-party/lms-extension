@@ -1,18 +1,20 @@
-// tasks_fix.js (ФИНАЛЬНАЯ ВЕРСИЯ: Постоянный список курсов для фильтра)
 'use strict';
+
+// --- КОНСТАНТЫ ДЛЯ LOCALSTORAGE ---
+const FILTER_STORAGE_KEY = 'cu.lms.actual-student-tasks-custom-filter';
+const DEFAULT_FILTER_KEY = 'cu.lms.actual-student-tasks-filter';
 
 // --- БЛОК ОЧИСТКИ ФИЛЬТРОВ В LOCALSTORAGE ---
 (function cleanFiltersInLocalStorage() {
-    const filterKey = 'cu.lms.actual-student-tasks-filter';
     try {
-        const storedFilterJSON = localStorage.getItem(filterKey);
+        const storedFilterJSON = localStorage.getItem(DEFAULT_FILTER_KEY);
         if (storedFilterJSON) {
             const filterData = JSON.parse(storedFilterJSON);
             if (filterData.course?.length > 0 || filterData.state?.length > 0) {
                 console.log('Task Status Updater: Cleaning default filters...');
                 filterData.course = [];
                 filterData.state = [];
-                localStorage.setItem(filterKey, JSON.stringify(filterData));
+                localStorage.setItem(DEFAULT_FILTER_KEY, JSON.stringify(filterData));
             }
         }
     } catch (error) { console.error('Task Status Updater: Failed to clean localStorage filters.', error); }
@@ -36,19 +38,36 @@ function stripEmojis(text) {
     return text.replace(EMOJI_REGEX, '').trim();
 }
 
+// --- НОВАЯ ЛОГИКА: Троттлинг для MutationObserver ---
+let canRunLogic = true;
+
+/**
+ * Обертка для запуска основной логики с ограничением по частоте (не чаще раза в секунду).
+ */
+function throttledCheckAndRun() {
+    if (!canRunLogic) return; // Если вызов был недавно, выходим
+
+    const taskTableExists = document.querySelector('.task-table');
+    const isHeaderMissing = !document.querySelector('[data-culms-weight-header]');
+
+    if (taskTableExists && isHeaderMissing) {
+        canRunLogic = false; // Блокируем повторный запуск
+        runLogic();
+        setTimeout(() => {
+            canRunLogic = true; // Разрешаем новый запуск через 1 секунду
+        }, 1000);
+    }
+}
+
 /**
  * Главный инициализатор, который запускает наблюдатель.
  */
 function initializeObserver() {
-    const observer = new MutationObserver(() => {
-        const taskTableExists = document.querySelector('.task-table');
-        const isHeaderMissing = !document.querySelector('[data-culms-weight-header]');
-        if (taskTableExists && isHeaderMissing) {
-            runLogic();
-        }
-    });
+    // Теперь наблюдатель вызывает функцию с ограничением по частоте
+    const observer = new MutationObserver(throttledCheckAndRun);
     observer.observe(document.body, { childList: true, subtree: true });
 }
+
 
 /**
  * Основная логика-координатор.
@@ -69,7 +88,7 @@ async function runLogic() {
             populateTableData(tasksData, isEmojiSwapEnabled);
         }
 
-        // Инициализируем фильтры один раз после полной обработки
+        // Инициализируем фильтры с восстановлением сохраненных параметров
         initializeFilters();
         setupDropdownInterceptor();
 
@@ -109,7 +128,6 @@ function injectDynamicStyles() {
     styleElement.textContent = cssRules;
     document.head.appendChild(styleElement);
 }
-
 
 /**
  * ЭТАП 1: Только структурные изменения. Добавляет заголовок и пустые ячейки.
@@ -185,7 +203,6 @@ function populateTableData(tasksData, isEmojiSwapEnabled) {
     });
 }
 
-
 // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 function findMatchingTask(htmlNames, tasksData) {
     if (!htmlNames?.taskName || !htmlNames?.courseName) return null;
@@ -224,26 +241,77 @@ function waitForElement(selector, timeout = 10000) {
     });
 }
 
-// --- ЛОГИКА ФИЛЬТРОВ (ИСПРАВЛЕННАЯ) ---
+// --- ЛОГИКА ФИЛЬТРОВ (С СОХРАНЕНИЕМ ПАРАМЕТРОВ) ---
 const HARDCODED_STATUSES = ["В работе", "Есть решение", "Ревью", "Бэклог", "Аудиторная"];
-const masterCourseList = new Set(); // <--- ИЗМЕНЕНИЕ: "Главный список" курсов, который не меняется.
-const selectedStatuses = new Set(HARDCODED_STATUSES);
-const selectedCourses = new Set();
+const masterCourseList = new Set();
+let selectedStatuses = new Set(HARDCODED_STATUSES);
+let selectedCourses = new Set();
 
 /**
- * Однократно сканирует страницу, создает "главный список" курсов и выбирает все по умолчанию.
+ * Загружает сохраненные параметры фильтров из localStorage
+ */
+function loadFilterSettings() {
+    try {
+        const savedFilters = localStorage.getItem(FILTER_STORAGE_KEY);
+        if (savedFilters) {
+            const { statuses, courses } = JSON.parse(savedFilters);
+            
+            if (statuses && Array.isArray(statuses)) {
+                selectedStatuses = new Set(statuses);
+            }
+            
+            if (courses && Array.isArray(courses)) {
+                selectedCourses = new Set(courses);
+            }
+            console.log('Task Status Updater: Filter settings loaded from storage');
+        }
+    } catch (error) {
+        console.error('Task Status Updater: Failed to load filter settings:', error);
+        // В случае ошибки используем значения по умолчанию
+        selectedStatuses = new Set(HARDCODED_STATUSES);
+    }
+}
+
+/**
+ * Сохраняет текущие параметры фильтров в localStorage
+ */
+function saveFilterSettings() {
+    try {
+        const filterData = {
+            statuses: Array.from(selectedStatuses),
+            courses: Array.from(selectedCourses),
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filterData));
+    } catch (error) {
+        console.error('Task Status Updater: Failed to save filter settings:', error);
+    }
+}
+
+/**
+ * Однократно сканирует страницу, создает "главный список" курсов и восстанавливает сохраненные настройки
  */
 function initializeFilters() {
-    // Заполняем главный список только если он пуст, чтобы не делать это повторно
+    // Загружаем сохраненные настройки
+    loadFilterSettings();
+    
+    // Заполняем главный список только если он пуст
     if (masterCourseList.size === 0) {
         document.querySelectorAll('tr[class*="task-table__task"] .task-table__course-name').forEach(el => {
             const courseName = el.textContent.trim();
             if (courseName) masterCourseList.add(courseName);
         });
-        // Изначально выбираем все курсы из созданного главного списка
-        masterCourseList.forEach(course => selectedCourses.add(course));
-        console.log('Task Status Updater: Master course list created and all courses selected.');
+        
+        // Если нет сохраненных курсов, выбираем все по умолчанию
+        if (selectedCourses.size === 0) {
+            masterCourseList.forEach(course => selectedCourses.add(course));
+        }
+        
+        console.log('Task Status Updater: Master course list created with saved selections.');
     }
+    
+    // Применяем фильтры после инициализации
+    applyCombinedFilter();
 }
 
 function applyCombinedFilter() {
@@ -257,18 +325,23 @@ function applyCombinedFilter() {
         }
     });
 }
+
 function handleStatusFilterClick(event) {
     const optionButton = event.target.closest('button[tuioption]');
     if (!optionButton) return;
     updateSelection(selectedStatuses, optionButton.textContent.trim(), optionButton);
     applyCombinedFilter();
+    saveFilterSettings(); // Сохраняем после изменения
 }
+
 function handleCourseFilterClick(event) {
     const optionButton = event.target.closest('button[tuioption]');
     if (!optionButton) return;
     updateSelection(selectedCourses, optionButton.textContent.trim(), optionButton);
     applyCombinedFilter();
+    saveFilterSettings(); // Сохраняем после изменения
 }
+
 function updateSelection(selectionSet, text, button) {
     if (selectionSet.has(text)) selectionSet.delete(text);
     else selectionSet.add(text);
@@ -278,6 +351,7 @@ function updateSelection(selectionSet, text, button) {
     const checkbox = button.querySelector('input[tuicheckbox]');
     if (checkbox) checkbox.checked = isSelected;
 }
+
 function setupDropdownInterceptor() {
     const observer = new MutationObserver((mutationsList) => {
         for (const mutation of mutationsList) {
@@ -300,13 +374,19 @@ function buildDropdown(dataListWrapper, type) {
     const dataList = dataListWrapper.querySelector('tui-data-list');
     if (!dataList) return;
     dataList.innerHTML = '';
+    
     if (type === 'state') {
-        HARDCODED_STATUSES.forEach(text => dataList.appendChild(createFilterOption(text, selectedStatuses.has(text))));
+        HARDCODED_STATUSES.forEach(text => {
+            const isSelected = selectedStatuses.has(text);
+            dataList.appendChild(createFilterOption(text, isSelected));
+        });
         dataListWrapper.addEventListener('click', handleStatusFilterClick);
     } else if (type === 'course') {
-        // <--- ИЗМЕНЕНИЕ: Всегда используем "главный список", а не сканируем страницу заново.
         const sortedCourses = [...masterCourseList].sort();
-        sortedCourses.forEach(text => dataList.appendChild(createFilterOption(text, selectedCourses.has(text))));
+        sortedCourses.forEach(text => {
+            const isSelected = selectedCourses.has(text);
+            dataList.appendChild(createFilterOption(text, isSelected));
+        });
         dataListWrapper.addEventListener('click', handleCourseFilterClick);
     }
 }
@@ -326,4 +406,9 @@ function createFilterOption(text, isSelected) {
 }
 
 // --- Запуск скрипта ---
+
+// 1. Пробуем запустить логику сразу
+throttledCheckAndRun();
+
+// 2. Настраиваем наблюдатель для отслеживания последующих изменений в DOM
 initializeObserver();
