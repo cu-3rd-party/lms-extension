@@ -2,7 +2,7 @@
 
 if (!window.customSidebarObserverInitialized) {
     window.customSidebarObserverInitialized = true;
-    console.log('[CU Enhancer] Initializing sidebar script v43 (File Selection Enabled)...');
+    console.log('[CU Enhancer] Initializing sidebar script v47 (Navigation Fix)...');
 
     // --- КОНФИГУРАЦИЯ И КОНСТАНТЫ ---
     const TAB_ID = 'my-custom-courses-tab';
@@ -22,6 +22,48 @@ if (!window.customSidebarObserverInitialized) {
 
     let isCustomTabActive = false;
 
+    // --- УТИЛИТА ДЛЯ УВЕДОМЛЕНИЙ (Toast) ---
+    const showToast = (message, duration = 3500) => {
+        const toastId = 'cu-enhancer-toast';
+        const existingToast = document.getElementById(toastId);
+        if (existingToast) {
+            existingToast.remove();
+        }
+
+        const toast = document.createElement('div');
+        toast.id = toastId;
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #dc3545; /* Red for errors */
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            z-index: 10005;
+            font-size: 16px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            transition: opacity 0.5s ease, top 0.5s ease;
+            opacity: 0;
+            top: 0;
+        `;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '1';
+            toast.style.top = '20px';
+        }, 100);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.top = '0';
+            setTimeout(() => toast.remove(), 500);
+        }, duration);
+    };
+
+
     // --- МОДУЛЬ УПРАВЛЕНИЯ АВТОРИЗАЦИЕЙ (AuthManager) ---
     const authManager = {
         getAccessToken: () => localStorage.getItem(ACCESS_TOKEN_KEY),
@@ -34,8 +76,7 @@ if (!window.customSidebarObserverInitialized) {
         logout: () => {
             localStorage.removeItem(ACCESS_TOKEN_KEY);
             localStorage.removeItem(REFRESH_TOKEN_KEY);
-            alert('Вы вышли из системы. Пожалуйста, войдите снова.');
-            window.location.reload();
+            authUI.show('login', '', 'Ваша сессия истекла. Пожалуйста, войдите снова.');
         },
 
         isLoggedIn: () => {
@@ -45,7 +86,7 @@ if (!window.customSidebarObserverInitialized) {
         fetchWithAuth: async (url, options = {}) => {
             const token = authManager.getAccessToken();
             if (!token) {
-                authUI.show();
+                authUI.show('login', '', 'Для доступа к этому разделу необходимо войти.');
                 throw new Error('Not authenticated');
             }
 
@@ -68,6 +109,8 @@ if (!window.customSidebarObserverInitialized) {
 
     // --- МОДУЛЬ UI ДЛЯ АВТОРИЗАЦИИ (AuthUI) ---
     const authUI = {
+        switchView: null,
+
         create: () => {
             if (document.getElementById('cu-auth-modal')) return;
 
@@ -83,10 +126,11 @@ if (!window.customSidebarObserverInitialized) {
             const loginForm = `
                 <h2 style="text-align: center; margin-bottom: 20px;">Вход</h2>
                 <form data-view="login">
+                    <p class="cu-auth-message" style="color: #007bff; text-align: center; margin-bottom: 15px; min-height: 1.2em;"></p>
                     <input type="email" name="email" placeholder="Email" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;">
                     <input type="password" name="password" placeholder="Пароль" required style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px;">
                     <button type="submit" style="width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Войти</button>
-                    <p id="cu-auth-error" style="color: red; text-align: center; margin-top: 10px;"></p>
+                    <p class="cu-auth-error" style="color: red; text-align: center; margin-top: 10px; min-height: 1.2em;"></p>
                     <p style="text-align: center; margin-top: 15px;">Нет аккаунта? <a href="#" id="cu-show-register">Регистрация</a></p>
                 </form>
             `;
@@ -94,10 +138,11 @@ if (!window.customSidebarObserverInitialized) {
             const registerForm = `
                 <h2 style="text-align: center; margin-bottom: 20px;">Регистрация</h2>
                 <form data-view="register">
+                    <p class="cu-auth-message" style="color: #28a745; text-align: center; margin-bottom: 15px; min-height: 1.2em;"></p>
                     <input type="email" name="email" placeholder="Email" required style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;">
                     <input type="password" name="password" placeholder="Пароль" required style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px;">
                     <button type="submit" style="width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Зарегистрироваться</button>
-                    <p id="cu-auth-error" style="color: red; text-align: center; margin-top: 10px;"></p>
+                    <p class="cu-auth-error" style="color: red; text-align: center; margin-top: 10px; min-height: 1.2em;"></p>
                     <p style="text-align: center; margin-top: 15px;">Уже есть аккаунт? <a href="#" id="cu-show-login">Войти</a></p>
                 </form>
             `;
@@ -105,33 +150,40 @@ if (!window.customSidebarObserverInitialized) {
             const verifyForm = `
                  <h2 style="text-align: center; margin-bottom: 20px;">Подтверждение Email</h2>
                 <form data-view="verify">
-                    <p style="text-align: center; margin-bottom: 15px;">На ваш email отправлен код подтверждения.</p>
+                    <p class="cu-auth-message" style="color: #28a745; text-align: center; margin-bottom: 15px; min-height: 1.2em;"></p>
                     <input type="email" name="email" placeholder="Email" required readonly style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; background: #eee;">
                     <input type="text" name="code" placeholder="Код из письма" required style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px;">
                     <button type="submit" style="width: 100%; padding: 12px; background-color: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer;">Подтвердить</button>
-                    <p id="cu-auth-error" style="color: red; text-align: center; margin-top: 10px;"></p>
+                    <p class="cu-auth-error" style="color: red; text-align: center; margin-top: 10px; min-height: 1.2em;"></p>
                 </form>
             `;
 
             const content = document.getElementById('cu-auth-content');
 
-            const switchView = (view, email = '') => {
+            const switchView = (view, email = '', message = '') => {
                 let currentForm;
                 if (view === 'login') currentForm = loginForm;
                 else if (view === 'register') currentForm = registerForm;
                 else if (view === 'verify') currentForm = verifyForm;
                 content.innerHTML = currentForm;
 
+                if (message) {
+                    const messageEl = content.querySelector('.cu-auth-message');
+                    if (messageEl) messageEl.textContent = message;
+                }
+
                 if (view === 'verify' && email) {
                     content.querySelector('input[name="email"]').value = email;
                 }
             };
+            
+            this.switchView = switchView;
 
-            switchView('login');
+            this.switchView('login');
 
             document.getElementById('cu-auth-modal').addEventListener('click', (e) => {
-                 if (e.target.id === 'cu-show-register') { e.preventDefault(); switchView('register'); }
-                 if (e.target.id === 'cu-show-login') { e.preventDefault(); switchView('login'); }
+                 if (e.target.id === 'cu-show-register') { e.preventDefault(); this.switchView('register'); }
+                 if (e.target.id === 'cu-show-login') { e.preventDefault(); this.switchView('login'); }
             });
 
             document.getElementById('cu-auth-content').addEventListener('submit', async (e) => {
@@ -141,8 +193,10 @@ if (!window.customSidebarObserverInitialized) {
                 const email = form.querySelector('input[name="email"]').value;
                 const password = form.querySelector('input[name="password"]') ? form.querySelector('input[name="password"]').value : null;
                 const code = form.querySelector('input[name="code"]') ? form.querySelector('input[name="code"]').value : null;
-                const errorEl = form.querySelector('#cu-auth-error');
+                const errorEl = form.querySelector('.cu-auth-error');
+                const messageEl = form.querySelector('.cu-auth-message');
                 errorEl.textContent = '';
+                if(messageEl) messageEl.textContent = '';
 
                 try {
                     let response, data;
@@ -155,8 +209,7 @@ if (!window.customSidebarObserverInitialized) {
                             });
                             data = await response.json();
                             if (!response.ok) throw new Error(data.detail || data.message || 'Ошибка регистрации');
-                            alert(data.message);
-                            switchView('verify', email);
+                            this.switchView('verify', email, 'Письмо с кодом подтверждения отправлено на ваш email.');
                             break;
 
                         case 'verify':
@@ -167,8 +220,7 @@ if (!window.customSidebarObserverInitialized) {
                             });
                             data = await response.json();
                             if (!response.ok) throw new Error(data.detail || data.message || 'Ошибка верификации');
-                            alert(data.message);
-                            switchView('login');
+                            this.switchView('login', '', 'Email успешно подтвержден. Теперь вы можете войти.');
                             break;
 
                         case 'login':
@@ -193,7 +245,10 @@ if (!window.customSidebarObserverInitialized) {
             document.getElementById('cu-auth-close').addEventListener('click', this.hide);
         },
 
-        show: () => {
+        show: (view = 'login', email = '', message = '') => {
+            if (authUI.switchView) {
+                authUI.switchView(view, email, message);
+            }
             document.getElementById('cu-auth-overlay').style.display = 'block';
             document.getElementById('cu-auth-modal').style.display = 'block';
         },
@@ -290,7 +345,6 @@ if (!window.customSidebarObserverInitialized) {
         return new Blob([byteArray], { type: contentType });
     };
 
-    // НОВОЕ: Модальное окно для выбора файла
     const showFileSelectionModal = (files) => {
         const modalId = 'cu-file-selection-modal';
         if (document.getElementById(modalId)) return;
@@ -341,17 +395,17 @@ if (!window.customSidebarObserverInitialized) {
         document.body.appendChild(modal);
     };
 
-    // ИЗМЕНЕНО: Обработчик клика по лонгриду теперь поддерживает выбор файла
     const handleLongreadClick = async (event, courseId, themeId, longreadId) => {
         event.preventDefault();
-        const linkElement = event.currentTarget.querySelector('.longread-title');
+        const linkWrapper = event.currentTarget;
+        const linkElement = linkWrapper.querySelector('.longread-title');
         if (!linkElement) return;
 
         const originalText = linkElement.textContent;
 
         try {
             linkElement.textContent = 'Загрузка...';
-            event.currentTarget.style.pointerEvents = 'none';
+            linkWrapper.style.pointerEvents = 'none';
 
             const url = `${API_HOST}/api/course/${courseId}/theme/${themeId}/longread/${longreadId}/`;
             const response = await authManager.fetchWithAuth(url);
@@ -360,12 +414,10 @@ if (!window.customSidebarObserverInitialized) {
 
             const filesData = await response.json();
 
-            // Проверяем, что получили массив и он не пустой
             if (!Array.isArray(filesData) || filesData.length === 0) {
                 throw new Error('Материалы не найдены или вернулся некорректный ответ.');
             }
 
-            // Если файл один, открываем его сразу
             if (filesData.length === 1) {
                 const file = filesData[0];
                 const mimeType = file.filename.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream';
@@ -373,21 +425,20 @@ if (!window.customSidebarObserverInitialized) {
                 const blobUrl = URL.createObjectURL(pdfBlob);
                 window.open(blobUrl, '_blank');
             } else {
-                // Если файлов несколько, показываем модальное окно для выбора
                 showFileSelectionModal(filesData);
             }
 
         } catch (error) {
             console.error('[CU Enhancer] Failed to fetch or open material:', error);
             if (error.message !== 'Unauthorized' && error.message !== 'Not authenticated') {
-                 alert(`Не удалось загрузить материал: ${error.message}`);
+                 showToast(`Не удалось загрузить материал: ${error.message}`);
             }
         } finally {
-            // Восстанавливаем исходное состояние ссылки
             linkElement.textContent = originalText;
-            event.currentTarget.style.pointerEvents = 'auto';
+            linkWrapper.style.pointerEvents = '';
         }
     };
+
 
     // --- ФУНКЦИИ МОДИФИКАЦИИ СТРАНИЦ ---
     const applyCourseDetailModifications = async () => {
@@ -401,14 +452,35 @@ if (!window.customSidebarObserverInitialized) {
             console.log(`[CU Enhancer] Modifying course page for course ID: ${courseData.id}`);
 
             const pageTitle = await waitForElement('h1.page-title');
-            if (pageTitle && courseData.title) pageTitle.textContent = courseData.title;
+            const breadcrumbsContainer = await waitForElement('cu-breadcrumbs');
 
+            if (pageTitle && courseData.title) pageTitle.textContent = courseData.title;
+            
             const response = await authManager.fetchWithAuth(`${API_HOST}/api/course/${courseData.id}/`);
             if (!response.ok) throw new Error('Failed to fetch themes');
             const longreadsData = await response.json();
 
-            if (pageTitle && longreadsData.length > 0) {
-                 pageTitle.textContent = longreadsData[0].course_title || `Course ${courseData.id}`;
+            let definitiveCourseTitle = courseData.title;
+            if (longreadsData.length > 0 && longreadsData[0].course_title) {
+                definitiveCourseTitle = longreadsData[0].course_title;
+            }
+
+            if (pageTitle) {
+                pageTitle.textContent = definitiveCourseTitle;
+            }
+            if (breadcrumbsContainer) {
+                const actualCoursesLink = breadcrumbsContainer.querySelector('a[href="/learn/courses/view/actual"]');
+                if (actualCoursesLink) {
+                    actualCoursesLink.textContent = 'Открытая система курсов';
+                    actualCoursesLink.href = DISPLAY_URL;
+                }
+                const lastBreadcrumbLink = breadcrumbsContainer.querySelector('a.breadcrumbs__item_last');
+                if (lastBreadcrumbLink) {
+                    lastBreadcrumbLink.textContent = definitiveCourseTitle;
+                    lastBreadcrumbLink.removeAttribute('href');
+                    lastBreadcrumbLink.style.pointerEvents = 'none';
+                    lastBreadcrumbLink.style.color = 'inherit';
+                }
             }
 
             const themesMap = longreadsData.reduce((acc, longread) => {
@@ -496,15 +568,12 @@ if (!window.customSidebarObserverInitialized) {
                 }
             });
 
-            if (pageTitle && longreadsData.length > 0) {
-                pageTitle.textContent = longreadsData[0].course_title || `Course ${courseData.id}`;
-            }
-            console.log('[CU Enhancer] Course page modified. Titles are now displayed.');
+            console.log('[CU Enhancer] Course page modified. Titles and breadcrumbs are now displayed.');
 
         } catch (error) {
             console.error('[CU Enhancer] Error modifying course detail page:', error);
              if (error.message !== 'Unauthorized' && error.message !== 'Not authenticated') {
-                alert(`Не удалось загрузить данные курса. Возможно, проблема с сервером.`);
+                showToast(`Не удалось загрузить данные курса. Возможно, проблема с сервером.`);
             }
         }
     };
@@ -576,6 +645,8 @@ if (!window.customSidebarObserverInitialized) {
     const revertModifications = async () => {
         const courseList = document.querySelector('ul.course-list');
         if (!courseList || !courseList.dataset.modified) return;
+        
+        sessionStorage.removeItem(SESSION_STORAGE_KEY_COURSE_TARGET);
 
         const breadcrumbsContainer = document.querySelector('tui-breadcrumbs');
         if (breadcrumbsContainer) {
@@ -630,14 +701,10 @@ if (!window.customSidebarObserverInitialized) {
 
         link.addEventListener('click', (event) => {
             event.preventDefault();
-
             if (authManager.isLoggedIn()) {
                 sessionStorage.setItem('shouldModifyPage', 'true');
-                if (window.location.href.startsWith(TARGET_URL) && !document.querySelector('[data-modified="true"]')) {
-                    window.location.reload();
-                } else {
-                    window.location.href = TARGET_URL;
-                }
+                // ИСПРАВЛЕНИЕ: Всегда принудительно переходим на страницу списка курсов
+                window.location.href = TARGET_URL;
             } else {
                 authUI.show();
             }
@@ -653,17 +720,22 @@ if (!window.customSidebarObserverInitialized) {
     };
 
     const addOriginalCourseLinkListener = () => {
-        const originalLinks = document.querySelectorAll(`a[href="${TARGET_URL}"]`);
+        const originalLinks = document.querySelectorAll(`a[href^="/learn/courses/view/actual"]`);
         originalLinks.forEach(link => {
             if (link.closest(`#${TAB_ID}`)) return;
             if (link.dataset.revertListenerAttached) return;
 
             link.addEventListener('click', (event) => {
+                // ИСПРАВЛЕНИЕ: Перехватываем клик, чтобы обойти роутер Angular
                 event.preventDefault();
                 event.stopPropagation();
+                
                 sessionStorage.removeItem('shouldModifyPage');
+                sessionStorage.removeItem(SESSION_STORAGE_KEY_COURSE_TARGET);
+                
+                // Принудительно перезагружаем страницу по нужному адресу
                 window.location.href = link.href;
-            }, true);
+            }, true); // Используем фазу захвата, чтобы сработать раньше Angular
 
             link.dataset.revertListenerAttached = 'true';
         });
@@ -671,44 +743,41 @@ if (!window.customSidebarObserverInitialized) {
 
     const main = async () => {
         authUI.create();
-
-        if (/\/learn\/courses\/view\/actual\/\d+/.test(window.location.href) && sessionStorage.getItem(SESSION_STORAGE_KEY_COURSE_TARGET)) {
-            if (!authManager.isLoggedIn()) {
-                sessionStorage.removeItem(SESSION_STORAGE_KEY_COURSE_TARGET);
-                window.location.href = 'https://my.centraluniversity.ru/learn/';
-                return;
-            }
-            injectCss();
-            await applyCourseDetailModifications();
-            return;
-        }
-
         injectCss();
-        const shouldModify = sessionStorage.getItem('shouldModifyPage') === 'true';
 
-        if ((window.location.href.startsWith(DISPLAY_URL) || (shouldModify && window.location.href.startsWith(TARGET_URL))) && authManager.isLoggedIn()) {
-            isCustomTabActive = true;
-            await applyModifications();
-            if (shouldModify) {
-                history.replaceState(null, '', DISPLAY_URL);
-                sessionStorage.removeItem('shouldModifyPage');
+        if (/\/learn\/courses\/view\/actual\/\d+/.test(window.location.href)) {
+            if (sessionStorage.getItem(SESSION_STORAGE_KEY_COURSE_TARGET)) {
+                 if (!authManager.isLoggedIn()) {
+                    sessionStorage.removeItem(SESSION_STORAGE_KEY_COURSE_TARGET);
+                    window.location.href = 'https://my.centraluniversity.ru/learn/';
+                    return;
+                }
+                await applyCourseDetailModifications();
             }
-        } else {
-            isCustomTabActive = false;
-            if (document.querySelector('[data-modified="true"]')) {
-                await revertModifications();
+        }
+        else {
+            const shouldModify = sessionStorage.getItem('shouldModifyPage') === 'true';
+            if ((window.location.href.startsWith(DISPLAY_URL) || (shouldModify && window.location.href.startsWith(TARGET_URL))) && authManager.isLoggedIn()) {
+                isCustomTabActive = true;
+                await applyModifications();
+                if (shouldModify) {
+                    history.replaceState(null, '', DISPLAY_URL);
+                    sessionStorage.removeItem('shouldModifyPage');
+                }
+            } else {
+                isCustomTabActive = false;
+                if (document.querySelector('[data-modified="true"]')) {
+                    await revertModifications();
+                }
             }
         }
 
-        const sidebarContainer = await waitForElement('.static-content');
-        if (sidebarContainer) {
-            const observer = new MutationObserver(() => {
-                ensureCustomTabExists();
-                setActiveTabHighlight();
-                addOriginalCourseLinkListener();
-            });
-            observer.observe(sidebarContainer, { childList: true, subtree: true });
-        }
+        const globalObserver = new MutationObserver(() => {
+            ensureCustomTabExists();
+            setActiveTabHighlight();
+            addOriginalCourseLinkListener();
+        });
+        globalObserver.observe(document.body, { childList: true, subtree: true });
 
         ensureCustomTabExists();
         setActiveTabHighlight();
