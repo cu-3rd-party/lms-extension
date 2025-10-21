@@ -4,8 +4,6 @@ try {
     window.cuLmsLog("Running in a non-MV3 environment or Firefox.");
 }
 
-let courseListObserver = null;
-
 function simplifyAllCourseCards() {
     const courseCards = document.querySelectorAll('li.course-card');
     
