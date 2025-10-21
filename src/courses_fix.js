@@ -44,6 +44,11 @@ function main() {
             return;
         }
 
+        if (changes.futureExamsViewToggle) {
+            window.location.reload();
+            return;
+        }
+
         if (changes.archivedCourseIds || changes.themeEnabled) {
             console.log('Course Archiver: Storage changed, re-rendering.');
             const currentPath = window.location.pathname;
@@ -62,11 +67,22 @@ function main() {
             currentUrl = location.href;
             console.log('Course Archiver: URL changed, re-running logic.');
             processCourses();
+
+            const currentPath = window.location.pathname;
+            const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
+            if (isOnIndividualCoursePage) {
+                processFutureExams();
+            }
         }
     });
     observer.observe(document.body, { subtree: true, childList: true });
 
     processCourses();
+    const currentPath = window.location.pathname;
+    const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
+    if (isOnIndividualCoursePage) {
+        processFutureExams();
+    }
 }
 
 /**
@@ -101,7 +117,17 @@ async function processCourses() {
     }
 }
 
-
+async function processFutureExams() {
+    try {
+      const futureExamsData = await browser.storage.sync.get('futureExamsViewToggle');
+      const useFutureExams = !!futureExamsData.futureExamsViewToggle;
+      if (useFutureExams && typeof viewFutureExams === 'function') {
+          viewFutureExams();
+      }
+    } catch (e) {
+        console.log("Something went wrong with future exams", e);
+    }
+}
 // --- НОВАЯ ФУНКЦИЯ: Восстановление цветов иконок ---
 
 /**
