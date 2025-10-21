@@ -128,11 +128,13 @@ function observeCourseListChanges() {
         return;
     }
     
-    // Отключаем предыдущий observer, если он был
-    if (courseListObserver) {
-        courseListObserver.disconnect();
-    }
-    
+    // Отключаем предыдущий observer, если он был и существует
+    try {
+        if (courseListObserver) {
+            window.cuLmsLog('Removing existing observer');
+            courseListObserver.disconnect();
+        }
+    } catch (e) {}
     // Создаём новый observer для отслеживания изменений
     courseListObserver = new MutationObserver((mutations) => {
         let shouldSimplify = false;
