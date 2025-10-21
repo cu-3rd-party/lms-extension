@@ -10,7 +10,8 @@
     ],
     "host_permissions": [
         "https://my.centraluniversity.ru/*",
-        "https://id.centraluniversity.ru/*"
+        "https://id.centraluniversity.ru/*",
+        "https://127.0.0.1:8000/*"
     ],
     "background": {
         "scripts": [

@@ -2,27 +2,29 @@
 
 if (!window.customSidebarObserverInitialized) {
     window.customSidebarObserverInitialized = true;
-    console.log('[CU Enhancer] Initializing sidebar script v47 (Navigation Fix)...');
+    console.log('[CU Enhancer] Initializing sidebar script v48 (First-Click Fix)...');
 
-    // --- КОНФИГУРАЦИЯ И КОНСТАНТЫ ---
+    // --- CONFIGURATION AND CONSTANTS ---
     const TAB_ID = 'my-custom-courses-tab';
     const TAB_TEXT = 'Открытая система курсов';
     const SOURCE_ELEMENT_SELECTOR = 'a[href="/learn/tasks"]';
 
     const TARGET_URL = 'https://my.centraluniversity.ru/learn/courses/view/actual';
     const DISPLAY_URL = 'https://my.centraluniversity.ru/learn/courses/view/open-system';
+    const TARGET_PATHNAME = '/learn/courses/view/actual'; // Specific pathname for precise checks
 
-    const API_HOST = 'http://127.0.0.1:8000';
+    //const API_HOST = window.API_HOST;
+    const API_HOST = "https://127.0.0.1:8000"
     const SESSION_STORAGE_KEY_COURSE_TARGET = 'customCourseTarget';
 
-    // Ключи для хранения токенов в localStorage для постоянства между сессиями
+    // Keys for storing tokens in localStorage for persistence between sessions
     const ACCESS_TOKEN_KEY = 'cu_enhancer_access_token';
     const REFRESH_TOKEN_KEY = 'cu_enhancer_refresh_token';
 
 
     let isCustomTabActive = false;
 
-    // --- УТИЛИТА ДЛЯ УВЕДОМЛЕНИЙ (Toast) ---
+    // --- UTILITY FOR NOTIFICATIONS (Toast) ---
     const showToast = (message, duration = 3500) => {
         const toastId = 'cu-enhancer-toast';
         const existingToast = document.getElementById(toastId);
@@ -64,7 +66,7 @@ if (!window.customSidebarObserverInitialized) {
     };
 
 
-    // --- МОДУЛЬ УПРАВЛЕНИЯ АВТОРИЗАЦИЕЙ (AuthManager) ---
+    // --- AUTHORIZATION MANAGEMENT MODULE (AuthManager) ---
     const authManager = {
         getAccessToken: () => localStorage.getItem(ACCESS_TOKEN_KEY),
 
@@ -107,7 +109,7 @@ if (!window.customSidebarObserverInitialized) {
         }
     };
 
-    // --- МОДУЛЬ UI ДЛЯ АВТОРИЗАЦИИ (AuthUI) ---
+    // --- AUTHORIZATION UI MODULE (AuthUI) ---
     const authUI = {
         switchView: null,
 
@@ -176,7 +178,7 @@ if (!window.customSidebarObserverInitialized) {
                     content.querySelector('input[name="email"]').value = email;
                 }
             };
-            
+
             this.switchView = switchView;
 
             this.switchView('login');
@@ -259,7 +261,7 @@ if (!window.customSidebarObserverInitialized) {
         }
     };
 
-    // --- CSS-ИНЖЕКТОР ---
+    // --- CSS INJECTOR ---
     const injectCss = () => {
         if (document.getElementById('cu-enhancer-styles')) return;
         const style = document.createElement('style');
@@ -283,11 +285,10 @@ if (!window.customSidebarObserverInitialized) {
         document.head.appendChild(style);
     };
 
-    // --- ХЕЛПЕР ДЛЯ СОЗДАНИЯ КАРТОЧЕК ---
+    // --- HELPER FOR CREATING CARDS ---
     const createCustomCourseCard = (courseData, templateCard, templateCourseId) => {
         const newCard = templateCard.cloneNode(true);
-        
-        // Этот блок делает внутренний квадрат с логотипом чёрным. Он работает правильно.
+
         const imageContainer = newCard.querySelector('div[class*="image"]');
         if (imageContainer) {
             imageContainer.style.setProperty('background-color', 'black', 'important');
@@ -323,20 +324,12 @@ if (!window.customSidebarObserverInitialized) {
         if(archiveButton) archiveButton.remove();
 
         if (courseData.course_id === 'readme') {
-            // Находим иконку внутри карточки, чтобы использовать её как отправную точку
             const iconNode = newCard.querySelector('tui-icon[class*="course-icon"]');
             if (iconNode) {
-                
-                // --- НОВЫЙ НАДЁЖНЫЙ ПОДХОД ---
-                // Ищем ближайшего родителя, который является основным элементом карточки.
-                // Селектор '[class*="course-card"]' найдет элемент, даже если у него сложный класс.
                 const mainCardElement = iconNode.closest('[class*="course-card"]');
-                
                 if (mainCardElement) {
-                    // Применяем черный фон к найденному главному контейнеру карточки.
                     mainCardElement.style.setProperty('background', 'black', 'important');
                 }
-                // --- КОНЕЦ НОВОГО ПОДХОДА ---
 
                 const newImage = document.createElement('img');
 
@@ -364,7 +357,7 @@ if (!window.customSidebarObserverInitialized) {
         return newCard;
     };
 
-    // --- ОБРАБОТЧИКИ КЛИКОВ И ЗАГРУЗКИ ---
+    // --- CLICK AND LOAD HANDLERS ---
     const handleCustomCourseClick = (event) => {
         event.preventDefault();
         const targetElement = event.currentTarget;
@@ -487,7 +480,7 @@ if (!window.customSidebarObserverInitialized) {
     };
 
 
-    // --- ФУНКЦИИ МОДИФИКАЦИИ СТРАНИЦ ---
+    // --- PAGE MODIFICATION FUNCTIONS ---
     const applyCourseDetailModifications = async () => {
         const courseDataRaw = sessionStorage.getItem(SESSION_STORAGE_KEY_COURSE_TARGET);
         if (!courseDataRaw) return;
@@ -502,7 +495,7 @@ if (!window.customSidebarObserverInitialized) {
             const breadcrumbsContainer = await waitForElement('cu-breadcrumbs');
 
             if (pageTitle && courseData.title) pageTitle.textContent = courseData.title;
-            
+
             const response = await authManager.fetchWithAuth(`${API_HOST}/api/course/${courseData.id}/`);
             if (!response.ok) throw new Error('Failed to fetch themes');
             const longreadsData = await response.json();
@@ -692,7 +685,7 @@ if (!window.customSidebarObserverInitialized) {
     const revertModifications = async () => {
         const courseList = document.querySelector('ul.course-list');
         if (!courseList || !courseList.dataset.modified) return;
-        
+
         sessionStorage.removeItem(SESSION_STORAGE_KEY_COURSE_TARGET);
 
         const breadcrumbsContainer = document.querySelector('tui-breadcrumbs');
@@ -714,7 +707,7 @@ if (!window.customSidebarObserverInitialized) {
         delete courseList.dataset.modified;
     };
 
-    // --- УПРАВЛЕНИЕ UI И ОСНОВНАЯ ЛОГИКА ---
+    // --- UI MANAGEMENT AND MAIN LOGIC ---
     const ensureCustomTabExists = () => {
         if (document.getElementById(TAB_ID)) return;
         const sourceAnchor = document.querySelector(SOURCE_ELEMENT_SELECTOR);
@@ -746,13 +739,29 @@ if (!window.customSidebarObserverInitialized) {
         const chevron = clonedListItem.querySelector('.cu-navtab__chevron');
         if (chevron) chevron.remove();
 
+        // --- FIXED CLICK HANDLER ---
         link.addEventListener('click', (event) => {
             event.preventDefault();
-            if (authManager.isLoggedIn()) {
+            if (!authManager.isLoggedIn()) {
+                authUI.show();
+                return;
+            }
+
+            const onExactCourseListPage = window.location.pathname === TARGET_PATHNAME;
+
+            // If we are on the exact course list page and it's not already modified, modify it in place (SPA behavior).
+            if (onExactCourseListPage && !document.querySelector('ul.course-list[data-modified="true"]')) {
+                console.log('[CU Enhancer] On correct page, modifying in place.');
+                isCustomTabActive = true;
+                setActiveTabHighlight();
+                applyModifications(); // This is async, but we don't need to await it.
+                history.replaceState(null, '', DISPLAY_URL);
+            } else {
+                // Otherwise (e.g., on a course detail page, a different site area, or if already modified),
+                // perform a full navigation. This is the most reliable catch-all action.
+                console.log('[CU Enhancer] Navigating to target to ensure clean state.');
                 sessionStorage.setItem('shouldModifyPage', 'true');
                 window.location.href = TARGET_URL;
-            } else {
-                authUI.show();
             }
         });
         sourceListItem.insertAdjacentElement('afterend', clonedListItem);
@@ -772,14 +781,22 @@ if (!window.customSidebarObserverInitialized) {
             if (link.dataset.revertListenerAttached) return;
 
             link.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                
-                sessionStorage.removeItem('shouldModifyPage');
-                sessionStorage.removeItem(SESSION_STORAGE_KEY_COURSE_TARGET);
-                
-                window.location.href = link.href;
-            }, true); 
+                const isCustomViewActive = !!document.querySelector('ul.course-list[data-modified="true"]');
+                const isLinkToList = !/\/learn\/courses\/view\/actual\/\d+$/.test(link.pathname);
+
+                if (isCustomViewActive && isLinkToList) {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    sessionStorage.removeItem('shouldModifyPage');
+                    sessionStorage.removeItem(SESSION_STORAGE_KEY_COURSE_TARGET);
+
+                    revertModifications();
+                    isCustomTabActive = false;
+                    setActiveTabHighlight();
+                    history.replaceState(null, '', TARGET_URL);
+                }
+            }, true);
 
             link.dataset.revertListenerAttached = 'true';
         });

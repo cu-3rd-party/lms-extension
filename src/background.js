@@ -7,21 +7,24 @@ try {
 }
 
 // ====================================================================
-// НОВАЯ ЧАСТЬ: ЛОГИКА ЭКСПОРТА КУРСОВ В ФОНОВОМ РЕЖИМЕ
+// КОНФИГУРАЦИЯ
+// ====================================================================
+
+// Определяем хост API здесь. Все функции в этом файле будут его использовать.
+const API_HOST = 'https://127.0.0.1:8000';
+
+// ====================================================================
+// ЛОГИКА ЭКСПОРТА КУРСОВ В ФОНОВОМ РЕЖИМЕ
 // ====================================================================
 
 let isExporting = false; // Флаг, чтобы предотвратить повторный запуск
 
-// Все функции из course_exporter.js переносятся сюда
 const API_DELAY_MS = 1000;
 const cuLmsLog = (message, ...args) => console.log(`[Exporter BG] ${message}`, ...args);
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-// Все функции API (fetchStudentCourses, fetchCourseOverview, и т.д.)
-// должны быть здесь. Мы просто переносим их из course_exporter.js.
 
 async function fetchMaterials(longreadsId) {
     cuLmsLog(`Fetching materials for longread ID: ${longreadsId}`);
@@ -127,9 +130,10 @@ async function scanLongreadForAllFiles(longreadId) {
 }
 
 async function getMissingLongreadsFromServer(payload, token) {
-    cuLmsLog('[Local] Sending course structure to localhost:8000/api/fetch/');
+    const url = `${API_HOST}/api/fetch/`;
+    cuLmsLog(`[Local] Sending course structure to ${url}`);
     try {
-        const response = await fetch('http://localhost:8000/api/fetch/', {
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -143,15 +147,16 @@ async function getMissingLongreadsFromServer(payload, token) {
         cuLmsLog(`[Local] Server responded with ${data.missing_longreads.length} missing longreads.`);
         return data.missing_longreads;
     } catch (error) {
-        cuLmsLog('[Local] Error communicating with /api/fetch/.', error);
+        cuLmsLog(`[Local] Error communicating with ${url}.`, error);
         return null;
     }
 }
 
 async function uploadLongreadData(payload, token) {
-    cuLmsLog(`[Local] Uploading data for longread ID ${payload.longread_id}`);
+    const url = `${API_HOST}/api/upload/`;
+    cuLmsLog(`[Local] Uploading data for longread ID ${payload.longread_id} to ${url}`);
     try {
-        const response = await fetch('http://localhost:8000/api/upload/', {
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -169,7 +174,6 @@ async function uploadLongreadData(payload, token) {
     }
 }
 
-// Главная функция, запускающая весь процесс
 async function processAllCourses(authToken) {
     if (!authToken) {
         cuLmsLog('Auth token not provided. Aborting.');
@@ -261,7 +265,6 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         isExporting = true;
         console.log("[Exporter BG] Received start command. Starting export process.");
 
-        // Запускаем процесс и после его завершения (успешного или нет) сбрасываем флаг
         processAllCourses(message.token).finally(() => {
             isExporting = false;
             console.log("[Exporter BG] Export process finished. Ready for new tasks.");
@@ -271,7 +274,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 
 // ====================================================================
-// СТАРАЯ ЧАСТЬ: ВНЕДРЕНИЕ СКРИПТОВ (остается без изменений)
+// ВНЕДРЕНИЕ СКРИПТОВ
 // ====================================================================
 
 browser.webNavigation.onHistoryStateUpdated.addListener(details => {
@@ -285,13 +288,11 @@ browser.webNavigation.onCompleted.addListener(details => {
 function handleNavigation(tabId, url) {
     if (!url || !url.startsWith("https://my.centraluniversity.ru/")) return;
 
-    // --- ОБЩИЕ СКРИПТЫ ---
     browser.scripting.executeScript({
         target: { tabId: tabId },
         files: ["browser-polyfill.js", "open_courses_tab.js"]
     }).catch(err => console.error(`[BG_LOG] Error injecting open_courses_tab.js:`, err));
 
-    // --- ЛОГИКА РАЗДЕЛЬНОГО ВНЕДРЕНИЯ ---
     if (url.includes("/learn/tasks")) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
@@ -304,7 +305,6 @@ function handleNavigation(tabId, url) {
         }).catch(err => console.error(`[BG_LOG] Error injecting default scripts:`, err));
     }
 
-    // --- ВНЕДРЕНИЕ СКРИПТОВ ДЛЯ КОНКРЕТНЫХ СТРАНИЦ ---
     if (url.includes("/learn/courses/view/actual")) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
