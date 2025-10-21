@@ -1,11 +1,36 @@
 // courses_fix.js (версия с восстановлением цветов иконок skill-level)
 'use strict';
 
-// --- Глобальные переменные и инициализация ---
-
 let currentUrl = location.href;
-main();
 
+
+(async function() {
+    const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
+    const useOldDesign = !!designData.oldCoursesDesignToggle;
+
+    // Скрываем список курсов сразу при загрузке скрипта чтобы их отредачить
+    if (useOldDesign) {
+      const style = document.createElement('style');
+      style.id = 'course-archiver-preload-style';
+      style.textContent = `
+          ul.course-list {
+              opacity: 0 !important;
+              visibility: hidden !important;
+          }
+          ul.course-list.course-archiver-ready {
+              opacity: 1 !important;
+              visibility: visible !important
+          }
+      `;
+      document.head.appendChild(style);
+    }
+})();
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', main);
+} else {
+    main();
+}
 
 // --- Основная логика ---
 
@@ -14,9 +39,21 @@ main();
  */
 function main() {
     browser.storage.onChanged.addListener((changes) => {
+        if (changes.oldCoursesDesignToggle) {
+            window.location.reload();
+            return;
+        }
+
         if (changes.archivedCourseIds || changes.themeEnabled) {
             console.log('Course Archiver: Storage changed, re-rendering.');
-            processCourses();
+            const currentPath = window.location.pathname;
+            const isOnArchivedPage = currentPath.includes('/courses/view/archived');
+            browser.storage.sync.get('oldCoursesDesignToggle').then((designData) => {
+                const useOldDesign = !!designData.oldCoursesDesignToggle;
+                if (!isOnArchivedPage || !useOldDesign) {
+                    processCourses();
+                }
+            });
         }
     });
 
@@ -37,7 +74,7 @@ function main() {
  */
 async function processCourses() {
     try {
-        await waitForElement('ul.course-list', 15000);
+        const courseList = await waitForElement('ul.course-list', 15000);
         const currentPath = window.location.pathname;
         const isOnArchivedPage = currentPath.includes('/courses/view/archived');
 
@@ -49,6 +86,15 @@ async function processCourses() {
 
         // ПОСЛЕ обработки курсов, принудительно восстанавливаем цвета иконок
         restoreSkillLevelIconColors();
+        const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
+        const useOldDesign = !!designData.oldCoursesDesignToggle;
+        // берутся из course_card_simplifier.js
+        if (useOldDesign && typeof simplifyAllCourseCards === 'function') {
+            simplifyAllCourseCards();
+            observeCourseListChanges();
+            courseList.classList.add('course-archiver-ready');
+        }
+        
 
     } catch (e) {
         console.log("Course Archiver: Not a course page, or content failed to load in time.", e);
@@ -88,12 +134,16 @@ async function updateExistingActiveCourses() {
     const courseNameMap = new Map();
     allApiCourses.forEach(course => courseNameMap.set(course.name.trim(), course));
 
+    function normalizeEmoji(str) {
+        return str.replace(/💙/g, '🔵').replace(/❤️/g, '🔴').replace(/🖤/g, '⚫️');
+    }
+
     const courseCards = document.querySelectorAll('ul.course-list > li.course-card');
     courseCards.forEach(card => {
         const nameElement = card.querySelector('.course-name');
         if (!nameElement) return;
 
-        const courseName = nameElement.textContent.trim();
+        const courseName = normalizeEmoji(nameElement.textContent.trim());
         const courseData = courseNameMap.get(courseName);
 
         if (!courseData) {
@@ -226,7 +276,7 @@ function addOrUpdateButton(li, courseId, isLocallyArchived, isDarkTheme) {
     const iconUrl = isLocallyArchived
         ? browser.runtime.getURL('icons/unarchive.svg')
         : browser.runtime.getURL('icons/archive.svg');
-    const iconColor = isDarkTheme ? '#FFFFFF' : '#4b5563';
+    const iconColor = isDarkTheme ? '#FFFFFF' : '#181a1c';
     iconSpan.style.cssText = `
         display: inline-block;
         width: 24px;
@@ -250,6 +300,26 @@ function addOrUpdateButton(li, courseId, isLocallyArchived, isDarkTheme) {
             currentArchivedCourseIds.add(courseId);
         }
         await setArchivedCoursesInStorage(currentArchivedCourseIds);
+
+        const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
+        const useOldDesign = !!designData.oldCoursesDesignToggle;
+
+        if (useOldDesign) {
+          const isNowArchived = currentArchivedCourseIds.has(courseId);
+          const currentPath = window.location.pathname;
+          const isOnArchivedPage = currentPath.includes('/courses/view/archived');
+          
+          // Находим родительский li элемент
+          const cardLi = li.closest('li.course-card');
+          
+          if (!isOnArchivedPage && isNowArchived) {
+              // На странице активных курсов: скрываем заархивированный
+              if (cardLi) cardLi.style.display = 'none';
+          } else if (isOnArchivedPage && !isNowArchived) {
+              // На странице архива: скрываем разархивированный
+              if (cardLi) cardLi.style.display = 'none';
+          }
+        }
     });
 }
 

@@ -391,7 +391,6 @@ button:hover .cu-navtab__main-element-text {
 }
 
 
-
 /*BTDEV: tasks ui hover fix color*/
 .task-table__task:hover td {
     background-color: var(--culms-dark-bg-hover) !important;

@@ -9,7 +9,8 @@
         "webNavigation"
     ],
     "host_permissions": [
-        "https://my.centraluniversity.ru/*"
+        "https://my.centraluniversity.ru/*",
+        "https://id.centraluniversity.ru/*"
     ],
     "background": {
         "service_worker": "background.js"
@@ -17,12 +18,20 @@
     "action": {
         "default_popup": "popup.html"
     },
+    "content_scripts": [
+        {
+            "matches": ["https://id.centraluniversity.ru/*"],
+            "js": ["fix_email_autocomplete.js"],
+            "run_at": "document_idle"
+        }
+    ],
     "web_accessible_resources": [
         {
             "resources": [
                 "browser-polyfill.js",
                 "icons/*.svg",
                 "icons/*.png",
+                "course_card_simplifier.js",
                 "tasks_fix.js",
                 "courses_fix.js",
                 "debug_utils.js",
