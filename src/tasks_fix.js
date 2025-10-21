@@ -11,13 +11,13 @@ const DEFAULT_FILTER_KEY = 'cu.lms.actual-student-tasks-filter';
         if (storedFilterJSON) {
             const filterData = JSON.parse(storedFilterJSON);
             if (filterData.course?.length > 0 || filterData.state?.length > 0) {
-                console.log('Task Status Updater: Cleaning default filters...');
+                window.cuLmsLog('Task Status Updater: Cleaning default filters...');
                 filterData.course = [];
                 filterData.state = [];
                 localStorage.setItem(DEFAULT_FILTER_KEY, JSON.stringify(filterData));
             }
         }
-    } catch (error) { console.error('Task Status Updater: Failed to clean localStorage filters.', error); }
+    } catch (error) { window.cuLmsLog('Task Status Updater: Failed to clean localStorage filters.', error); }
 })();
 
 // --- ВСТРОЕННАЯ ЛОГИКА EMOJI_SWAP ---
@@ -76,7 +76,7 @@ async function runLogic() {
     try {
         injectDynamicStyles();
         await waitForElement('tr[class*="task-table__task"]');
-        console.log('Task Status Updater: Task rows found. Starting DOM modification.');
+        window.cuLmsLog('Task Status Updater: Task rows found. Starting DOM modification.');
 
         const settings = await browser.storage.sync.get('emojiHeartsEnabled');
         const isEmojiSwapEnabled = !!settings.emojiHeartsEnabled;
@@ -93,7 +93,7 @@ async function runLogic() {
         setupDropdownInterceptor();
 
     } catch (error) {
-        console.error('Task Status Updater: Error in runLogic:', error);
+        window.cuLmsLog('Task Status Updater: Error in runLogic:', error);
     }
 }
 
@@ -219,7 +219,7 @@ async function fetchTasksData() {
         const response = await fetch('https://my.centraluniversity.ru/api/micro-lms/tasks/student');
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return await response.json();
-    } catch (error) { console.error('Task Status Updater: Failed to fetch tasks:', error); return []; }
+    } catch (error) { window.cuLmsLog('Task Status Updater: Failed to fetch tasks:', error); return []; }
 }
 function extractTaskAndCourseNamesFromElement(element) {
     const taskRow = element.closest('tr[class*="task-table__task"]');
@@ -263,10 +263,10 @@ function loadFilterSettings() {
             if (courses && Array.isArray(courses)) {
                 selectedCourses = new Set(courses);
             }
-            console.log('Task Status Updater: Filter settings loaded from storage');
+            window.cuLmsLog('Task Status Updater: Filter settings loaded from storage');
         }
     } catch (error) {
-        console.error('Task Status Updater: Failed to load filter settings:', error);
+        window.cuLmsLog('Task Status Updater: Failed to load filter settings:', error);
         // В случае ошибки используем значения по умолчанию
         selectedStatuses = new Set(HARDCODED_STATUSES);
     }
@@ -284,7 +284,7 @@ function saveFilterSettings() {
         };
         localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filterData));
     } catch (error) {
-        console.error('Task Status Updater: Failed to save filter settings:', error);
+        window.cuLmsLog('Task Status Updater: Failed to save filter settings:', error);
     }
 }
 
@@ -307,7 +307,7 @@ function initializeFilters() {
             masterCourseList.forEach(course => selectedCourses.add(course));
         }
         
-        console.log('Task Status Updater: Master course list created with saved selections.');
+        window.cuLmsLog('Task Status Updater: Master course list created with saved selections.');
     }
     
     // Применяем фильтры после инициализации

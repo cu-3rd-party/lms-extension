@@ -1,7 +1,7 @@
 try {
     importScripts('browser-polyfill.js');
 } catch (e) {
-    console.log("Running in a non-MV3 environment or Firefox.");
+    window.cuLmsLog("Running in a non-MV3 environment or Firefox.");
 }
 
 let courseListObserver = null;

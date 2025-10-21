@@ -19,7 +19,7 @@ async function fetchMaterials(longreadsId) {
         currentLongreadsId = longreadsId;
         return data;
     } catch (error) {
-        console.error('Error fetching longreads materials:', error);
+        window.cuLmsLog('Error fetching longreads materials:', error);
         return null;
     }
 }
@@ -35,7 +35,7 @@ async function fetchTaskDetails(taskId) {
         tasksCache[taskId] = data;
         return data;
     } catch (error) {
-        console.error('Error fetching task details:', error);
+        window.cuLmsLog('Error fetching task details:', error);
         return null;
     }
 }
@@ -74,7 +74,7 @@ async function getDownloadUrl(fileElement, materialsData) {
     }
 
     if (!foundFilename || !foundVersion) {
-        console.log('Could not find corresponding attachment data for:', fullDisplayedFileName);
+        window.cuLmsLog('Could not find corresponding attachment data for:', fullDisplayedFileName);
         return null;
     }
 
@@ -87,7 +87,7 @@ async function getDownloadUrl(fileElement, materialsData) {
         const data = await response.json();
         return data?.url;
     } catch (error) {
-        console.error('Error fetching download link:', error);
+        window.cuLmsLog('Error fetching download link:', error);
         return null;
     }
 }
@@ -115,7 +115,7 @@ async function overrideDownloadButtons() {
                 // Вместо sendMessage просто открываем новую вкладку
                 window.open(url, '_blank');
             } else {
-                console.log('Failed to get download URL for opening in new tab.');
+                window.cuLmsLog('Failed to get download URL for opening in new tab.');
             }
         }, { capture: true });
 

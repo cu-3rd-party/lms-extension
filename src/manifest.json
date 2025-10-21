@@ -20,6 +20,14 @@
     },
     "content_scripts": [
         {
+            "matches": [
+                "https://my.centraluniversity.ru/*",
+                "https://id.centraluniversity.ru/*"
+            ],
+            "js": ["debug_utils.js"],
+            "run_at": "document_start"
+        },
+        {
             "matches": ["https://id.centraluniversity.ru/*"],
             "js": ["fix_email_autocomplete.js"],
             "run_at": "document_idle"

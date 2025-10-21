@@ -45,7 +45,7 @@ function main() {
         }
 
         if (changes.archivedCourseIds || changes.themeEnabled) {
-            console.log('Course Archiver: Storage changed, re-rendering.');
+            window.cuLmsLog('Course Archiver: Storage changed, re-rendering.');
             const currentPath = window.location.pathname;
             const isOnArchivedPage = currentPath.includes('/courses/view/archived');
             browser.storage.sync.get('oldCoursesDesignToggle').then((designData) => {
@@ -60,7 +60,7 @@ function main() {
     const observer = new MutationObserver(() => {
         if (location.href !== currentUrl) {
             currentUrl = location.href;
-            console.log('Course Archiver: URL changed, re-running logic.');
+            window.cuLmsLog('Course Archiver: URL changed, re-running logic.');
             processCourses();
         }
     });
@@ -94,10 +94,10 @@ async function processCourses() {
             observeCourseListChanges();
             courseList.classList.add('course-archiver-ready');
         }
-        
+
 
     } catch (e) {
-        console.log("Course Archiver: Not a course page, or content failed to load in time.", e);
+        window.cuLmsLog("Course Archiver: Not a course page, or content failed to load in time.", e);
     }
 }
 
@@ -147,7 +147,7 @@ async function updateExistingActiveCourses() {
         const courseData = courseNameMap.get(courseName);
 
         if (!courseData) {
-            console.log(`Course Archiver: Не удалось найти данные для курса "${courseName}"`);
+            window.cuLmsLog(`Course Archiver: Не удалось найти данные для курса "${courseName}"`);
             return;
         }
 
@@ -174,7 +174,7 @@ async function renderArchivedPageFromScratch() {
 
     const templateLi = document.querySelector('li.course-card');
     if (!templateLi) {
-        console.error("Course Archiver: Template element for cloning not found.");
+        window.cuLmsLog("Course Archiver: Template element for cloning not found.");
         return;
     }
 
@@ -212,7 +212,7 @@ async function fetchAllCoursesData() {
         archivedCourses.forEach(course => allCoursesMap.set(course.id, course));
         return Array.from(allCoursesMap.values());
     } catch (error) {
-        console.error(`Course Archiver: Failed to fetch all courses:`, error);
+        window.cuLmsLog(`Course Archiver: Failed to fetch all courses:`, error);
         return [];
     }
 }
@@ -222,7 +222,7 @@ async function getArchivedCoursesFromStorage() {
         const data = await browser.storage.local.get('archivedCourseIds');
         return new Set(data.archivedCourseIds || []);
     } catch (e) {
-        console.error("Course Archiver: Error getting data from storage", e);
+        window.cuLmsLog("Course Archiver: Error getting data from storage", e);
         return new Set();
     }
 }
@@ -231,7 +231,7 @@ async function setArchivedCoursesInStorage(archivedCourseIds) {
     try {
         await browser.storage.local.set({ archivedCourseIds: Array.from(archivedCourseIds) });
     } catch (e) {
-        console.error("Course Archiver: Error saving data to storage", e);
+        window.cuLmsLog("Course Archiver: Error saving data to storage", e);
     }
 }
 
@@ -308,10 +308,10 @@ function addOrUpdateButton(li, courseId, isLocallyArchived, isDarkTheme) {
           const isNowArchived = currentArchivedCourseIds.has(courseId);
           const currentPath = window.location.pathname;
           const isOnArchivedPage = currentPath.includes('/courses/view/archived');
-          
+
           // Находим родительский li элемент
           const cardLi = li.closest('li.course-card');
-          
+
           if (!isOnArchivedPage && isNowArchived) {
               // На странице активных курсов: скрываем заархивированный
               if (cardLi) cardLi.style.display = 'none';
