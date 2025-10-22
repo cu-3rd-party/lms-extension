@@ -833,7 +833,7 @@
                   reject
                 }, metadata));
               } catch (cbError) {
-                console.warn(`${name} API method doesn't seem to support the callback parameter, ` + "falling back to call it without a callback: ", cbError);
+                window.cuLmsLog(`${name} API method doesn't seem to support the callback parameter, ` + "falling back to call it without a callback: ", cbError);
                 target[name](...args);
 
                 // Update the API method metadata, so that the next API calls will not try to

@@ -3,7 +3,7 @@
 try {
     importScripts('browser-polyfill.js');
 } catch (e) {
-    console.log("Running in a non-MV3 environment or Firefox.");
+    window.cuLmsLog("Running in a non-MV3 environment or Firefox.");
 }
 
 // ====================================================================
@@ -323,12 +323,12 @@ function handleNavigation(tabId, url) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
             files: ["browser-polyfill.js", "dark_theme.js", "tasks_fix.js"]
-        }).catch(err => console.error(`[BG_LOG] Error injecting scripts for Tasks page:`, err));
+        }).catch(err => window.cuLmsLog(`[BG_LOG] Error injecting scripts for Tasks page:`, err));
     } else {
         browser.scripting.executeScript({
             target: { tabId: tabId },
             files: ["browser-polyfill.js", "dark_theme.js", "emoji_swap.js"]
-        }).catch(err => console.error(`[BG_LOG] Error injecting default scripts:`, err));
+        }).catch(err => window.cuLmsLog(`[BG_LOG] Error injecting default scripts:`, err));
     }
 
     if (url.includes("/learn/courses/view/actual")) {
@@ -341,7 +341,8 @@ function handleNavigation(tabId, url) {
     if (url.includes("/learn/courses/view")) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
-            files: ["browser-polyfill.js", "course_card_simplifier.js", "courses_fix.js"]
+            files: ["browser-polyfill.js", "course_card_simplifier.js",
+                    "future_exams_view.js", "courses_fix.js"]
         }).catch(err => console.error(`[BG_LOG] Error injecting courses_fix.js:`, err));
     }
 
@@ -349,6 +350,6 @@ function handleNavigation(tabId, url) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
             files: ["homework_weight_fix.js", "instant_doc_view_fix.js"]
-        }).catch(err => console.error(`[BG_LOG] Error injecting Longreads scripts:`, err));
+        }).catch(err => window.cuLmsLog(`[BG_LOG] Error injecting Longreads scripts:`, err));
     }
 }
