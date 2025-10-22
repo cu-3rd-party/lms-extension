@@ -67,53 +67,23 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         });
         observer.observe(document.body, { subtree: true, childList: true });
 
-        if (changes.futureExamsViewToggle) {
-            window.location.reload();
-            return;
-        }
+        processCourses();
+    }
 
-        if (changes.archivedCourseIds || changes.themeEnabled) {
-            console.log('Course Archiver: Storage changed, re-rendering.');
+    /**
+     * Главная функция-роутер. Запускает логику для страницы и исправляет стили.
+     */
+    async function processCourses() {
+        try {
+            const courseList = await waitForElement('ul.course-list', 15000);
             const currentPath = window.location.pathname;
             const isOnArchivedPage = currentPath.includes('/courses/view/archived');
 
-    const observer = new MutationObserver(() => {
-        if (location.href !== currentUrl) {
-            currentUrl = location.href;
-            console.log('Course Archiver: URL changed, re-running logic.');
-            processCourses();
-
-            const currentPath = window.location.pathname;
-            const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
-            if (isOnIndividualCoursePage) {
-                processFutureExams();
+            if (isOnArchivedPage) {
+                await renderArchivedPageFromScratch();
+            } else {
+                await updateExistingActiveCourses();
             }
-        }
-    });
-    observer.observe(document.body, { subtree: true, childList: true });
-
-    processCourses();
-    const currentPath = window.location.pathname;
-    const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
-    if (isOnIndividualCoursePage) {
-        processFutureExams();
-    }
-}
-
-/**
- * Главная функция-роутер. Запускает логику для страницы и исправляет стили.
- */
-async function processCourses() {
-    try {
-        const courseList = await waitForElement('ul.course-list', 15000);
-        const currentPath = window.location.pathname;
-        const isOnArchivedPage = currentPath.includes('/courses/view/archived');
-
-        if (isOnArchivedPage) {
-            await renderArchivedPageFromScratch();
-        } else {
-            await updateExistingActiveCourses();
-        }
 
             // ПОСЛЕ обработки курсов, принудительно восстанавливаем цвета иконок
             restoreSkillLevelIconColors();
@@ -153,18 +123,8 @@ async function processCourses() {
         });
     }
 
-async function processFutureExams() {
-    try {
-      const futureExamsData = await browser.storage.sync.get('futureExamsViewToggle');
-      const useFutureExams = !!futureExamsData.futureExamsViewToggle;
-      if (useFutureExams && typeof viewFutureExams === 'function') {
-          viewFutureExams();
-      }
-    } catch (e) {
-        console.log("Something went wrong with future exams", e);
-    }
-}
-// --- НОВАЯ ФУНКЦИЯ: Восстановление цветов иконок ---
+
+    // --- Логика обработки карточек курсов (без изменений) ---
 
     async function updateExistingActiveCourses() {
         const allApiCourses = await fetchAllCoursesData();
