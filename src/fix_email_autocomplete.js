@@ -1,5 +1,5 @@
 if (DEBUG_MODE) {
-	console.log("fix_email_autocomplete.js loaded");
+	window.cuLmsLog("fix_email_autocomplete.js loaded");
 }
 
 const applyFix = input => {
