@@ -11,7 +11,7 @@ try {
 // ====================================================================
 
 // Определяем хост API здесь. Все функции в этом файле будут его использовать.
-const API_HOST = 'https://127.0.0.1:8000';
+const API_HOST = 'http://127.0.0.1:8000';
 
 // ====================================================================
 // ЛОГИКА ЭКСПОРТА КУРСОВ В ФОНОВОМ РЕЖИМЕ
@@ -82,9 +82,15 @@ async function fetchCourseOverview(courseId) {
     }
 }
 
+// Эта функция делает именно то, что вы описали:
+// 1. Составляет запрос к download-link
+// 2. Выполняет его
+// 3. Получает JSON {"url": "..."}
+// 4. Возвращает финальную ссылку на Yandex Cloud
 async function getDownloadLinkApi(filename, version) {
     const encodedFilename = encodeURIComponent(filename).replace(/\//g, '%2F');
     const apiUrl = `https://my.centraluniversity.ru/api/micro-lms/content/download-link?filename=${encodedFilename}&version=${version}`;
+
     try {
         const response = await fetch(apiUrl, {
             method: "GET",
@@ -103,29 +109,47 @@ async function getDownloadLinkApi(filename, version) {
 
 async function scanLongreadForAllFiles(longreadId) {
     const materialsData = await fetchMaterials(longreadId);
-    if (!materialsData || !materialsData.items) return [];
+    if (!materialsData || !materialsData.items) return null;
 
     const foundFiles = [];
     for (const item of materialsData.items) {
-        let fileToProcess = null;
+        // Случай 1: Прямой файл
         if (item.discriminator === "file" && item.content) {
-            fileToProcess = item.content;
-        } else if (item.attachments && item.attachments.length > 0) {
-            const attachmentFile = item.attachments.find(a => a.discriminator === "file" && a.content);
-            if (attachmentFile) fileToProcess = attachmentFile.content;
+            const fileInfo = item.content;
+            if (fileInfo && fileInfo.filename && fileInfo.version) {
+                cuLmsLog(`Found direct file "${fileInfo.name}". Getting download link...`);
+                const url = await getDownloadLinkApi(fileInfo.filename, fileInfo.version);
+                if (url) {
+                    foundFiles.push({
+                        download_link: url, // Здесь уже будет ссылка на Yandex Cloud
+                        filename: fileInfo.name
+                    });
+                }
+            }
         }
 
-        if (fileToProcess && fileToProcess.filename && fileToProcess.version) {
-            cuLmsLog(`Found file "${fileToProcess.name}". Getting download link...`);
-            const url = await getDownloadLinkApi(fileToProcess.filename, fileToProcess.version);
-            if (url) {
-                foundFiles.push({
-                    download_link: url,
-                    filename: fileToProcess.name
-                });
+        // Случай 2: Вложенный файл
+        if (item.attachments && Array.isArray(item.attachments) && item.attachments.length > 0) {
+            for (const attachment of item.attachments) {
+                const fileInfo = attachment;
+                 if (fileInfo && fileInfo.filename && fileInfo.version) {
+                    cuLmsLog(`Found attached file "${fileInfo.name}". Getting download link...`);
+                    const url = await getDownloadLinkApi(fileInfo.filename, fileInfo.version);
+                    if (url) {
+                        foundFiles.push({
+                            download_link: url, // И здесь тоже будет ссылка на Yandex Cloud
+                            filename: fileInfo.name
+                        });
+                    }
+                }
             }
         }
     }
+
+    if (foundFiles.length === 0) {
+        return "nothing";
+    }
+
     return foundFiles;
 }
 
@@ -230,20 +254,22 @@ async function processAllCourses(authToken) {
                 cuLmsLog(`Warning: Could not find metadata for missing longread ID ${longreadId}. Skipping.`);
                 continue;
             }
-            const files = await scanLongreadForAllFiles(longreadId);
-            if (files && files.length > 0) {
+            
+            const scanResult = await scanLongreadForAllFiles(longreadId);
+
+            if (scanResult) {
                 const uploadPayload = {
                     course_id: course.id,
                     theme_id: info.theme_id,
                     longread_id: longreadId,
-                    files: files,
+                    files: scanResult,
                     course_title: info.course_title,
                     theme_title: info.theme_title,
                     longread_title: info.longread_title,
                 };
                 await uploadLongreadData(uploadPayload, authToken);
             } else {
-                cuLmsLog(`No download links found for longread "${info.longread_title}" (ID: ${longreadId}).`);
+                cuLmsLog(`Could not scan materials for longread "${info.longread_title}" (ID: ${longreadId}). Skipping upload.`);
             }
             await delay(API_DELAY_MS);
         }

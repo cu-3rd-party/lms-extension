@@ -13,7 +13,7 @@ if (!window.customSidebarObserverInitialized) {
     const DISPLAY_URL = 'https://my.centraluniversity.ru/learn/courses/view/open-system';
     const TARGET_PATHNAME = '/learn/courses/view/actual'; // Specific pathname for precise checks
 
-    const API_HOST = "https://fzhakov.online";
+    const API_HOST = "http://127.0.0.1:8000";
     const SESSION_STORAGE_KEY_COURSE_TARGET = 'customCourseTarget';
 
     // Keys for storing tokens in localStorage for persistence between sessions
@@ -274,6 +274,11 @@ if (!window.customSidebarObserverInitialized) {
                 grid-template-rows: 0fr;
                 transition: grid-template-rows 0.3s ease-in-out;
             }
+
+            .custom-courses-active .archive-button-container {
+                display: none !important;
+            }
+
             .custom-expand-container > div {
                 overflow: hidden;
             }

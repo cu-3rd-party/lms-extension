@@ -11,7 +11,7 @@
     "host_permissions": [
         "https://my.centraluniversity.ru/*",
         "https://id.centraluniversity.ru/*",
-        "https://fzhakov.online/*"
+        "http://127.0.0.1:8000/*"
     ],
     "background": {
         "service_worker": "background.js"
