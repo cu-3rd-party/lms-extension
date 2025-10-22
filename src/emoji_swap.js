@@ -57,7 +57,7 @@ if (typeof window.culmsEmojiSwapInitialized === 'undefined') {
         if (observerInitialized) return; // Защита от повторного запуска
         observerInitialized = true;
 
-        console.log('Emoji Swap: Safe to initialize. Running first swap and starting observer.');
+        window.cuLmsLog('Emoji Swap: Safe to initialize. Running first swap and starting observer.');
         runSwap(true); // Первый запуск
         observer.observe(document.body, { subtree: true, childList: true, characterData: true });
     }
@@ -69,19 +69,19 @@ if (typeof window.culmsEmojiSwapInitialized === 'undefined') {
 
         if (currentEnabled) {
             // Маляр ждет...
-            console.log('Emoji Swap: Enabled. Waiting for safe signal from tasks_fix.js...');
+            window.cuLmsLog('Emoji Swap: Enabled. Waiting for safe signal from tasks_fix.js...');
 
             // 1. Устанавливаем таймер-фолбэк. Если за 2 секунды сигнал не придет,
             // считаем, что мы не на странице задач, и можно работать.
             const fallbackTimeout = setTimeout(() => {
-                console.log('Emoji Swap: Fallback timer fired. Initializing.');
+                window.cuLmsLog('Emoji Swap: Fallback timer fired. Initializing.');
                 window.removeEventListener('culms-tasks-fix-complete', onTasksFixComplete);
                 safeInitializeAndObserve();
             }, 2000);
 
             // 2. Определяем, что делать, когда придет сигнал
             const onTasksFixComplete = () => {
-                console.log('Emoji Swap: Received "culms-tasks-fix-complete" signal. Initializing.');
+                window.cuLmsLog('Emoji Swap: Received "culms-tasks-fix-complete" signal. Initializing.');
                 clearTimeout(fallbackTimeout); // Отменяем фолбэк
                 window.removeEventListener('culms-tasks-fix-complete', onTasksFixComplete); // Убираем слушатель
                 safeInitializeAndObserve();

@@ -22,7 +22,7 @@ async function runLogic() {
             insertWeightElement(infoList, weight);
         }
     } catch (error) {
-        console.error('Longread Weight: Error:', error);
+        window.cuLmsLog('Longread Weight: Error:', error);
     }
 }
 
