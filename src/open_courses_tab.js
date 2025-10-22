@@ -388,7 +388,63 @@ if (!window.customSidebarObserverInitialized) {
         const byteArray = new Uint8Array(byteNumbers);
         return new Blob([byteArray], { type: contentType });
     };
-
+    
+    const getMimeType = (filename) => {
+        const extension = filename.split('.').pop().toLowerCase();
+        const mimeTypes = {
+            'pdf': 'application/pdf',
+            'mp4': 'video/mp4', 'mov': 'video/quicktime', 'wmv': 'video/x-ms-wmv', 'avi': 'video/x-msvideo', 'webm': 'video/webm',
+            'jpeg': 'image/jpeg', 'jpg': 'image/jpeg', 'png': 'image/png', 'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml',
+            'txt': 'text/plain', 'html': 'text/html', 'css': 'text/css', 'js': 'application/javascript', 'json': 'application/json',
+            'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg',
+        };
+        return mimeTypes[extension] || 'application/octet-stream'; 
+    };
+    
+    const openFile = (file) => {
+        // "Белый список" расширений, которые можно безопасно открыть в браузере
+        const VIEWABLE_EXTENSIONS = [
+            'pdf', 'mp4', 'mov', 'webm', 'jpeg', 'jpg', 'png', 'gif', 'webp', 'svg',
+            'txt', 'html', 'css', 'js', 'json', 'mp3', 'wav', 'ogg'
+        ];
+    
+        const extension = file.filename.split('.').pop().toLowerCase();
+        const mimeType = getMimeType(file.filename);
+        const fileBlob = base64ToBlob(file.contents, mimeType);
+        const blobUrl = URL.createObjectURL(fileBlob);
+    
+        if (VIEWABLE_EXTENSIONS.includes(extension)) {
+            // --- Логика для просмотра файла в новой вкладке ---
+            const newTab = window.open();
+            if (!newTab || newTab.closed || typeof newTab.closed == 'undefined') {
+                 showToast('Пожалуйста, разрешите всплывающие окна для этого сайта.');
+                 URL.revokeObjectURL(blobUrl);
+                 return;
+            }
+            newTab.document.title = file.filename;
+            newTab.document.body.style.margin = "0";
+            newTab.document.body.style.overflow = "hidden";
+    
+            const embed = newTab.document.createElement('embed');
+            embed.src = blobUrl;
+            embed.type = mimeType;
+            embed.style.width = "100vw";
+            embed.style.height = "100vh";
+    
+            newTab.document.body.appendChild(embed);
+        } else {
+            // --- Логика для скачивания всех остальных файлов ---
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = file.filename; 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            // Освобождаем память после клика
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 100); 
+        }
+    };
+    
     const showFileSelectionModal = (files) => {
         const modalId = 'cu-file-selection-modal';
         if (document.getElementById(modalId)) return;
@@ -402,7 +458,7 @@ if (!window.customSidebarObserverInitialized) {
         modal.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 8px; z-index: 10002; min-width: 400px; max-width: 80%; color: #333;';
 
         const title = document.createElement('h3');
-        title.textContent = 'Выберите файл для открытия';
+        title.textContent = 'Выберите файл';
         title.style.marginTop = '0';
         title.style.marginBottom = '20px';
         modal.appendChild(title);
@@ -424,23 +480,7 @@ if (!window.customSidebarObserverInitialized) {
             button.onmouseover = () => button.style.backgroundColor = '#e9e9e9';
             button.onmouseout = () => button.style.backgroundColor = '#f8f8f8';
             button.addEventListener('click', () => {
-                const mimeType = getMimeType(file.filename);
-                const fileBlob = base64ToBlob(file.contents, mimeType);
-                const blobUrl = URL.createObjectURL(fileBlob);
-
-                // Open a new tab, set its title, and embed the content
-                const newTab = window.open();
-                newTab.document.title = file.filename;
-                newTab.document.body.style.margin = "0";
-                newTab.document.body.style.overflow = "hidden";
-
-                const embed = newTab.document.createElement('embed');
-                embed.src = blobUrl;
-                embed.type = mimeType;
-                embed.style.width = "100vw";
-                embed.style.height = "100vh";
-
-                newTab.document.body.appendChild(embed);
+                openFile(file);
                 closeModal();
             });
             listItem.appendChild(button);
@@ -450,32 +490,6 @@ if (!window.customSidebarObserverInitialized) {
         overlay.addEventListener('click', closeModal);
         document.body.appendChild(overlay);
         document.body.appendChild(modal);
-    };
-
-    const getMimeType = (filename) => {
-        const extension = filename.split('.').pop().toLowerCase();
-        const mimeTypes = {
-            'pdf': 'application/pdf',
-            'mp4': 'video/mp4',
-            'mov': 'video/quicktime',
-            'wmv': 'video/x-ms-wmv',
-            'avi': 'video/x-msvideo',
-            'jpeg': 'image/jpeg',
-            'jpg': 'image/jpeg',
-            'png': 'image/png',
-            'gif': 'image/gif',
-            'webp': 'image/webp',
-            'svg': 'image/svg+xml',
-            'txt': 'text/plain',
-            'html': 'text/html',
-            'css': 'text/css',
-            'js': 'application/javascript',
-            'json': 'application/json',
-            'mp3': 'audio/mpeg',
-            'wav': 'audio/wav',
-            // Add any other file types you expect to handle
-        };
-        return mimeTypes[extension] || 'application/octet-stream';
     };
 
     const handleLongreadClick = async (event, courseId, themeId, longreadId) => {
@@ -502,25 +516,7 @@ if (!window.customSidebarObserverInitialized) {
             }
 
             if (filesData.length === 1) {
-                const file = filesData[0];
-                const mimeType = getMimeType(file.filename); // Use the helper
-                const fileBlob = base64ToBlob(file.contents, mimeType);
-                const blobUrl = URL.createObjectURL(fileBlob);
-
-                // Open a new tab, set its title, and embed the content
-                const newTab = window.open();
-                newTab.document.title = file.filename;
-                newTab.document.body.style.margin = "0";
-                newTab.document.body.style.overflow = "hidden";
-                
-                const embed = newTab.document.createElement('embed');
-                embed.src = blobUrl;
-                embed.type = mimeType;
-                embed.style.width = "100vw";
-                embed.style.height = "100vh";
-
-                newTab.document.body.appendChild(embed);
-                
+                openFile(filesData[0]);
             } else {
                 showFileSelectionModal(filesData);
             }
