@@ -424,10 +424,23 @@ if (!window.customSidebarObserverInitialized) {
             button.onmouseover = () => button.style.backgroundColor = '#e9e9e9';
             button.onmouseout = () => button.style.backgroundColor = '#f8f8f8';
             button.addEventListener('click', () => {
-                const mimeType = file.filename.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream';
+                const mimeType = getMimeType(file.filename);
                 const fileBlob = base64ToBlob(file.contents, mimeType);
                 const blobUrl = URL.createObjectURL(fileBlob);
-                window.open(blobUrl, '_blank');
+
+                // Open a new tab, set its title, and embed the content
+                const newTab = window.open();
+                newTab.document.title = file.filename;
+                newTab.document.body.style.margin = "0";
+                newTab.document.body.style.overflow = "hidden";
+
+                const embed = newTab.document.createElement('embed');
+                embed.src = blobUrl;
+                embed.type = mimeType;
+                embed.style.width = "100vw";
+                embed.style.height = "100vh";
+
+                newTab.document.body.appendChild(embed);
                 closeModal();
             });
             listItem.appendChild(button);
@@ -437,6 +450,32 @@ if (!window.customSidebarObserverInitialized) {
         overlay.addEventListener('click', closeModal);
         document.body.appendChild(overlay);
         document.body.appendChild(modal);
+    };
+
+    const getMimeType = (filename) => {
+        const extension = filename.split('.').pop().toLowerCase();
+        const mimeTypes = {
+            'pdf': 'application/pdf',
+            'mp4': 'video/mp4',
+            'mov': 'video/quicktime',
+            'wmv': 'video/x-ms-wmv',
+            'avi': 'video/x-msvideo',
+            'jpeg': 'image/jpeg',
+            'jpg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'webp': 'image/webp',
+            'svg': 'image/svg+xml',
+            'txt': 'text/plain',
+            'html': 'text/html',
+            'css': 'text/css',
+            'js': 'application/javascript',
+            'json': 'application/json',
+            'mp3': 'audio/mpeg',
+            'wav': 'audio/wav',
+            // Add any other file types you expect to handle
+        };
+        return mimeTypes[extension] || 'application/octet-stream';
     };
 
     const handleLongreadClick = async (event, courseId, themeId, longreadId) => {
@@ -464,10 +503,24 @@ if (!window.customSidebarObserverInitialized) {
 
             if (filesData.length === 1) {
                 const file = filesData[0];
-                const mimeType = file.filename.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream';
-                const pdfBlob = base64ToBlob(file.contents, mimeType);
-                const blobUrl = URL.createObjectURL(pdfBlob);
-                window.open(blobUrl, '_blank');
+                const mimeType = getMimeType(file.filename); // Use the helper
+                const fileBlob = base64ToBlob(file.contents, mimeType);
+                const blobUrl = URL.createObjectURL(fileBlob);
+
+                // Open a new tab, set its title, and embed the content
+                const newTab = window.open();
+                newTab.document.title = file.filename;
+                newTab.document.body.style.margin = "0";
+                newTab.document.body.style.overflow = "hidden";
+                
+                const embed = newTab.document.createElement('embed');
+                embed.src = blobUrl;
+                embed.type = mimeType;
+                embed.style.width = "100vw";
+                embed.style.height = "100vh";
+
+                newTab.document.body.appendChild(embed);
+                
             } else {
                 showFileSelectionModal(filesData);
             }
@@ -693,7 +746,7 @@ if (!window.customSidebarObserverInitialized) {
 
 
     /**
-     * --- НОВАЯ УЛУЧШЕННАЯ ФУНКЦИЯ ---
+     * --- НОВАЯ УЛУЧШЕНЕННАЯ ФУНКЦИЯ ---
      * Динамически ищет подходящий курс для использования в качестве шаблона.
      * Эта функция разделяет поиск визуального шаблона (карточки) и шаблона для контента (ID курса).
      * 1. Находит любую видимую карточку курса на странице для использования в качестве `templateCourseCard`.
@@ -779,7 +832,7 @@ if (!window.customSidebarObserverInitialized) {
         }
 
         const { templateCourseId, templateCourseCard } = templateInfo;
-        // --- КОНЕЦ ИЗМЕНЕННОЙ ЛОГИКИ ---
+        // --- КОНЕЦ ИЗМЕНЕНЕННОЙ ЛОГИКИ ---
 
 
         const breadcrumbsContainer = document.querySelector('tui-breadcrumbs');
