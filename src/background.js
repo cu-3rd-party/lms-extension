@@ -36,7 +36,8 @@ function handleNavigation(tabId, url) {
     if (url.includes("/learn/courses/view")) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
-            files: ["browser-polyfill.js", "course_card_simplifier.js", "courses_fix.js"]
+            files: ["browser-polyfill.js", "course_card_simplifier.js",
+                    "future_exams_view.js", "courses_fix.js"]
         }).catch(err => window.cuLmsLog(`[BG_LOG] Error injecting courses_fix.js:`, err));
     }
     if (url.includes("/longreads/")) {
