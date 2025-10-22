@@ -40,6 +40,7 @@
                 "icons/*.svg",
                 "icons/*.png",
                 "course_card_simplifier.js",
+                "future_exams_view.js",
                 "tasks_fix.js",
                 "courses_fix.js",
                 "debug_utils.js",

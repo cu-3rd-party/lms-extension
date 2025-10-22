@@ -45,6 +45,11 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                 return;
             }
 
+            if (changes.futureExamsViewToggle) {
+                window.location.reload();
+                return;
+            }
+
             if (changes.archivedCourseIds || changes.themeEnabled) {
                 window.cuLmsLog('Course Archiver: Storage changed, re-rendering.');
                 const currentPath = window.location.pathname;
@@ -59,31 +64,42 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         });
 
         const observer = new MutationObserver(() => {
-            if (location.href !== currentUrl) {
-                currentUrl = location.href;
-                window.cuLmsLog('Course Archiver: URL changed, re-running logic.');
-                processCourses();
-            }
-        });
-        observer.observe(document.body, { subtree: true, childList: true });
+        if (location.href !== currentUrl) {
+            currentUrl = location.href;
+            console.log('Course Archiver: URL changed, re-running logic.');
+            processCourses();
 
-        processCourses();
-    }
-
-    /**
-     * Главная функция-роутер. Запускает логику для страницы и исправляет стили.
-     */
-    async function processCourses() {
-        try {
-            const courseList = await waitForElement('ul.course-list', 15000);
             const currentPath = window.location.pathname;
-            const isOnArchivedPage = currentPath.includes('/courses/view/archived');
-
-            if (isOnArchivedPage) {
-                await renderArchivedPageFromScratch();
-            } else {
-                await updateExistingActiveCourses();
+            const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
+            if (isOnIndividualCoursePage) {
+                processFutureExams();
             }
+        }
+    });
+    observer.observe(document.body, { subtree: true, childList: true });
+
+    processCourses();
+    const currentPath = window.location.pathname;
+    const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
+    if (isOnIndividualCoursePage) {
+        processFutureExams();
+    }
+}
+
+/**
+ * Главная функция-роутер. Запускает логику для страницы и исправляет стили.
+ */
+async function processCourses() {
+    try {
+        const courseList = await waitForElement('ul.course-list', 15000);
+        const currentPath = window.location.pathname;
+        const isOnArchivedPage = currentPath.includes('/courses/view/archived');
+
+        if (isOnArchivedPage) {
+            await renderArchivedPageFromScratch();
+        } else {
+            await updateExistingActiveCourses();
+        }
 
             // ПОСЛЕ обработки курсов, принудительно восстанавливаем цвета иконок
             restoreSkillLevelIconColors();
@@ -123,8 +139,18 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         });
     }
 
-
-    // --- Логика обработки карточек курсов (без изменений) ---
+async function processFutureExams() {
+    try {
+      const futureExamsData = await browser.storage.sync.get('futureExamsViewToggle');
+      const useFutureExams = !!futureExamsData.futureExamsViewToggle;
+      if (useFutureExams && typeof viewFutureExams === 'function') {
+          viewFutureExams();
+      }
+    } catch (e) {
+        console.log("Something went wrong with future exams", e);
+    }
+}
+// --- НОВАЯ ФУНКЦИЯ: Восстановление цветов иконок ---
 
     async function updateExistingActiveCourses() {
         const allApiCourses = await fetchAllCoursesData();
