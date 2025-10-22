@@ -2,8 +2,9 @@ const ARCHIVE_KEY = "cu.lms.archived-statements";
 const ALLOWED_PATH = "/learn/reports/student-performance";
 
 (async function () {
-    if (window.location.pathname.replace(/\/$/, '') !== ALLOWED_PATH) {
-        console.log("[LMS Extension] Skipped: not the main student performance page (path mismatch)");
+    const initialPath = window.location.pathname;
+    if (!initialPath.startsWith(ALLOWED_PATH)) {
+        console.log("[LMS Extension] Skipped: not on student performance section");
         return;
     }
 
@@ -12,24 +13,24 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
     }
     window.cuLmsLog("[LMS Extension] Student Performance Enhancer loaded");
 
-    // Хранилище архивированных курсов
     let archivedCourses = new Map();
     let currentView = 'main'; // 'main' или 'archive'
     let isInitialized = false;
-    let currentPath = window.location.pathname;
-    let currentTheme = null; // Текущая тема (для отслеживания изменений)
+
+    function getNormalizedPath() {
+        return window.location.pathname.replace(/\/$/, '');
+    }
+
+    let currentPath = getNormalizedPath();
+    let currentTheme = null;
 
     function showLoader() {
-        // Ищем контейнер tui-loader
         const loaderContainer = document.querySelector('tui-loader[_ngcontent-ng-c3267422601]');
         if (!loaderContainer) {
             window.cuLmsLog("[LMS Extension] Loader container not found");
             return;
         }
-
-        // Проверяем, не добавлен ли уже loader
         if (loaderContainer.querySelector('.lms-extension-loader')) return;
-
         const loader = document.createElement('div');
         loader.className = 'lms-extension-loader';
         loader.style.cssText = `
@@ -44,7 +45,6 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
             justify-content: center;
             z-index: 100;
         `;
-
         const spinner = document.createElement('div');
         spinner.style.cssText = `
             width: 48px;
@@ -54,14 +54,9 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
             border-radius: 50%;
             animation: lms-spin 1s linear infinite;
         `;
-
         loader.appendChild(spinner);
-
-        // Делаем контейнер относительным
         loaderContainer.style.position = 'relative';
         loaderContainer.appendChild(loader);
-
-        // Добавляем стили для анимации
         if (!document.querySelector('#lms-loader-styles')) {
             const style = document.createElement('style');
             style.id = 'lms-loader-styles';
@@ -96,15 +91,11 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
     async function saveArchivedCourses() {
         try {
             const obj = Object.fromEntries(archivedCourses);
-
-            // Если архив пуст — просто удаляем ключ и выходим
             if (archivedCourses.size === 0) {
                 await browser.storage.local.remove(ARCHIVE_KEY);
                 window.cuLmsLog("[LMS Extension] Archive cleared completely");
                 return;
             }
-
-            // Иначе обновляем значение
             await browser.storage.local.set({ [ARCHIVE_KEY]: obj });
         } catch (error) {
             window.cuLmsLog("[LMS Extension] Failed to save archive:", error);
@@ -124,7 +115,7 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
         const rows = document.querySelectorAll("tr[tuitr]");
         const themeData = await browser.storage.sync.get("themeEnabled");
         const isDarkTheme = !!themeData.themeEnabled;
-        currentTheme = isDarkTheme; // Запоминаем текущую тему
+        currentTheme = isDarkTheme;
 
         for (const row of rows) {
             if (row.querySelector(".lms-archive-btn")) continue;
@@ -161,7 +152,7 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
 
             const iconUrl = browser.runtime.getURL("icons/archive.svg");
             const iconSpan = document.createElement("span");
-            iconSpan.className = "lms-icon-span"; // Добавляем класс для поиска
+            iconSpan.className = "lms-icon-span";
             iconSpan.style.cssText = `
                 display: inline-block;
                 width: 100%;
@@ -246,6 +237,8 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
         archivePlaceholder.style.display = "none";
 
         if (mainFieldset && mainFieldset.parentNode) {
+            // ✅ Добавляем маркер, чтобы легко найти основную таблицу
+            mainFieldset.dataset.lmsMainTable = "true";
             mainFieldset.parentNode.insertBefore(archivePlaceholder, mainFieldset.nextSibling);
         }
 
@@ -288,7 +281,6 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
         attachStatementLinkHandler();
     }
 
-    // Отдельная функция для отслеживания кликов по "Ведомость"
     function attachStatementLinkHandler() {
         const breadcrumbs = document.querySelector("tui-breadcrumbs");
         if (!breadcrumbs) {
@@ -296,7 +288,6 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
             return;
         }
 
-        // Находим все ссылки "Ведомость"
         const allLinks = breadcrumbs.querySelectorAll('a[href="/learn/reports/student-performance"]');
 
         const mainFieldset = document.querySelector("fieldset.t-content");
@@ -308,12 +299,9 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
                 .trim() || "#007BFF";
 
         allLinks.forEach((link, index) => {
-            // Пропускаем архивную ссылку
             if (link.classList.contains("archive-link")) {
                 return;
             }
-
-            // Проверяем, не добавлен ли уже обработчик
             if (link.dataset.lmsHandlerAttached === "true") {
                 window.cuLmsLog(`[LMS Extension] ⏭️ Handler already attached to link ${index}`);
                 return;
@@ -321,13 +309,11 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
 
             link.dataset.lmsHandlerAttached = "true";
 
-            // Используем capture phase
             link.addEventListener("click", async (e) => {
                 if (currentView === 'main') {
-                    return; // Позволяем Angular обработать
+                    return;
                 }
 
-                // Перехватываем событие только если в архиве
                 window.cuLmsLog("[LMS Extension] 🛑 Preventing default and switching to main view");
                 e.preventDefault();
                 e.stopPropagation();
@@ -335,12 +321,10 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
 
                 currentView = 'main';
 
-                // Получаем актуальные элементы
                 const currentMainFieldset = document.querySelector("fieldset.t-content");
                 const currentArchivePlaceholder = document.querySelector(".archive-placeholder");
                 const currentArchiveLink = document.querySelector(".archive-link");
 
-                // Показать основную таблицу, скрыть архив
                 if (currentMainFieldset) {
                     currentMainFieldset.style.display = "";
                 }
@@ -349,7 +333,6 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
                     currentArchivePlaceholder.style.display = "none";
                 }
 
-                // Визуальное обновление хлебных крошек
                 link.style.color = activeColor;
                 link.classList.add("breadcrumbs__item_last");
                 if (currentArchiveLink) {
@@ -357,20 +340,16 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
                     currentArchiveLink.classList.remove("breadcrumbs__item_last");
                 }
 
-                // Форсируем повторное применение функционала
                 await loadArchivedCourses();
                 applyArchivedState();
                 await addArchiveButtons();
 
-            }, true); // true = capture phase
+            }, true);
 
             window.cuLmsLog(`[LMS Extension] ✅ Handler attached successfully to link ${index}`);
         });
     }
 
-    // =============================
-    // 3️⃣ Визуал таблицы архива
-    // =============================
     async function renderArchivedTableUI() {
         const archivePlaceholder = document.querySelector(".archive-placeholder");
         if (!archivePlaceholder) return;
@@ -379,7 +358,7 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
 
         const themeData = await browser.storage.sync.get("themeEnabled");
         const isDarkTheme = !!themeData.themeEnabled;
-        currentTheme = isDarkTheme; // Обновляем текущую тему
+        currentTheme = isDarkTheme;
 
         const fieldset = document.createElement("fieldset");
         fieldset.setAttribute("_ngcontent-ng-c37613583", "");
@@ -444,16 +423,41 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
                 firstCell.setAttribute("tuitd", "");
                 firstCell.className = "_border-right column-course link-container";
                 firstCell.setAttribute("_nghost-ng-c4079261847", "");
-                firstCell.innerHTML = `
-          <a _ngcontent-ng-c3267422601=""
-             tuiappearance=""
-             tuiicons=""
-             tuilink=""
-             data-appearance="action"
-             href="${course.href}">
-            ${course.name}
-          </a>
-        `;
+
+                const link = document.createElement("a");
+                link.setAttribute("_ngcontent-ng-c3267422601", "");
+                link.setAttribute("tuiappearance", "");
+                link.setAttribute("tuiicons", "");
+                link.setAttribute("tuilink", "");
+                link.dataset.appearance = "action";
+                link.href = course.href;
+                link.textContent = course.name;
+
+                link.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    window.cuLmsLog(`[LMS Extension] Archive link intercepted: ${course.href}`);
+
+                    const mainFieldset = document.querySelector("fieldset[data-lms-main-table='true']");
+                    if (!mainFieldset) {
+                        window.cuLmsLog("[LMS Extension] ❌ Main fieldset not found! Falling back to hard nav.");
+                        window.location.href = course.href;
+                        return;
+                    }
+
+                    const originalLink = mainFieldset.querySelector(`a[href="${course.href}"]`);
+
+                    if (originalLink) {
+                        window.cuLmsLog("[LMS Extension] ✅ Found original link. Simulating click...");
+                        originalLink.click();
+                    } else {
+                        window.cuLmsLog(`[LMS Extension] ❌ Original link not found. Falling back to hard nav.`);
+                        window.location.href = course.href; // Запасной вариант
+                    }
+                });
+
+                firstCell.appendChild(link); // Добавляем ссылку в ячейку
 
                 const secondCell = document.createElement("td");
                 secondCell.setAttribute("_ngcontent-ng-c3267422601", "");
@@ -465,36 +469,36 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
                 const unarchiveButton = document.createElement("button");
                 unarchiveButton.className = "lms-unarchive-btn";
                 unarchiveButton.style.cssText = `
-          position: absolute;
-          right: 1rem;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 1.25rem;
-          height: 1.25rem;
-          padding: 0;
-          border: none;
-          background: none;
-          cursor: pointer;
-          line-height: 0;
-          z-index: 10;
-        `;
+                  position: absolute;
+                  right: 1rem;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  width: 1.25rem;
+                  height: 1.25rem;
+                  padding: 0;
+                  border: none;
+                  background: none;
+                  cursor: pointer;
+                  line-height: 0;
+                  z-index: 10;
+                `;
 
                 const iconUrl = browser.runtime.getURL("icons/unarchive.svg");
                 const iconSpan = document.createElement("span");
-                iconSpan.className = "lms-icon-span"; // Добавляем класс для поиска
+                iconSpan.className = "lms-icon-span";
                 iconSpan.style.cssText = `
-          display: inline-block;
-          width: 100%;
-          height: 100%;
-          mask-image: url(${iconUrl});
-          -webkit-mask-image: url(${iconUrl});
-          mask-size: contain;
-          -webkit-mask-size: contain;
-          mask-repeat: no-repeat;
-          background-color: ${isDarkTheme ? "#FFFFFF" : "#4b5563"};
-          transition: background-color 0.2s;
-          pointer-events: none;
-        `;
+                  display: inline-block;
+                  width: 100%;
+                  height: 100%;
+                  mask-image: url(${iconUrl});
+                  -webkit-mask-image: url(${iconUrl});
+                  mask-size: contain;
+                  -webkit-mask-size: contain;
+                  mask-repeat: no-repeat;
+                  background-color: ${isDarkTheme ? "#FFFFFF" : "#4b5563"};
+                  transition: background-color 0.2s;
+                  pointer-events: none;
+                `;
 
                 unarchiveButton.appendChild(iconSpan);
                 secondCell.appendChild(unarchiveButton);
@@ -511,20 +515,15 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
                     e.stopPropagation();
                     e.preventDefault();
 
-                    // Удаляем из Map
                     archivedCourses.delete(course.href);
-
-                    // Сохраняем изменения
                     await saveArchivedCourses();
 
-                    // Показываем оригинальную строку
                     const mainTable = document.querySelector("table.cu-table");
                     const originalRow = mainTable?.querySelector(`a[href="${course.href}"]`)?.closest("tr");
                     if (originalRow) {
                         originalRow.style.display = "";
                     }
 
-                    // Перерисовываем таблицу архива
                     await renderArchivedTableUI();
                 });
 
@@ -543,9 +542,8 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
     }
 
     function cleanup() {
-        window.cuLmsLog("[LMS Extension] Cleaning up...");
+        window.cuLmsLog("[LMS Extension] Cleaning up UI...");
 
-        // Удаляем архивную ссылку и разделитель
         const breadcrumbs = document.querySelector("tui-breadcrumbs");
         if (breadcrumbs) {
             const archiveLink = breadcrumbs.querySelector(".archive-link");
@@ -558,27 +556,35 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
             }
         }
 
-        // Удаляем placeholder архива
         const archivePlaceholder = document.querySelector(".archive-placeholder");
         if (archivePlaceholder) {
             archivePlaceholder.remove();
         }
 
-        // Удаляем кнопки архивирования
-        document.querySelectorAll(".lms-archive-btn").forEach(btn => btn.remove());
+        document.querySelectorAll(".lms-archive-btn, .lms-unarchive-btn").forEach(btn => btn.remove());
 
-        // Удаляем loader если остался
+        document.querySelectorAll("table.cu-table tr[tuitr]").forEach(row => {
+            row.style.display = "";
+        });
+
         hideLoader();
 
-        // Сбрасываем состояние
         currentView = 'main';
-        isInitialized = false;
+        isInitialized = false; // Важно сбросить, чтобы initialize() мог запуститься
 
         window.cuLmsLog("[LMS Extension] Cleanup complete");
     }
 
     async function initialize() {
-        if (isInitialized) return;
+        if (getNormalizedPath() !== ALLOWED_PATH) {
+            window.cuLmsLog("[LMS Extension] initialize() skipped: not on main page");
+            return;
+        }
+
+        if (isInitialized) {
+            window.cuLmsLog("[LMS Extension] initialize() skipped: already initialized");
+            return;
+        }
 
         window.cuLmsLog("[LMS Extension] Starting initialization");
 
@@ -589,11 +595,10 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
 
         await loadArchivedCourses();
 
-        if (currentView === 'main') {
-            applyArchivedState();
-            await addArchiveButtons();
-            addBreadcrumbNavigation();
-        }
+        // currentView всегда 'main' при первой инициализации
+        applyArchivedState();
+        await addArchiveButtons();
+        addBreadcrumbNavigation();
 
         if (!tableExists) {
             hideLoader();
@@ -603,46 +608,43 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
         window.cuLmsLog("[LMS Extension] Initialization complete");
     }
 
-    function initObserver() {
+    async function initObserver() {
         const mainContainer = document.body;
-
         let timeoutId;
 
-        const observer = new MutationObserver(() => {
-            // Проверяем, изменился ли путь
-            const newPath = window.location.pathname;
+        const observer = new MutationObserver(async () => {
+            const newPath = getNormalizedPath();
+
             if (newPath !== currentPath) {
                 window.cuLmsLog("[LMS Extension] Path changed from", currentPath, "to", newPath);
                 currentPath = newPath;
 
-                // Если ушли со страницы ведомостей - очищаем
-                if (!newPath.includes('/learn/reports/student-performance')) {
+                if (newPath === ALLOWED_PATH) {
+                    window.cuLmsLog("[LMS Extension] Returned to main statements page, reinitializing...");
                     cleanup();
+                    await initialize();
                     return;
                 }
 
-                // Если вернулись на страницу ведомостей - переинициализируем
-                if (newPath.includes('/learn/reports/student-performance')) {
-                    window.cuLmsLog("[LMS Extension] Returned to statements page, reinitializing...");
+                if (newPath.startsWith(ALLOWED_PATH + "/") || !newPath.startsWith(ALLOWED_PATH)) {
+                    window.cuLmsLog("[LMS Extension] On child page or left section, cleaning up...");
                     cleanup();
-                    isInitialized = false;
+                    return;
                 }
-            }
-
-            const breadcrumbsExist = !!document.querySelector("tui-breadcrumbs");
-            if (!breadcrumbsExist && isInitialized) {
-                window.cuLmsLog("[LMS Extension] DOM reset detected, reinitializing...");
-                cleanup();
             }
 
             if (timeoutId) clearTimeout(timeoutId);
             timeoutId = setTimeout(async () => {
-                // Проверяем, есть ли таблица на странице
+
+                if (currentPath !== ALLOWED_PATH) {
+                    return;
+                }
+
                 const table = document.querySelector("tr[tuitr]");
+
                 if (table && !isInitialized) {
                     await initialize();
                 } else if (table && isInitialized && currentView === 'main') {
-                    // Обновляем кнопки только если мы в основном режиме
                     applyArchivedState();
                     addArchiveButtons();
                     addBreadcrumbNavigation();
@@ -654,12 +656,20 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
         observer.observe(mainContainer, { childList: true, subtree: true });
     }
 
+
     async function waitForAngularRender() {
-        const table = document.querySelector("tr[tuitr]");
-        if (table) {
+        const breadcrumbs = document.querySelector("tui-breadcrumbs");
+
+        if (breadcrumbs) {
+            window.cuLmsLog("[LMS Extension] Angular render detected (breadcrumbs found)");
             await new Promise(resolve => setTimeout(resolve, 100));
-            await initialize();
+
+            // Сначала запускаем наблюдатель
             initObserver();
+
+            // Потом пытаемся инициализироваться
+            // (initialize() сам проверит, нужно ли)
+            await initialize();
         } else {
             setTimeout(waitForAngularRender, 100);
         }
@@ -671,13 +681,12 @@ const ALLOWED_PATH = "/learn/reports/student-performance";
         waitForAngularRender();
     }
 
-    // Слушаем изменения темы
+    // Слушаем изменения темы (без изменений)
     browser.storage.onChanged.addListener((changes, namespace) => {
         if (namespace === 'sync' && changes.themeEnabled) {
             const isDarkTheme = !!changes.themeEnabled.newValue;
             currentTheme = isDarkTheme;
 
-            // Обновляем цвет всех иконок
             document.querySelectorAll('.lms-icon-span').forEach(iconSpan => {
                 iconSpan.style.backgroundColor = isDarkTheme ? "#FFFFFF" : "#4b5563";
             });
