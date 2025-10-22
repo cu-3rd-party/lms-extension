@@ -2,19 +2,18 @@
 
 if (!window.customSidebarObserverInitialized) {
     window.customSidebarObserverInitialized = true;
-    console.log('[CU Enhancer] Initializing sidebar script v48 (First-Click Fix)...');
+    console.log('[CU Enhancer] Initializing sidebar script v49 (Robust Template Fix)...');
 
     // --- CONFIGURATION AND CONSTANTS ---
     const TAB_ID = 'my-custom-courses-tab';
-    const TAB_TEXT = 'Открытая система курсов';
+    const TAB_TEXT = 'Открытая библиотека курсов';
     const SOURCE_ELEMENT_SELECTOR = 'a[href="/learn/tasks"]';
 
     const TARGET_URL = 'https://my.centraluniversity.ru/learn/courses/view/actual';
     const DISPLAY_URL = 'https://my.centraluniversity.ru/learn/courses/view/open-system';
     const TARGET_PATHNAME = '/learn/courses/view/actual'; // Specific pathname for precise checks
 
-    //const API_HOST = window.API_HOST;
-    const API_HOST = "https://127.0.0.1:8000"
+    const API_HOST = "https://fzhakov.online";
     const SESSION_STORAGE_KEY_COURSE_TARGET = 'customCourseTarget';
 
     // Keys for storing tokens in localStorage for persistence between sessions
@@ -511,7 +510,7 @@ if (!window.customSidebarObserverInitialized) {
             if (breadcrumbsContainer) {
                 const actualCoursesLink = breadcrumbsContainer.querySelector('a[href="/learn/courses/view/actual"]');
                 if (actualCoursesLink) {
-                    actualCoursesLink.textContent = 'Открытая система курсов';
+                    actualCoursesLink.textContent = 'Открытая библиотека курсов';
                     actualCoursesLink.href = DISPLAY_URL;
                 }
                 const lastBreadcrumbLink = breadcrumbsContainer.querySelector('a.breadcrumbs__item_last');
@@ -618,41 +617,110 @@ if (!window.customSidebarObserverInitialized) {
         }
     };
 
+    /**
+     * --- НОВАЯ УЛУЧШЕННАЯ ФУНКЦИЯ ---
+     * Динамически ищет подходящий курс для использования в качестве шаблона.
+     * Эта функция разделяет поиск визуального шаблона (карточки) и шаблона для контента (ID курса).
+     * 1. Находит любую видимую карточку курса на странице для использования в качестве `templateCourseCard`.
+     * 2. Через API находит первый попавшийся курс с темами для использования в качестве `templateCourseId`.
+     * @returns {Promise<{templateCourseId: number, templateCourseCard: HTMLElement}|null>}
+     */
+    async function findSuitableTemplateCourse() {
+        console.log('[CU Enhancer] Searching for a suitable template...');
+
+        // --- Шаг 1: Найти любую видимую карточку на странице для визуального шаблона ---
+        console.log('[CU Enhancer] Step 1: Finding a visible course card to use as a visual template...');
+        const courseList = await waitForElement('ul.course-list');
+        if (!courseList) {
+            console.error('[CU Enhancer] Course list (ul.course-list) not found on the page.');
+            return null;
+        }
+
+        // Берём первую карточку в списке. Селектор .course-card соответствует вашему HTML.
+        const templateCourseCard = courseList.querySelector('li.course-card');
+        if (!templateCourseCard) {
+            console.error('[CU Enhancer] No course cards found on the page to use as a visual template.');
+            return null;
+        }
+        console.log('[CU Enhancer] Found a visual card template.');
+
+
+        // --- Шаг 2: Найти ID курса с контентом через API для "хоста" ---
+        console.log('[CU Enhancer] Step 2: Finding a course with content via API to use as a host...');
+        const fetchFromCU = async (url) => {
+            const response = await fetch(url, {
+                headers: { 'accept': 'application/json' },
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error(`CU API request failed with status ${response.status}`);
+            return response.json();
+        };
+
+        try {
+            const coursesData = await fetchFromCU('https://my.centraluniversity.ru/api/micro-lms/courses/student?limit=10000');
+            const courses = coursesData.items || [];
+
+            if (courses.length === 0) {
+                console.warn('[CU Enhancer] No student courses found via API.');
+                return null;
+            }
+
+            for (const course of courses) {
+                const overview = await fetchFromCU(`https://my.centraluniversity.ru/api/micro-lms/courses/${course.id}/overview`);
+                const hasContent = overview && overview.themes && overview.themes.length > 0;
+
+                if (hasContent) {
+                    console.log(`[CU Enhancer] Found suitable content host: Course ID ${course.id}. Combining with visual template.`);
+                    // Успех! Возвращаем оба найденных компонента.
+                    return {
+                        templateCourseId: course.id,
+                        templateCourseCard: templateCourseCard,
+                    };
+                }
+            }
+
+            console.warn('[CU Enhancer] No courses with themes were found via API to use as a content host.');
+            return null;
+
+        } catch (error) {
+            console.error('[CU Enhancer] Failed to find a suitable content host course via API:', error);
+            return null;
+        }
+    }
+
+
     const applyModifications = async () => {
+        // Убедимся, что список есть, прежде чем искать шаблон
         const courseList = await waitForElement('ul.course-list');
         if (!courseList || courseList.dataset.modified === 'true') return;
+
+        // --- ИЗМЕНЕННАЯ ЛОГИКА ПОИСКА ШАБЛОНА ---
+        const templateInfo = await findSuitableTemplateCourse();
+
+        if (!templateInfo) {
+            console.error('[CU Enhancer] Could not find a suitable template. Aborting modification.');
+            showToast('Не удалось найти подходящий курс-шаблон. Открытая система недоступна.');
+            return;
+        }
+
+        const { templateCourseId, templateCourseCard } = templateInfo;
+        // --- КОНЕЦ ИЗМЕНЕННОЙ ЛОГИКИ ---
+
 
         const breadcrumbsContainer = document.querySelector('tui-breadcrumbs');
         if (breadcrumbsContainer) {
             const mainLink = breadcrumbsContainer.querySelector('a[href="/learn/"]');
             if (mainLink) mainLink.textContent = 'CU 3rd party ';
             const coursesLink = breadcrumbsContainer.querySelector('a[href="/learn/courses/view/actual"]');
-            if (coursesLink) coursesLink.textContent = 'Открытая система курсов';
+            if (coursesLink) coursesLink.textContent = 'Открытая библиотека курсов';
         }
         const pageTitle = document.querySelector('h1.page-title');
         if (pageTitle && !pageTitle.dataset.originalTitle) {
             pageTitle.dataset.originalTitle = pageTitle.textContent;
-            pageTitle.textContent = 'Открытая система курсов';
+            pageTitle.textContent = 'Открытая библиотека курсов';
         }
 
         courseList.classList.add('custom-courses-active');
-
-        const templateCourseCard = courseList.firstElementChild;
-        let templateCourseId = null;
-
-        if (!templateCourseCard) {
-            console.error('[CU Enhancer] Не найдена карточка-шаблон для клонирования!');
-            return;
-        }
-
-        const originalLink = templateCourseCard.querySelector('a');
-        if (originalLink && originalLink.href) {
-            const match = originalLink.href.match(/\/(\d+)$/);
-            if (match) templateCourseId = match[1];
-        } else {
-            templateCourseId = 587; // Fallback ID
-            console.warn(`[CU Enhancer] Could not find template course ID automatically. Using fallback ID: ${templateCourseId}`);
-        }
 
         const readmeData = { course_title: 'README', course_id: 'readme' };
         const readmeCard = createCustomCourseCard(readmeData, templateCourseCard, templateCourseId);
