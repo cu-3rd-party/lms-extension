@@ -492,6 +492,12 @@ if (!window.customSidebarObserverInitialized) {
         const courseData = JSON.parse(courseDataRaw);
         sessionStorage.removeItem(SESSION_STORAGE_KEY_COURSE_TARGET);
 
+        // --- README Special Handling ---
+        if (courseData.id === 'readme') {
+            await displayReadmeContent();
+            return; // Stop further execution for README
+        }
+
         try {
             console.log(`[CU Enhancer] Modifying course page for course ID: ${courseData.id}`);
 
@@ -621,6 +627,70 @@ if (!window.customSidebarObserverInitialized) {
             }
         }
     };
+
+    const displayReadmeContent = async () => {
+        try {
+            // --- FIXED BREADCRUMBS LOGIC ---
+            const breadcrumbsContainer = await waitForElement('cu-breadcrumbs'); // Changed selector for consistency
+            if (breadcrumbsContainer) {
+                const actualCoursesLink = breadcrumbsContainer.querySelector('a[href="/learn/courses/view/actual"]');
+                if (actualCoursesLink) {
+                    actualCoursesLink.textContent = 'Открытая библиотека курсов';
+                    actualCoursesLink.href = DISPLAY_URL;
+                }
+                const lastBreadcrumbLink = breadcrumbsContainer.querySelector('a.breadcrumbs__item_last');
+                if (lastBreadcrumbLink) {
+                    lastBreadcrumbLink.textContent = 'README'; // Set the title for README
+                    lastBreadcrumbLink.removeAttribute('href');
+                    lastBreadcrumbLink.style.pointerEvents = 'none';
+                    lastBreadcrumbLink.style.color = 'inherit';
+                }
+            }
+            // --- END OF FIX ---
+
+            const pageTitle = await waitForElement('h1.page-title');
+            if (pageTitle) {
+                pageTitle.textContent = 'README';
+            }
+
+            const accordion = await waitForElement('tui-accordion.themes-accordion');
+            const response = await authManager.fetchWithAuth(`${API_HOST}/api/readme`);
+
+            if (response.status === 404) {
+                console.warn('[CU Enhancer] /api/readme endpoint not found on the server.');
+                accordion.innerHTML = `
+                    <div style="padding: 25px; font-family: sans-serif; color: #333; background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; margin: 20px;">
+                        <h2 style="margin-top: 0; color: #d9534f;">Контент не найден (404)</h2>
+                        <p>Не удалось загрузить содержимое для README.</p>
+                        <p><b>Для разработчика:</b> Убедитесь, что ваш бэкенд-сервер запущен и имеет настроенный роут для <code>/api/readme</code>.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch README content: ${response.status} ${response.statusText}`);
+            }
+
+            const readmeHtml = await response.text();
+            accordion.innerHTML = readmeHtml;
+
+        } catch (error) {
+            console.error('[CU Enhancer] Error displaying README content:', error);
+            const accordion = document.querySelector('tui-accordion.themes-accordion');
+            if(accordion) {
+                 accordion.innerHTML = `
+                    <div style="padding: 25px; font-family: sans-serif; color: #333; background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; margin: 20px;">
+                         <h2 style="margin-top: 0; color: #d9534f;">Ошибка загрузки</h2>
+                         <p>Произошла ошибка при попытке загрузить README.</p>
+                         <p>Подробности: <strong>${error.message}</strong></p>
+                    </div>
+                 `;
+            }
+            showToast('Не удалось загрузить README. Проверьте консоль.');
+        }
+    };
+
 
     /**
      * --- НОВАЯ УЛУЧШЕННАЯ ФУНКЦИЯ ---
