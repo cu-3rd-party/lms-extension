@@ -1,10 +1,10 @@
-// homework_weight_fix.js (ИСПРАВЛЕННАЯ версия для Firefox)
+// homework_weight_fix.js (ФИНАЛЬНАЯ ВЕРСИЯ с ИСПРАВЛЕНИЕМ РАЗМЕРА ИКОНКИ)
 'use strict';
 
-/**
- * Основная функция, запускающая всю логику.
- */
-async function runLogic() {
+// --- ЧАСТЬ 1: ЛОГИКА ДЛЯ ОТОБРАЖЕНИЯ ВЕСА ЗАДАНИЯ ---
+// (Этот блок кода не менялся)
+
+async function processWeightInfo() {
     const match = window.location.pathname.match(/longreads\/(\d+)/);
     if (!match || document.querySelector('[data-culms-longread-weight]')) {
         return;
@@ -13,89 +13,69 @@ async function runLogic() {
     try {
         const apiResponse = await fetchLongreadData(longreadId);
         const weight = findWeightInApiResponse(apiResponse);
-        if (weight === null) {
-            window.cuLmsLog('Longread Weight: Weight not found in API response.');
-            return;
-        }
+        if (weight === null) return;
         const infoList = await waitForElement('ul.task-info');
-        if (infoList) {
-            insertWeightElement(infoList, weight);
-        }
+        if (infoList) insertWeightElement(infoList, weight);
     } catch (error) {
-        window.cuLmsLog('Longread Weight: Error:', error);
+        if (!error.message.includes('not found within')) {
+            console.error('Longread Weight: Error processing weight:', error);
+        }
     }
 }
-
-/**
- * Делает запрос к API и возвращает данные.
- */
 async function fetchLongreadData(longreadId) {
     const apiUrl = `https://my.centraluniversity.ru/api/micro-lms/longreads/${longreadId}/materials?limit=10000`;
-    // ИЗМЕНЕНИЕ: Добавлен параметр credentials, чтобы Firefox отправлял cookie для аутентификации.
     const response = await fetch(apiUrl, { credentials: 'include' });
-    if (!response.ok) {
-        throw new Error(`API request failed! Status: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`API request failed! Status: ${response.status}`);
     return await response.json();
 }
-
-/**
- * Находит первое валидное значение веса в ответе API.
- */
 function findWeightInApiResponse(data) {
     if (!data?.items?.length) return null;
-    const itemWithWeight = data.items.find(item =>
-        item?.estimation?.activity && typeof item.estimation.activity.weight === 'number'
-    );
+    const itemWithWeight = data.items.find(item => item?.estimation?.activity?.weight !== undefined);
     return itemWithWeight ? itemWithWeight.estimation.activity.weight : null;
 }
-
-/**
- * Ищет <li> по тексту в его заголовке.
- */
-function findItemByTitle(listElement, title) {
-    for (const li of listElement.querySelectorAll('.task-info__item')) {
+function findItemByTitle(list, title) {
+    for (const li of list.querySelectorAll('.task-info__item')) {
         const titleSpan = li.querySelector('.task-info__item-title');
-        if (titleSpan && titleSpan.textContent.trim() === title) {
-            return li;
-        }
+        if (titleSpan && titleSpan.textContent.trim() === title) return li;
     }
     return null;
 }
-
-/**
- * Клонирует подходящий элемент, заполняет его данными о весе и вставляет на страницу.
- */
 function insertWeightElement(infoList, weight) {
     if (infoList.querySelector('[data-culms-longread-weight]')) return;
-    const anchorItem = findItemByTitle(infoList, 'Статус');
-    if (!anchorItem) {
-        window.cuLmsLog('Longread Weight: Could not find "Статус" item to insert after.');
-        return;
+    const scoreIcon = infoList.querySelector('tui-icon[icon="cuIconAward02"]');
+    if (scoreIcon) {
+        const anchorItem = scoreIcon.closest('li.task-info__item');
+        if (anchorItem) {
+            const weightListItem = anchorItem.cloneNode(true);
+            weightListItem.setAttribute('data-culms-longread-weight', 'true');
+            const icon = weightListItem.querySelector('tui-icon');
+            if (icon) {
+                const newIconName = 'cuIconPieChart';
+                icon.setAttribute('icon', newIconName);
+                icon.style.setProperty('--t-icon', `url(/assets/cu/icons/${newIconName}.svg)`);
+            }
+            const valueSpan = weightListItem.querySelector('span.font-text-m');
+            if (valueSpan) valueSpan.textContent = `Вес: ${Math.round(weight * 100)}%`;
+            anchorItem.parentNode.insertBefore(weightListItem, anchorItem.nextSibling);
+        }
+    } else {
+        const anchorItemByTitle = findItemByTitle(infoList, 'Оценка');
+        if (anchorItemByTitle) {
+            const weightListItem = anchorItemByTitle.cloneNode(true);
+            weightListItem.setAttribute('data-culms-longread-weight', 'true');
+            const titleSpan = weightListItem.querySelector('.task-info__item-title');
+            if (titleSpan) titleSpan.textContent = 'Вес';
+            const valueSpan = titleSpan.nextElementSibling;
+            if (valueSpan) valueSpan.textContent = ` ${Math.round(weight * 100)}% `;
+            anchorItemByTitle.parentNode.insertBefore(weightListItem, anchorItemByTitle.nextSibling);
+        }
     }
-    const cloneSourceItem = findItemByTitle(infoList, 'Оценка') || findItemByTitle(infoList, 'Дедлайн');
-    if (!cloneSourceItem) {
-        window.cuLmsLog('Longread Weight: Could not find a suitable item to clone.');
-        return;
-    }
-    const weightListItem = cloneSourceItem.cloneNode(true);
-    weightListItem.setAttribute('data-culms-longread-weight', 'true');
-    const titleSpan = weightListItem.querySelector('.task-info__item-title');
-    const valueSpan = weightListItem.querySelectorAll('span')[1];
-    if (titleSpan) titleSpan.textContent = 'Вес';
-    if (valueSpan) valueSpan.innerHTML = ` ${Math.round(weight * 100)}% `;
-    anchorItem.parentNode.insertBefore(weightListItem, anchorItem.nextSibling);
-    window.cuLmsLog('Longread Weight: Weight info added successfully.');
 }
-
-/**
- * Ожидает появления элемента в DOM.
- */
-function waitForElement(selector, timeout = 10000) {
+function waitForElement(selector, timeout = 5000) {
     return new Promise((resolve, reject) => {
         const element = document.querySelector(selector);
         if (element) return resolve(element);
-        const observer = new MutationObserver((mutations, obs) => {
+        const observer = new MutationObserver((_, obs) => {
             const foundElement = document.querySelector(selector);
             if (foundElement) {
                 obs.disconnect();
@@ -110,5 +90,36 @@ function waitForElement(selector, timeout = 10000) {
     });
 }
 
-// --- Запускаем основную логику ---
-runLogic();
+// --- ЧАСТЬ 2: ЛОГИКА ДЛЯ ЗАМЕНЫ ИКОНКИ (С ИЗМЕНЕНИЯМИ) ---
+
+function persistentIconReplacer() {
+    const originalIconSrcPart = "task-card-preview.svg";
+    const newIconUrl = browser.runtime.getURL('icons/task-card-preview.svg'); // Убедитесь, что имя файла верное
+    const processedAttribute = 'data-culms-icon-replaced';
+
+    const iconObserver = new MutationObserver(() => {
+        const iconsToReplace = document.querySelectorAll(`img[src*="${originalIconSrcPart}"]:not([${processedAttribute}])`);
+        
+        for (const icon of iconsToReplace) {
+            icon.src = newIconUrl;
+            icon.setAttribute(processedAttribute, 'true');
+            
+            // --- ДОБАВЛЕННЫЕ СТРОКИ ---
+            // Принудительно задаем размеры, чтобы картинка не схлопывалась
+            icon.style.width = '148px';
+            icon.style.height = '150px';
+            // -------------------------
+
+            console.log('Icon replaced and resized successfully.');
+        }
+    });
+
+    iconObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+// --- ЗАПУСК ВСЕГО ---
+persistentIconReplacer();
+const navigationObserver = new MutationObserver(() => {
+    processWeightInfo();
+});
+navigationObserver.observe(document.body, { childList: true, subtree: true });
