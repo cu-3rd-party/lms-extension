@@ -38,24 +38,33 @@ if (document.readyState === 'loading') {
  * Главная функция. Устанавливает наблюдателей и запускает первую отрисовку.
  */
 function main() {
-    browser.storage.onChanged.addListener((changes) => {
+   browser.storage.onChanged.addListener(async (changes) => {
         if (changes.oldCoursesDesignToggle) {
             window.location.reload();
             return;
         }
 
+        // Если что-то поменялось, пересобираем курсы и ждём завершения
         if (changes.archivedCourseIds || changes.themeEnabled) {
             console.log('Course Archiver: Storage changed, re-rendering.');
-            const currentPath = window.location.pathname;
-            const isOnArchivedPage = currentPath.includes('/courses/view/archived');
-            browser.storage.sync.get('oldCoursesDesignToggle').then((designData) => {
-                const useOldDesign = !!designData.oldCoursesDesignToggle;
-                if (!isOnArchivedPage || !useOldDesign) {
-                    processCourses();
-                }
-            });
+            try {
+                // processCourses асинхронна — ждём, чтобы кнопки были созданы/обновлены
+                await processCourses();
+            } catch (e) {
+                console.error('Error during processCourses after storage change', e);
+            }
         }
-    });
+
+        // Теперь применяем цвета (await не нужен — processCourses уже завершился)
+        if (changes.themeEnabled) {
+            const isDark = !!changes.themeEnabled.newValue;
+            updateArchiveButtonColors(isDark);
+        }
+
+        // на всякий случай лог (удали если шумит)
+        console.log('storage.onChanged processed', changes);
+});
+
 
     const observer = new MutationObserver(() => {
         if (location.href !== currentUrl) {
@@ -69,6 +78,13 @@ function main() {
     processCourses();
 }
 
+function updateArchiveButtonColors(isDarkTheme) {
+    const color = isDarkTheme ? '#FFFFFF' : '#181a1c';
+    document.querySelectorAll('.archive-button-container span').forEach(iconSpan => {
+        // Устанавливаем с приоритетом !important чтобы точно перезаписать существующий inline !important
+        iconSpan.style.setProperty('background-color', color, 'important');
+    });
+}
 /**
  * Главная функция-роутер. Запускает логику для страницы и исправляет стили.
  */
@@ -100,6 +116,37 @@ async function processCourses() {
         console.log("Course Archiver: Not a course page, or content failed to load in time.", e);
     }
 }
+const archiveButtonsObserver = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+            if (node.nodeType !== 1) return;
+            // если добавили контейнер кнопки целиком
+            if (node.matches && node.matches('.archive-button-container')) {
+                // получаем текущую тему синхронно
+                browser.storage.sync.get('themeEnabled').then(data => {
+                    const isDark = !!data.themeEnabled;
+                    node.querySelectorAll('span').forEach(span => {
+                        span.style.setProperty('background-color', isDark ? '#FFFFFF' : '#181a1c', 'important');
+                    });
+                });
+            } else {
+                // или внутри добавленного узла могли быть новые кнопки
+                const found = node.querySelector && node.querySelectorAll && node.querySelectorAll('.archive-button-container span');
+                if (found && found.length) {
+                    browser.storage.sync.get('themeEnabled').then(data => {
+                        const isDark = !!data.themeEnabled;
+                        node.querySelectorAll('.archive-button-container span').forEach(span => {
+                            span.style.setProperty('background-color', isDark ? '#FFFFFF' : '#181a1c', 'important');
+                        });
+                    });
+                }
+            }
+        });
+    });
+});
+
+
+archiveButtonsObserver.observe(document.body, { childList: true, subtree: true });
 
 
 // --- НОВАЯ ФУНКЦИЯ: Восстановление цветов иконок ---
