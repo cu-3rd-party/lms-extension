@@ -1,9 +1,7 @@
-if (typeof importScripts === 'function') {
-    try {
-        importScripts('browser-polyfill.js');
-    } catch (e) {
-        window.cuLmsLog("Running in a non-MV3 environment or Firefox.");
-    }
+try {
+    importScripts('browser-polyfill.js');
+} catch (e) {
+    console.log("Running in a non-MV3 environment or Firefox.");
 }
 
 let courseListObserver = null;
