@@ -260,7 +260,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     }
 
     // --- ЛОГИКА ФИЛЬТРОВ (С СОХРАНЕНИЕМ ПАРАМЕТРОВ) ---
-    const HARDCODED_STATUSES = ["В работе", "Есть решение", "Ревью", "Бэклог", "Аудиторная"];
+    const HARDCODED_STATUSES = ["В работе", "Есть решение", "На проверке", "Не начато", "Аудиторная"];
     const masterCourseList = new Set();
     let selectedStatuses = new Set(HARDCODED_STATUSES);
     let selectedCourses = new Set();
