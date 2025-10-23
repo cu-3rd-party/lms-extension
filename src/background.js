@@ -54,10 +54,4 @@ function handleNavigation(tabId, url) {
             files: ["archive-statements.js"]
         }).catch(err => console.error(`[BG_LOG] Error injecting reports scripts:`, err))
     }
-    if (url.includes("/learn/reports/student-performance")) {
-         browser.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ["archive-statements.js"]
-        }).catch(err => console.error(`[BG_LOG] Error injecting reports scripts:`, err))
-    }
 }
