@@ -1,9 +1,11 @@
 // background.js (Эта версия ПРАВИЛЬНАЯ, ее менять не нужно)
 
-try {
-    importScripts('browser-polyfill.js');
-} catch (e) {
-    window.cuLmsLog("Running in a non-MV3 environment or Firefox.");
+if (typeof importScripts === 'function') {
+    try {
+        importScripts('browser-polyfill.js');
+    } catch (e) {
+        window.cuLmsLog("Running in a non-MV3 environment or Firefox.");
+    }
 }
 
 browser.webNavigation.onHistoryStateUpdated.addListener(details => {
