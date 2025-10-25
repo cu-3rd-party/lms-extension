@@ -122,6 +122,21 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         const modalTextColor = `var(--tui-text-01, ${isDarkTheme ? '#e0e0e0' : '#333'})`;
         const iconColor = isDarkTheme ? '#FFFFFF' : 'var(--tui-status-attention, #000000)';
 
+        // ПРАВИЛО ДЛЯ ИНВЕРТИРОВАНИЯ ЦВЕТА ГАЛОЧКИ В ТЕМНОЙ ТЕМЕ
+        const checkboxThemeStyle = isDarkTheme
+            ? `
+            /* Находим именно отмеченный чекбокс в темной теме */
+            input[tuicheckbox][data-appearance="primary"]:checked {
+                /* 
+                * Эта комбинация фильтров надежно превращает черную иконку в белую.
+                * brightness(0) делает иконку полностью черной, а invert(1) инвертирует ее в белый.
+                * !important нужен, чтобы перебить стили самой библиотеки.
+                */
+                filter: brightness(0) invert(1) !important;
+            }
+        `
+            : '';
+
         const cssRules = `
             tr[data-culms-row-type="seminar"] { background-color: ${seminarRowBg} !important; }
             .state-chip[data-culms-status="seminar"] { background-color: ${seminarChipBg} !important; color: white !important; ${isDarkTheme ? 'border: 1px solid #444;' : ''} }
@@ -140,6 +155,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             .culms-modal-buttons button { margin: 0 10px; padding: 8px 16px; border-radius: 5px; border: 1px solid transparent; cursor: pointer; font-weight: bold; }
             .culms-modal-confirm { background-color: #28a745; color: white; border-color: #28a745; }
             .culms-modal-cancel { background-color: #dc3545; color: white; border-color: #dc3545; }
+            .state-chip[data-culms-status="solved"] {
+            background-color: ${solvedChipBg} !important;
+            color: white !important;
+            }
+            ${checkboxThemeStyle}
+        
         `;
         const styleElement = document.createElement('style');
         styleElement.id = styleId;
