@@ -117,6 +117,21 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         const seminarChipBg = '#000000';
         const solvedChipBg = '#28a745';
 
+        // ПРАВИЛО ДЛЯ ИНВЕРТИРОВАНИЯ ЦВЕТА ГАЛОЧКИ В ТЕМНОЙ ТЕМЕ
+        const checkboxThemeStyle = isDarkTheme
+            ? `
+            /* Находим именно отмеченный чекбокс в темной теме */
+            input[tuicheckbox][data-appearance="primary"]:checked {
+                /* 
+                * Эта комбинация фильтров надежно превращает черную иконку в белую.
+                * brightness(0) делает иконку полностью черной, а invert(1) инвертирует ее в белый.
+                * !important нужен, чтобы перебить стили самой библиотеки.
+                */
+                filter: brightness(0) invert(1) !important;
+            }
+        `
+            : '';
+
         const cssRules = `
         tr[data-culms-row-type="seminar"] { background-color: ${seminarRowBg} !important; }
         .state-chip[data-culms-status="seminar"] {
@@ -128,6 +143,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             background-color: ${solvedChipBg} !important;
             color: white !important;
         }
+        ${checkboxThemeStyle}
     `;
 
         const styleElement = document.createElement('style');
