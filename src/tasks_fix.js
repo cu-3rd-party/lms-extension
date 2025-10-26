@@ -74,7 +74,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
     async function runLogic() {
         try {
-            injectDynamicStyles();
+            refreshDynamicStyles();
             await waitForElement('tr[class*="task-table__task"]');
             window.cuLmsLog('Task Status Updater: Task rows found. Starting DOM modification.');
             const settings = await browser.storage.sync.get('emojiHeartsEnabled');
@@ -99,7 +99,11 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             const url = browser.runtime.getURL(`icons/${iconName}.svg`);
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`);
-            const text = await response.text();
+            let text = await response.text();
+
+            // Удаляем атрибуты fill и stroke, чтобы цвет полностью управлялся через CSS
+            text = text.replace(/ (fill|stroke)="[^"]+"/g, '');
+
             const sanitizedText = text.replace(/<\?xml.*?\?>/g, '').replace(/<!DOCTYPE.*?>/g, '');
             svgIconCache[iconName] = sanitizedText;
             return sanitizedText;
@@ -109,7 +113,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         }
     }
 
-    function injectDynamicStyles() {
+    function refreshDynamicStyles() {
         const styleId = 'culms-tasks-fix-styles';
         if (document.getElementById(styleId)) document.getElementById(styleId).remove();
 
@@ -117,21 +121,14 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         const seminarRowBg = isDarkTheme ? 'rgb(20,20,20)' : '#E0E0E0';
         const seminarChipBg = '#000000';
         const solvedChipBg = '#28a745';
-        const skippedChipBg = '#b516d7'; // Измененный цвет
+        const skippedChipBg = '#b516d7';
         const modalBgColor = `var(--tui-base-01, ${isDarkTheme ? '#2d2d2d' : 'white'})`;
         const modalTextColor = `var(--tui-text-01, ${isDarkTheme ? '#e0e0e0' : '#333'})`;
         const iconColor = isDarkTheme ? '#FFFFFF' : 'var(--tui-status-attention, #000000)';
 
-        // ПРАВИЛО ДЛЯ ИНВЕРТИРОВАНИЯ ЦВЕТА ГАЛОЧКИ В ТЕМНОЙ ТЕМЕ
         const checkboxThemeStyle = isDarkTheme
             ? `
-            /* Находим именно отмеченный чекбокс в темной теме */
             input[tuicheckbox][data-appearance="primary"]:checked {
-                /* 
-                * Эта комбинация фильтров надежно превращает черную иконку в белую.
-                * brightness(0) делает иконку полностью черной, а invert(1) инвертирует ее в белый.
-                * !important нужен, чтобы перебить стили самой библиотеки.
-                */
                 filter: brightness(0) invert(1) !important;
             }
         `
@@ -146,8 +143,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             .culms-late-days-container { display: flex; align-items: center; justify-content: flex-start; }
             .culms-action-button { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; height: 24px; width: 24px; padding: 0; margin-right: 8px; opacity: 0.6; transition: opacity 0.2s; }
             .culms-action-button:hover { opacity: 1; }
-            .culms-action-button svg { width: 18px; height: 18px; color: ${iconColor}; }
-            .culms-action-button svg path { fill: currentColor; }
+            /* Управляем цветом через SVG, а не через path для большей надежности */
+            .culms-action-button svg { width: 18px; height: 18px; color: ${iconColor}; fill: currentColor; }
 
             .culms-modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 1050; display: flex; align-items: center; justify-content: center; }
             .culms-modal-content { background: ${modalBgColor}; color: ${modalTextColor}; padding: 24px 30px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); max-width: 400px; }
@@ -155,12 +152,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             .culms-modal-buttons button { margin: 0 10px; padding: 8px 16px; border-radius: 5px; border: 1px solid transparent; cursor: pointer; font-weight: bold; }
             .culms-modal-confirm { background-color: #28a745; color: white; border-color: #28a745; }
             .culms-modal-cancel { background-color: #dc3545; color: white; border-color: #dc3545; }
-            .state-chip[data-culms-status="solved"] {
-            background-color: ${solvedChipBg} !important;
-            color: white !important;
-            }
             ${checkboxThemeStyle}
-        
         `;
         const styleElement = document.createElement('style');
         styleElement.id = styleId;
@@ -294,6 +286,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         const iconName = isSkipped ? 'cancelskip' : 'skip';
         button.innerHTML = await getIconSVG(iconName);
         button.title = isSkipped ? 'Отменить метод скипа' : 'Применить метод скипа';
+        button.dataset.isSkipped = isSkipped;
     }
 
     function handleSkipTask(task, row, statusElement, button) {
@@ -558,6 +551,28 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         if (checkbox) checkbox.checked = isSelected;
         return button;
     }
+    
+    // ИСПРАВЛЕННЫЙ СЛУШАТЕЛЬ С ЗАДЕРЖКОЙ
+    browser.storage.onChanged.addListener((changes) => {
+        if (changes.themeEnabled) {
+            // Запускаем обновление с небольшой задержкой, чтобы избежать гонки состояний
+            setTimeout(() => {
+                window.cuLmsLog('Task Status Updater: Theme changed, refreshing styles and icons...');
+                
+                // Шаг 1: Обновляем CSS-переменные
+                refreshDynamicStyles();
+                
+                // Шаг 2: Очищаем кэш SVG, чтобы они гарантированно были перерисованы без fill
+                Object.keys(svgIconCache).forEach(key => delete svgIconCache[key]);
+
+                // Шаг 3: Находим все кнопки и принудительно обновляем их иконки
+                document.querySelectorAll('.culms-action-button').forEach(button => {
+                    const isSkipped = button.dataset.isSkipped === 'true';
+                    updateButtonIcon(button, isSkipped); 
+                });
+            }, 100); // 100 миллисекунд — надежная задержка
+        }
+    });
 
     // --- Запуск скрипта ---
     throttledCheckAndRun();
