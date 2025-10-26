@@ -45,7 +45,7 @@ function handleNavigation(tabId, url) {
     if (url.includes("/longreads/")) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
-            files: ["homework_weight_fix.js", "instant_doc_view_fix.js"]
+            files: ["homework_weight_fix.js", "instant_doc_view_fix.js", "task_status_adaptation.js"]
         }).catch(err => window.cuLmsLog(`[BG_LOG] Error injecting Longreads scripts:`, err));
     }
     if (url.includes("/learn/reports/student-performance")) {
