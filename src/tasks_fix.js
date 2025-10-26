@@ -115,7 +115,10 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
     function refreshDynamicStyles() {
         const styleId = 'culms-tasks-fix-styles';
-        if (document.getElementById(styleId)) document.getElementById(styleId).remove();
+        // Удаляем старые стили, если они есть
+        if (document.getElementById(styleId)) {
+            document.getElementById(styleId).remove();
+        }
 
         const isDarkTheme = !!document.getElementById('culms-dark-theme-style-base');
         const seminarRowBg = isDarkTheme ? 'rgb(20,20,20)' : '#E0E0E0';
@@ -135,6 +138,10 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             : '';
 
         const cssRules = `
+            /* 1. Импортируем шрифт Inter с нужным начертанием (400) с Google Fonts */
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+            /* --- Стили таблицы (остаются без изменений) --- */
             tr[data-culms-row-type="seminar"] { background-color: ${seminarRowBg} !important; }
             .state-chip[data-culms-status="seminar"] { background-color: ${seminarChipBg} !important; color: white !important; ${isDarkTheme ? 'border: 1px solid #444;' : ''} }
             .state-chip[data-culms-status="solved"] { background-color: ${solvedChipBg} !important; color: white !important; }
@@ -143,15 +150,45 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             .culms-late-days-container { display: flex; align-items: center; justify-content: flex-start; }
             .culms-action-button { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; height: 24px; width: 24px; padding: 0; margin-right: 8px; opacity: 0.6; transition: opacity 0.2s; }
             .culms-action-button:hover { opacity: 1; }
-            /* Управляем цветом через SVG, а не через path для большей надежности */
             .culms-action-button svg { width: 18px; height: 18px; color: ${iconColor}; fill: currentColor; }
 
+            /* --- Стили модального окна (ОБНОВЛЕНЫ) --- */
             .culms-modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 1050; display: flex; align-items: center; justify-content: center; }
-            .culms-modal-content { background: ${modalBgColor}; color: ${modalTextColor}; padding: 24px 30px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); max-width: 400px; }
-            .culms-modal-content p { margin: 0 0 20px 0; font-size: 16px; }
-            .culms-modal-buttons button { margin: 0 10px; padding: 8px 16px; border-radius: 5px; border: 1px solid transparent; cursor: pointer; font-weight: bold; }
+            
+            .culms-modal-content {
+                background: ${modalBgColor};
+                color: ${modalTextColor};
+                padding: 24px 30px;
+                border-radius: 12px;
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                max-width: 400px;
+                /* 2. Применяем семейство шрифтов ко всему модальному окну */
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Segoe UI", "Helvetica Neue", sans-serif;
+            }
+
+            .culms-modal-content p {
+                margin: 0 0 20px 0;
+                /* 3. Применяем точные параметры шрифта к тексту сообщения */
+                font-weight: 400;
+                font-size: 1rem;
+                line-height: 1.5rem;
+                font-style: normal;
+            }
+
+            .culms-modal-buttons button {
+                margin: 0 10px;
+                padding: 8px 16px;
+                border-radius: 5px;
+                border: 1px solid transparent;
+                cursor: pointer;
+                font-weight: bold; /* Кнопки обычно делают жирнее для акцента */
+                font-family: inherit; /* Наследуем 'Inter' от родителя */
+            }
+            
             .culms-modal-confirm { background-color: #28a745; color: white; border-color: #28a745; }
             .culms-modal-cancel { background-color: #dc3545; color: white; border-color: #dc3545; }
+            
             ${checkboxThemeStyle}
         `;
         const styleElement = document.createElement('style');
