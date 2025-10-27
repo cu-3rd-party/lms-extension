@@ -22,6 +22,14 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                   opacity: 1 !important;
                   visibility: visible !important
               }
+              li.course-card {
+                  cursor: grab;
+                  user-select: none;
+              }
+              li.course-card.dragging {
+                  opacity: 0.5;
+                  cursor: grabbing;
+              }
           `;
             document.head.appendChild(style);
         }
@@ -148,9 +156,102 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                 courseList.classList.add('course-archiver-ready');
             }
 
+            // Apply custom order and enable drag-and-drop
+            await applyCustomOrder(courseList);
+            setupDragAndDrop(courseList);
+
         } catch (e) {
             window.cuLmsLog("Course Archiver: Not a course page, or content failed to load in time.", e);
         }
+    }
+
+    async function getCustomOrder() {
+        try {
+            const data = await browser.storage.local.get('courseOrder');
+            return data.courseOrder || [];
+        } catch (e) {
+            console.error('Failed to get custom order:', e);
+            return [];
+        }
+    }
+
+    async function saveCustomOrder(order) {
+        try {
+            await browser.storage.local.set({ courseOrder: order });
+        } catch (e) {
+            console.error('Failed to save custom order:', e);
+        }
+    }
+
+    async function applyCustomOrder(courseList) {
+        const customOrder = await getCustomOrder();
+        if (!customOrder.length) return;
+
+        const courses = Array.from(courseList.children);
+        const courseMap = new Map(courses.map(course => [course.getAttribute('data-course-id'), course]));
+
+        // Remove all courses
+        courses.forEach(course => course.remove());
+
+        // Add courses in custom order first
+        customOrder.forEach(courseId => {
+            const course = courseMap.get(courseId);
+            if (course) {
+                courseList.appendChild(course);
+                courseMap.delete(courseId);
+            }
+        });
+
+        // Add remaining courses at the end
+        courseMap.forEach(course => {
+            courseList.appendChild(course);
+        });
+    }
+
+    function setupDragAndDrop(courseList) {
+        const courses = courseList.querySelectorAll('li.course-card');
+        courses.forEach(course => {
+            course.draggable = true;
+            
+            course.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', course.getAttribute('data-course-id'));
+                course.classList.add('dragging');
+            });
+
+            course.addEventListener('dragend', () => {
+                course.classList.remove('dragging');
+            });
+
+            course.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const draggedItem = courseList.querySelector('.dragging');
+                if (!draggedItem) return;
+
+                const siblings = [...courseList.querySelectorAll('li.course-card:not(.dragging)')];
+                const nextSibling = siblings.find(sibling => {
+                    const rect = sibling.getBoundingClientRect();
+                    const offset = e.clientY - rect.top - rect.height / 2;
+                    return offset < 0;
+                });
+
+                if (nextSibling) {
+                    courseList.insertBefore(draggedItem, nextSibling);
+                } else {
+                    courseList.appendChild(draggedItem);
+                }
+            });
+
+            course.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const draggedCourseId = e.dataTransfer.getData('text/plain');
+                const draggedCourse = courseList.querySelector(`[data-course-id="${draggedCourseId}"]`);
+                const siblings = Array.from(courseList.querySelectorAll('li.course-card'));
+                
+                // Save the new order
+                const newOrder = siblings.map(sibling => sibling.getAttribute('data-course-id'));
+                saveCustomOrder(newOrder);
+            });
+        });
     }
 
     function restoreSkillLevelIconColors() {
