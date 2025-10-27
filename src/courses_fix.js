@@ -6,7 +6,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     'use strict';
     let currentUrl = location.href;
 
-    (async function() {
+    (async function () {
         const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
         const useOldDesign = !!designData.oldCoursesDesignToggle;
 
@@ -185,10 +185,10 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
 
     async function applyCustomOrder(courseList) {
         if (!courseList) return;
-        
+
         const customOrder = await getCustomOrder();
         const courses = Array.from(courseList.children);
-        
+
         // If no custom order exists, save the current order
         if (!customOrder.length) {
             const initialOrder = courses.map(course => course.getAttribute('data-course-id')).filter(Boolean);
@@ -251,7 +251,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         function handleDragEnd(e) {
             this.classList.remove('dragging');
             draggedElement = null;
-            
+
             // Save the new order after drag ends
             const newOrder = Array.from(courseList.children)
                 .map(item => item.getAttribute('data-course-id'))
@@ -262,12 +262,12 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         function handleDragOver(e) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            
+
             if (!draggedElement) return;
 
             const rect = this.getBoundingClientRect();
             const midY = rect.top + (rect.height / 2);
-            
+
             if (e.clientY < midY) {
                 this.parentNode.insertBefore(draggedElement, this);
             } else {
@@ -345,8 +345,8 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             if (!courseData) return;
 
             const courseId = courseData.id;
-                // Ensure the DOM element knows its course id for ordering and persistence
-                try { card.setAttribute('data-course-id', courseId); } catch (e) { /* ignore */ }
+            // Ensure the DOM element knows its course id for ordering and persistence
+            try { card.setAttribute('data-course-id', courseId); } catch (e) { /* ignore */ }
             const isLocallyArchived = storedArchivedCourseIds.has(courseId);
 
             if (isLocallyArchived) {
@@ -359,12 +359,10 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     }
 
     async function renderArchivedPageFromScratch() {
-                        const currentIds = courses.map(c => c.getAttribute && c.getAttribute('data-course-id')).filter(Boolean);
-                        if (currentIds.length > 0) {
-                            await saveCustomOrder(currentIds);
-                        }
-                        // Nothing to apply if there is no stored order and we couldn't derive IDs
-                        return;
+        const currentIds = courses.map(c => c.getAttribute && c.getAttribute('data-course-id')).filter(Boolean);
+        if (currentIds.length > 0) {
+            await saveCustomOrder(currentIds);
+        }
         const themeData = await browser.storage.sync.get('themeEnabled');
         const isDarkTheme = !!themeData.themeEnabled;
 
