@@ -345,6 +345,8 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             if (!courseData) return;
 
             const courseId = courseData.id;
+                // Ensure the DOM element knows its course id for ordering and persistence
+                try { card.setAttribute('data-course-id', courseId); } catch (e) { /* ignore */ }
             const isLocallyArchived = storedArchivedCourseIds.has(courseId);
 
             if (isLocallyArchived) {
@@ -357,11 +359,12 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     }
 
     async function renderArchivedPageFromScratch() {
-        const courseListContainer = document.querySelector('ul.course-list');
-        if (!courseListContainer) return;
-
-        const storedArchivedCourseIds = await getArchivedCoursesFromStorage();
-        const allApiCourses = await fetchAllCoursesData();
+                        const currentIds = courses.map(c => c.getAttribute && c.getAttribute('data-course-id')).filter(Boolean);
+                        if (currentIds.length > 0) {
+                            await saveCustomOrder(currentIds);
+                        }
+                        // Nothing to apply if there is no stored order and we couldn't derive IDs
+                        return;
         const themeData = await browser.storage.sync.get('themeEnabled');
         const isDarkTheme = !!themeData.themeEnabled;
 
