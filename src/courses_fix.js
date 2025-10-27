@@ -184,73 +184,119 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     }
 
     async function applyCustomOrder(courseList) {
+        if (!courseList) return;
+        
         const customOrder = await getCustomOrder();
-        if (!customOrder.length) return;
-
         const courses = Array.from(courseList.children);
-        const courseMap = new Map(courses.map(course => [course.getAttribute('data-course-id'), course]));
+        
+        // If no custom order exists, save the current order
+        if (!customOrder.length) {
+            const initialOrder = courses.map(course => course.getAttribute('data-course-id')).filter(Boolean);
+            if (initialOrder.length > 0) {
+                await saveCustomOrder(initialOrder);
+                return;
+            }
+        }
 
-        // Remove all courses
-        courses.forEach(course => course.remove());
+        // Create a map of all current courses
+        const courseMap = new Map();
+        courses.forEach(course => {
+            const id = course.getAttribute('data-course-id');
+            if (id) courseMap.set(id, course);
+        });
 
-        // Add courses in custom order first
-        customOrder.forEach(courseId => {
-            const course = courseMap.get(courseId);
-            if (course) {
-                courseList.appendChild(course);
+        // Create a new array to store the final order
+        const finalOrder = [];
+
+        // First, add courses that are in the custom order
+        for (const courseId of customOrder) {
+            if (courseMap.has(courseId)) {
+                finalOrder.push(courseId);
                 courseMap.delete(courseId);
             }
+        }
+
+        // Then add any new courses that weren't in the custom order
+        courseMap.forEach((course, id) => {
+            finalOrder.push(id);
         });
 
-        // Add remaining courses at the end
-        courseMap.forEach(course => {
-            courseList.appendChild(course);
-        });
+        // Save the final order
+        await saveCustomOrder(finalOrder);
+
+        // Apply the order to the DOM
+        const fragment = document.createDocumentFragment();
+        for (const courseId of finalOrder) {
+            const course = courseList.querySelector(`[data-course-id="${courseId}"]`);
+            if (course) {
+                fragment.appendChild(course);
+            }
+        }
+        courseList.innerHTML = '';
+        courseList.appendChild(fragment);
     }
 
     function setupDragAndDrop(courseList) {
-        const courses = courseList.querySelectorAll('li.course-card');
-        courses.forEach(course => {
-            course.draggable = true;
+        if (!courseList) return;
+
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.getAttribute('data-course-id'));
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            draggedElement = null;
             
-            course.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', course.getAttribute('data-course-id'));
-                course.classList.add('dragging');
-            });
+            // Save the new order after drag ends
+            const newOrder = Array.from(courseList.children)
+                .map(item => item.getAttribute('data-course-id'))
+                .filter(Boolean);
+            saveCustomOrder(newOrder);
+        }
 
-            course.addEventListener('dragend', () => {
-                course.classList.remove('dragging');
-            });
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            if (!draggedElement) return;
 
-            course.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                const draggedItem = courseList.querySelector('.dragging');
-                if (!draggedItem) return;
+            const rect = this.getBoundingClientRect();
+            const midY = rect.top + (rect.height / 2);
+            
+            if (e.clientY < midY) {
+                this.parentNode.insertBefore(draggedElement, this);
+            } else {
+                this.parentNode.insertBefore(draggedElement, this.nextSibling);
+            }
+        }
 
-                const siblings = [...courseList.querySelectorAll('li.course-card:not(.dragging)')];
-                const nextSibling = siblings.find(sibling => {
-                    const rect = sibling.getBoundingClientRect();
-                    const offset = e.clientY - rect.top - rect.height / 2;
-                    return offset < 0;
-                });
+        function handleDrop(e) {
+            e.preventDefault();
+        }
 
-                if (nextSibling) {
-                    courseList.insertBefore(draggedItem, nextSibling);
-                } else {
-                    courseList.appendChild(draggedItem);
-                }
-            });
+        // Remove existing event listeners first
+        const existingCards = courseList.querySelectorAll('li.course-card');
+        existingCards.forEach(card => {
+            card.draggable = false;
+            card.removeEventListener('dragstart', handleDragStart);
+            card.removeEventListener('dragend', handleDragEnd);
+            card.removeEventListener('dragover', handleDragOver);
+            card.removeEventListener('drop', handleDrop);
+        });
 
-            course.addEventListener('drop', (e) => {
-                e.preventDefault();
-                const draggedCourseId = e.dataTransfer.getData('text/plain');
-                const draggedCourse = courseList.querySelector(`[data-course-id="${draggedCourseId}"]`);
-                const siblings = Array.from(courseList.querySelectorAll('li.course-card'));
-                
-                // Save the new order
-                const newOrder = siblings.map(sibling => sibling.getAttribute('data-course-id'));
-                saveCustomOrder(newOrder);
-            });
+        // Add new event listeners
+        const cards = courseList.querySelectorAll('li.course-card');
+        cards.forEach(card => {
+            card.draggable = true;
+            card.addEventListener('dragstart', handleDragStart);
+            card.addEventListener('dragend', handleDragEnd);
+            card.addEventListener('dragover', handleDragOver);
+            card.addEventListener('drop', handleDrop);
         });
     }
 
