@@ -3,6 +3,39 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
     'use strict';
 
+    // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ДЛЯ УПРАВЛЕНИЯ СОСТОЯНИЕМ ---
+    let dropdownObserver = null; // Будем хранить здесь наблюдателя за фильтрами
+    let isCleanedUp = false;     // Флаг, чтобы очистка не запускалась многократно
+
+    // --- ПРОВЕРКА URL ПРИ НАВИГАЦИИ ВНУТРИ SPA ---
+    const isArchivedPage = () => window.location.href.includes('/tasks/archived-student-tasks');
+
+    // --- ОБНОВЛЕННАЯ ФУНКЦИЯ ОЧИСТКИ ---
+    function cleanupModifications() {
+        // 1. Отключаем наблюдателя за выпадающими списками.
+        // ЭТО КЛЮЧЕВОЙ ШАГ для возврата оригинальных фильтров.
+        if (dropdownObserver) {
+            dropdownObserver.disconnect();
+            dropdownObserver = null;
+            window.cuLmsLog('Task Status Updater: Dropdown observer disconnected.');
+        }
+
+        // 2. Удаляем элементы из таблицы
+        document.querySelector('[data-culms-weight-header]')?.remove();
+        document.querySelectorAll('tr[class*="task-table__task"]').forEach(row => {
+            row.querySelector('[data-culms-weight-cell]')?.remove();
+            row.querySelector('.culms-action-button')?.remove();
+            row.style.display = ''; 
+        });
+        
+        // 3. Удаляем добавленные стили
+        document.getElementById('culms-tasks-fix-styles')?.remove();
+        
+        isCleanedUp = true; // Устанавливаем флаг, что очистка произведена
+        window.cuLmsLog('Task Status Updater: Cleaned up DOM modifications for archived page.');
+    }
+
+
     // --- КОНСТАНТЫ ДЛЯ LOCALSTORAGE ---
     const FILTER_STORAGE_KEY = 'cu.lms.actual-student-tasks-custom-filter';
     const DEFAULT_FILTER_KEY = 'cu.lms.actual-student-tasks-filter';
@@ -52,11 +85,22 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         return text.replace(EMOJI_REGEX, '').trim();
     }
 
-    // --- НОВАЯ ЛОГИКА: Троттлинг для MutationObserver ---
+    // --- ОБНОВЛЕННАЯ ЛОГИКА: Троттлинг для MutationObserver ---
     let canRunLogic = true;
 
     function throttledCheckAndRun() {
+        if (isArchivedPage()) {
+            if (!isCleanedUp) { // Запускаем очистку только один раз
+                cleanupModifications();
+            }
+            return;
+        }
+        
+        // Если мы вернулись на страницу активных задач, сбрасываем флаг
+        isCleanedUp = false;
+
         if (!canRunLogic) return;
+        
         const taskTableExists = document.querySelector('.task-table');
         const isHeaderMissing = !document.querySelector('[data-culms-weight-header]');
 
@@ -85,6 +129,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
                 await populateTableData(tasksData, isEmojiSwapEnabled);
             }
             initializeFilters();
+            // Запускаем перехватчик фильтров КАЖДЫЙ РАЗ при запуске основной логики
             setupDropdownInterceptor();
         } catch (error) {
             window.cuLmsLog('Task Status Updater: Error in runLogic:', error);
@@ -534,10 +579,15 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     }
 
     function setupDropdownInterceptor() {
-        const observer = new MutationObserver((mutationsList) => {
+        // Если наблюдатель уже есть, не создаем новый
+        if (dropdownObserver) return;
+
+        dropdownObserver = new MutationObserver((mutationsList) => {
             for (const mutation of mutationsList) {
                 for (const node of mutation.addedNodes) {
-                    if (node.nodeType !== 1 || !node.matches('tui-dropdown')) continue;
+                    // Проверяем URL прямо здесь, чтобы не модифицировать фильтры на странице архива
+                    if (isArchivedPage() || node.nodeType !== 1 || !node.matches('tui-dropdown')) continue;
+
                     const dataListWrapper = node.querySelector('tui-data-list-wrapper.multiselect__dropdown');
                     if (!dataListWrapper) continue;
                     const statusFilterContainer = document.querySelector('cu-multiselect-filter[controlname="state"]');
@@ -547,7 +597,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
                 }
             }
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+        dropdownObserver.observe(document.body, { childList: true, subtree: true });
+        window.cuLmsLog('Task Status Updater: Dropdown observer initialized.');
     }
 
     function buildDropdown(dataListWrapper, type) {
@@ -612,6 +663,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     });
 
     // --- Запуск скрипта ---
-    throttledCheckAndRun();
+    // Главный наблюдатель, который управляет циклами запуска и очистки
     initializeObserver();
+    // Первоначальный запуск
+    throttledCheckAndRun();
 }
