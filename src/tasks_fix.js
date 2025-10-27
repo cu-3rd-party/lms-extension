@@ -3,6 +3,39 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
     'use strict';
 
+    // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ДЛЯ УПРАВЛЕНИЯ СОСТОЯНИЕМ ---
+    let dropdownObserver = null; // Будем хранить здесь наблюдателя за фильтрами
+    let isCleanedUp = false;     // Флаг, чтобы очистка не запускалась многократно
+
+    // --- ПРОВЕРКА URL ПРИ НАВИГАЦИИ ВНУТРИ SPA ---
+    const isArchivedPage = () => window.location.href.includes('/tasks/archived-student-tasks');
+
+    // --- ОБНОВЛЕННАЯ ФУНКЦИЯ ОЧИСТКИ ---
+    function cleanupModifications() {
+        // 1. Отключаем наблюдателя за выпадающими списками.
+        // ЭТО КЛЮЧЕВОЙ ШАГ для возврата оригинальных фильтров.
+        if (dropdownObserver) {
+            dropdownObserver.disconnect();
+            dropdownObserver = null;
+            window.cuLmsLog('Task Status Updater: Dropdown observer disconnected.');
+        }
+
+        // 2. Удаляем элементы из таблицы
+        document.querySelector('[data-culms-weight-header]')?.remove();
+        document.querySelectorAll('tr[class*="task-table__task"]').forEach(row => {
+            row.querySelector('[data-culms-weight-cell]')?.remove();
+            row.querySelector('.culms-action-button')?.remove();
+            row.style.display = ''; 
+        });
+        
+        // 3. Удаляем добавленные стили
+        document.getElementById('culms-tasks-fix-styles')?.remove();
+        
+        isCleanedUp = true; // Устанавливаем флаг, что очистка произведена
+        window.cuLmsLog('Task Status Updater: Cleaned up DOM modifications for archived page.');
+    }
+
+
     // --- КОНСТАНТЫ ДЛЯ LOCALSTORAGE ---
     const FILTER_STORAGE_KEY = 'cu.lms.actual-student-tasks-custom-filter';
     const DEFAULT_FILTER_KEY = 'cu.lms.actual-student-tasks-filter';
@@ -52,11 +85,22 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         return text.replace(EMOJI_REGEX, '').trim();
     }
 
-    // --- НОВАЯ ЛОГИКА: Троттлинг для MutationObserver ---
+    // --- ОБНОВЛЕННАЯ ЛОГИКА: Троттлинг для MutationObserver ---
     let canRunLogic = true;
 
     function throttledCheckAndRun() {
+        if (isArchivedPage()) {
+            if (!isCleanedUp) { // Запускаем очистку только один раз
+                cleanupModifications();
+            }
+            return;
+        }
+        
+        // Если мы вернулись на страницу активных задач, сбрасываем флаг
+        isCleanedUp = false;
+
         if (!canRunLogic) return;
+        
         const taskTableExists = document.querySelector('.task-table');
         const isHeaderMissing = !document.querySelector('[data-culms-weight-header]');
 
@@ -85,6 +129,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
                 await populateTableData(tasksData, isEmojiSwapEnabled);
             }
             initializeFilters();
+            // Запускаем перехватчик фильтров КАЖДЫЙ РАЗ при запуске основной логики
             setupDropdownInterceptor();
         } catch (error) {
             window.cuLmsLog('Task Status Updater: Error in runLogic:', error);
@@ -115,7 +160,10 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
     function refreshDynamicStyles() {
         const styleId = 'culms-tasks-fix-styles';
-        if (document.getElementById(styleId)) document.getElementById(styleId).remove();
+        // Удаляем старые стили, если они есть
+        if (document.getElementById(styleId)) {
+            document.getElementById(styleId).remove();
+        }
 
         const isDarkTheme = !!document.getElementById('culms-dark-theme-style-base');
         const seminarRowBg = isDarkTheme ? 'rgb(20,20,20)' : '#E0E0E0';
@@ -135,6 +183,10 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             : '';
 
         const cssRules = `
+            /* 1. Импортируем шрифт Inter с нужным начертанием (400) с Google Fonts */
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+            /* --- Стили таблицы (остаются без изменений) --- */
             tr[data-culms-row-type="seminar"] { background-color: ${seminarRowBg} !important; }
             .state-chip[data-culms-status="seminar"] { background-color: ${seminarChipBg} !important; color: white !important; ${isDarkTheme ? 'border: 1px solid #444;' : ''} }
             .state-chip[data-culms-status="solved"] { background-color: ${solvedChipBg} !important; color: white !important; }
@@ -143,15 +195,45 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             .culms-late-days-container { display: flex; align-items: center; justify-content: flex-start; }
             .culms-action-button { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; height: 24px; width: 24px; padding: 0; margin-right: 8px; opacity: 0.6; transition: opacity 0.2s; }
             .culms-action-button:hover { opacity: 1; }
-            /* Управляем цветом через SVG, а не через path для большей надежности */
             .culms-action-button svg { width: 18px; height: 18px; color: ${iconColor}; fill: currentColor; }
 
+            /* --- Стили модального окна (ОБНОВЛЕНЫ) --- */
             .culms-modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 1050; display: flex; align-items: center; justify-content: center; }
-            .culms-modal-content { background: ${modalBgColor}; color: ${modalTextColor}; padding: 24px 30px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); max-width: 400px; }
-            .culms-modal-content p { margin: 0 0 20px 0; font-size: 16px; }
-            .culms-modal-buttons button { margin: 0 10px; padding: 8px 16px; border-radius: 5px; border: 1px solid transparent; cursor: pointer; font-weight: bold; }
+            
+            .culms-modal-content {
+                background: ${modalBgColor};
+                color: ${modalTextColor};
+                padding: 24px 30px;
+                border-radius: 12px;
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                max-width: 400px;
+                /* 2. Применяем семейство шрифтов ко всему модальному окну */
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Segoe UI", "Helvetica Neue", sans-serif;
+            }
+
+            .culms-modal-content p {
+                margin: 0 0 20px 0;
+                /* 3. Применяем точные параметры шрифта к тексту сообщения */
+                font-weight: 400;
+                font-size: 1rem;
+                line-height: 1.5rem;
+                font-style: normal;
+            }
+
+            .culms-modal-buttons button {
+                margin: 0 10px;
+                padding: 8px 16px;
+                border-radius: 5px;
+                border: 1px solid transparent;
+                cursor: pointer;
+                font-weight: bold; /* Кнопки обычно делают жирнее для акцента */
+                font-family: inherit; /* Наследуем 'Inter' от родителя */
+            }
+            
             .culms-modal-confirm { background-color: #28a745; color: white; border-color: #28a745; }
             .culms-modal-cancel { background-color: #dc3545; color: white; border-color: #dc3545; }
+            
             ${checkboxThemeStyle}
         `;
         const styleElement = document.createElement('style');
@@ -497,10 +579,15 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     }
 
     function setupDropdownInterceptor() {
-        const observer = new MutationObserver((mutationsList) => {
+        // Если наблюдатель уже есть, не создаем новый
+        if (dropdownObserver) return;
+
+        dropdownObserver = new MutationObserver((mutationsList) => {
             for (const mutation of mutationsList) {
                 for (const node of mutation.addedNodes) {
-                    if (node.nodeType !== 1 || !node.matches('tui-dropdown')) continue;
+                    // Проверяем URL прямо здесь, чтобы не модифицировать фильтры на странице архива
+                    if (isArchivedPage() || node.nodeType !== 1 || !node.matches('tui-dropdown')) continue;
+
                     const dataListWrapper = node.querySelector('tui-data-list-wrapper.multiselect__dropdown');
                     if (!dataListWrapper) continue;
                     const statusFilterContainer = document.querySelector('cu-multiselect-filter[controlname="state"]');
@@ -510,7 +597,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
                 }
             }
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+        dropdownObserver.observe(document.body, { childList: true, subtree: true });
+        window.cuLmsLog('Task Status Updater: Dropdown observer initialized.');
     }
 
     function buildDropdown(dataListWrapper, type) {
@@ -575,6 +663,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     });
 
     // --- Запуск скрипта ---
-    throttledCheckAndRun();
+    // Главный наблюдатель, который управляет циклами запуска и очистки
     initializeObserver();
+    // Первоначальный запуск
+    throttledCheckAndRun();
 }
