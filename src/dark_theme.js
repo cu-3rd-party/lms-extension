@@ -246,4 +246,44 @@ if (typeof window.darkThemeInitialized === 'undefined') {
 
     // Запускаем наблюдателя.
     shadowDomObserver.observe(document.body, { childList: true, subtree: true });
+
+    // Наблюдатель за document.head: некоторые SPA-навигации могут заменять/очищать <head>
+    // (или удалять наши <style>), поэтому следим за наличием наших стилей и пере-применяем тему
+    // если они случайно удалены.
+    function observeHeadForTheme() {
+        function ensureObservedHead() {
+            const head = document.head;
+            if (!head) return false;
+
+            const headObserver = new MutationObserver(async (mutations) => {
+                // Если наших стилей нет, но тема включена в хранилище, заново применим её
+                const hasBase = !!document.getElementById(STYLE_ID_BASE);
+                const data = await browser.storage.sync.get('themeEnabled');
+                const isEnabled = !!data.themeEnabled;
+                if (isEnabled && !hasBase) {
+                    // re-apply theme; applyTheme возьмет OLED из хранилища внутри себя
+                    applyTheme(true).catch(err => console.error('[dark_theme] applyTheme error:', err));
+                }
+            });
+
+            headObserver.observe(head, { childList: true, subtree: true });
+            return true;
+        }
+
+        // Если head ещё не готов — ждем его появления в DOM
+        if (!document.head) {
+            const bodyObserver = new MutationObserver((mutations, obs) => {
+                if (document.head) {
+                    obs.disconnect();
+                    ensureObservedHead();
+                }
+            });
+            bodyObserver.observe(document.body || document.documentElement, { childList: true, subtree: true });
+        } else {
+            ensureObservedHead();
+        }
+    }
+
+    // Запускаем наблюдатель за head для гарантии сохранения темы при SPA-навигации
+    observeHeadForTheme();
 }
