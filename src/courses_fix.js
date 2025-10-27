@@ -265,42 +265,13 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             
             if (!draggedElement) return;
 
-            // Robust insertion for multi-column / grid layouts:
-            // Find the closest non-dragging card to the pointer and insert relative to it.
-            const x = e.clientX;
-            const y = e.clientY;
-            const candidates = Array.from(courseList.querySelectorAll('li.course-card:not(.dragging)'));
-            if (!candidates.length) return;
-
-            let closest = {el: null, dist: Infinity};
-            for (const el of candidates) {
-                const r = el.getBoundingClientRect();
-                const cx = r.left + r.width / 2;
-                const cy = r.top + r.height / 2;
-                const dx = cx - x;
-                const dy = cy - y;
-                const d = Math.hypot(dx, dy);
-                if (d < closest.dist) {
-                    closest = { el, dist: d, rect: r };
-                }
-            }
-
-            if (!closest.el) return;
-
-            const target = closest.el;
-            const rect = closest.rect;
-            const insertBefore = (y < (rect.top + rect.height / 2));
-
-            // Avoid useless DOM operations
-            if (insertBefore) {
-                if (draggedElement !== target && draggedElement.nextSibling !== target) {
-                    courseList.insertBefore(draggedElement, target);
-                }
+            const rect = this.getBoundingClientRect();
+            const midY = rect.top + (rect.height / 2);
+            
+            if (e.clientY < midY) {
+                this.parentNode.insertBefore(draggedElement, this);
             } else {
-                const after = target.nextSibling;
-                if (draggedElement !== after) {
-                    courseList.insertBefore(draggedElement, after);
-                }
+                this.parentNode.insertBefore(draggedElement, this.nextSibling);
             }
         }
 
