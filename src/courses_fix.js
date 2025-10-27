@@ -156,9 +156,10 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                 courseList.classList.add('course-archiver-ready');
             }
 
-            // Apply custom order and enable drag-and-drop
-            await applyCustomOrder(courseList);
-            setupDragAndDrop(courseList);
+                // Do NOT apply custom order or drag-and-drop on archived page
+                // Apply custom order and enable drag-and-drop only on active courses page
+                await applyCustomOrder(courseList);
+                setupDragAndDrop(courseList);
 
         } catch (e) {
             window.cuLmsLog("Course Archiver: Not a course page, or content failed to load in time.", e);
