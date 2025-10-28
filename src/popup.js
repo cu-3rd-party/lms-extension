@@ -5,11 +5,11 @@ const oledToggle = document.getElementById('oled-toggle');
 const emojiHeartsToggle = document.getElementById('emoji-hearts-toggle');
 const oldCoursesDesignToggle = document.getElementById('old-courses-design-toggle');
 const futureExamsViewToggle = document.getElementById('future-exams-view-toggle');
+const autoRenameToggle = document.getElementById('auto-rename-toggle');
 
 // 1. При открытии popup, получить текущее состояние и обновить переключатель
-// Используем browser.storage, который возвращает Promise, понятный полифиллу
 browser.storage.sync.get(['themeEnabled', 'oledEnabled', 'emojiHeartsEnabled',
-                          'oldCoursesDesignToggle', 'futureExamsViewToggle']).then((data) => {
+                          'oldCoursesDesignToggle', 'futureExamsViewToggle', 'autoRenameEnabled']).then((data) => {
     themeToggle.checked = !!data.themeEnabled;
     if (oledToggle) {
         oledToggle.checked = !!data.oledEnabled;
@@ -24,10 +24,12 @@ browser.storage.sync.get(['themeEnabled', 'oledEnabled', 'emojiHeartsEnabled',
     if (futureExamsViewToggle) {
         futureExamsViewToggle.checked = !!data.futureExamsViewToggle;
     }
+    if (autoRenameToggle) {
+        autoRenameToggle.checked = !!data.autoRenameEnabled;
+    }
 });
 
 // 2. При клике на переключатель, сохранить новое состояние.
-// Content script на странице сам подхватит это изменение через storage.onChanged
 themeToggle.addEventListener('change', () => {
     const isEnabled = themeToggle.checked;
     browser.storage.sync.set({ themeEnabled: isEnabled });
@@ -36,7 +38,6 @@ themeToggle.addEventListener('change', () => {
     }
 });
 
-// 3. OLED toggle controls variant of dark
 if (oledToggle) {
     oledToggle.addEventListener('change', () => {
         const isOled = oledToggle.checked;
@@ -65,3 +66,9 @@ if (futureExamsViewToggle) {
     });
 }
 
+if (autoRenameToggle) {
+    autoRenameToggle.addEventListener('change', () => {
+        const isEnabled = autoRenameToggle.checked;
+        browser.storage.sync.set({ autoRenameEnabled: isEnabled });
+    });
+}

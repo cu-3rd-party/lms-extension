@@ -5,8 +5,12 @@
     <meta charset="UTF-8">
     <title>extension control panel</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap');
+        
         body {
-            font-family: sans-serif;
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+            font-size: 16px;
             width: 350px;
             padding: 10px;
             background-color: #f0f0f0;
@@ -16,6 +20,27 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .toggle-label {
+            flex: 1;
+            margin-right: 10px;
+            line-height: 24px; /* Выравнивание по высоте переключателя */
+        }
+
+        .section {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 17px;
         }
 
         /* Простой CSS для переключателя */
@@ -24,6 +49,7 @@
             display: inline-block;
             width: 50px;
             height: 24px;
+            flex-shrink: 0; /* Запрещаем сжатие переключателя */
         }
 
         .switch input {
@@ -61,47 +87,66 @@
         input:checked+.slider:before {
             transform: translateX(26px);
         }
+
+        .disabled {
+            opacity: 0.6;
+        }
     </style>
 </head>
 
 <body>
-    <h3>Темная тема</h3>
-    <div class="toggle-container">
-        <span>Статус:</span>
-        <label class="switch">
-            <input type="checkbox" id="theme-toggle">
-            <span class="slider"></span>
-        </label>
-    </div>
-    <div class="toggle-container" style="margin-top:8px">
-        <span>OLED чёрный:</span>
-        <label class="switch">
-            <input type="checkbox" id="oled-toggle">
-            <span class="slider"></span>
-        </label>
+    <div class="section">
+        <h3>Полезные скрипты</h3>
+        <div class="toggle-container">
+            <span class="toggle-label">Авто переименование ДЗ:</span>
+            <label class="switch">
+                <input type="checkbox" id="auto-rename-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
     </div>
 
-    <h3>Наведение вкусовщины</h3>
-    <div class="toggle-container">
-        <span>Замена кружков на сердечки:</span>
-        <label class="switch">
-            <input type="checkbox" id="emoji-hearts-toggle">
-            <span class="slider"></span>
-        </label>
+    <div class="section">
+        <h3>Выбор темы</h3>
+        <div class="toggle-container">
+            <span class="toggle-label">Темная:</span>
+            <label class="switch">
+                <input type="checkbox" id="theme-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="toggle-container">
+            <span class="toggle-label">OLED:</span>
+            <label class="switch">
+                <input type="checkbox" id="oled-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
     </div>
-    <div class="toggle-container" style="margin-top:8px">
-        <span>Возвращение старого дизайна курсов:</span>
-        <label class="switch">
-            <input type="checkbox" id="old-courses-design-toggle">
-            <span class="slider"></span>
-        </label>
-    </div>
-    <div class="toggle-container" style="margin-top:8px">
-        <span>Видеть предстоящие контрольные:</span>
-        <label class="switch">
-            <input type="checkbox" id="future-exams-view-toggle">
-            <span class="slider"></span>
-        </label>
+
+    <div class="section">
+        <h3>Наведение вкусовщины</h3>
+        <div class="toggle-container">
+            <span class="toggle-label">Замена кружков на сердечки:</span>
+            <label class="switch">
+                <input type="checkbox" id="emoji-hearts-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="toggle-container">
+            <span class="toggle-label">Возвращение старого дизайна курсов:</span>
+            <label class="switch">
+                <input type="checkbox" id="old-courses-design-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="toggle-container">
+            <span class="toggle-label">Видеть предстоящие контрольные:</span>
+            <label class="switch">
+                <input type="checkbox" id="future-exams-view-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
     </div>
     <script type="application/javascript" src="browser-polyfill.js"></script>
     <script src="popup.js"></script>
