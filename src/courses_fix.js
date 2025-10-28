@@ -1,4 +1,4 @@
-// courses_fix.js (версия с корректным обновлением цвета archiveButton при смене темы)
+// courses_fix.js (версия с drag-and-drop на странице активных курсов и исправленной логикой)
 
 if (typeof window.culmsCourseFixInitialized === 'undefined') {
     window.culmsCourseFixInitialized = true;
@@ -43,17 +43,11 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
 
     function main() {
         browser.storage.onChanged.addListener((changes) => {
-            if (changes.oldCoursesDesignToggle) {
+            if (changes.oldCoursesDesignToggle || changes.futureExamsViewToggle) {
                 window.location.reload();
                 return;
             }
 
-            if (changes.futureExamsViewToggle) {
-                window.location.reload();
-                return;
-            }
-
-            // 🔧 Разделено, чтобы корректно отслеживать themeEnabled
             if (changes.archivedCourseIds) {
                 window.cuLmsLog('Course Archiver: archivedCourseIds changed, re-rendering.');
                 const currentPath = window.location.pathname;
@@ -98,7 +92,6 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         }
     }
 
-    // 🔧 Обновление цвета иконок архивирования при смене темы
     function updateArchiveButtonColors(isDark) {
         document.querySelectorAll('.archive-button-container span').forEach(span => {
             span.style.setProperty('background-color', isDark ? '#FFFFFF' : '#181a1c', 'important');
@@ -110,23 +103,22 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             mutation.addedNodes.forEach(node => {
                 if (node.nodeType !== 1) return;
 
+                const containers = [];
                 if (node.matches && node.matches('.archive-button-container')) {
+                    containers.push(node);
+                } else if (node.querySelector && node.querySelectorAll) {
+                    node.querySelectorAll('.archive-button-container').forEach(c => containers.push(c));
+                }
+
+                if (containers.length > 0) {
                     browser.storage.sync.get('themeEnabled').then(data => {
                         const isDark = !!data.themeEnabled;
-                        node.querySelectorAll('span').forEach(span => {
-                            span.style.setProperty('background-color', isDark ? '#FFFFFF' : '#181a1c', 'important');
-                        });
-                    });
-                } else {
-                    const found = node.querySelector && node.querySelectorAll && node.querySelectorAll('.archive-button-container span');
-                    if (found && found.length) {
-                        browser.storage.sync.get('themeEnabled').then(data => {
-                            const isDark = !!data.themeEnabled;
-                            node.querySelectorAll('.archive-button-container span').forEach(span => {
+                        containers.forEach(container => {
+                            container.querySelectorAll('span').forEach(span => {
                                 span.style.setProperty('background-color', isDark ? '#FFFFFF' : '#181a1c', 'important');
                             });
                         });
-                    }
+                    });
                 }
             });
         });
@@ -141,9 +133,13 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             const isOnArchivedPage = currentPath.includes('/courses/view/archived');
 
             if (isOnArchivedPage) {
+                // На странице архива просто рендерим всё с нуля, без сортировки
                 await renderArchivedPageFromScratch();
             } else {
+                // На странице активных курсов обновляем существующие, применяем порядок и включаем drag-n-drop
                 await updateExistingActiveCourses();
+                await applyCustomOrder(courseList);
+                setupDragAndDrop(courseList);
             }
 
             restoreSkillLevelIconColors();
@@ -152,14 +148,9 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
 
             if (useOldDesign && typeof simplifyAllCourseCards === 'function') {
                 simplifyAllCourseCards();
-                observeCourseListChanges();
+                // observeCourseListChanges(); // Эта функция не определена в коде, возможно, она в другом файле
                 courseList.classList.add('course-archiver-ready');
             }
-
-                // Do NOT apply custom order or drag-and-drop on archived page
-                // Apply custom order and enable drag-and-drop only on active courses page
-                await applyCustomOrder(courseList);
-                setupDragAndDrop(courseList);
 
         } catch (e) {
             window.cuLmsLog("Course Archiver: Not a course page, or content failed to load in time.", e);
@@ -189,52 +180,44 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
 
         const customOrder = await getCustomOrder();
         const courses = Array.from(courseList.children);
-
-        // If no custom order exists, save the current order
-        if (!customOrder.length) {
-            const initialOrder = courses.map(course => course.getAttribute('data-course-id')).filter(Boolean);
-            if (initialOrder.length > 0) {
-                await saveCustomOrder(initialOrder);
-                return;
-            }
-        }
-
-        // Create a map of all current courses
         const courseMap = new Map();
+        
         courses.forEach(course => {
             const id = course.getAttribute('data-course-id');
             if (id) courseMap.set(id, course);
         });
 
-        // Create a new array to store the final order
+        // Если сохраненного порядка нет, сохраняем текущий
+        if (customOrder.length === 0) {
+            const initialOrder = courses.map(course => course.getAttribute('data-course-id')).filter(Boolean);
+            if (initialOrder.length > 0) {
+                await saveCustomOrder(initialOrder);
+            }
+            return;
+        }
+        
         const finalOrder = [];
+        const fragment = document.createDocumentFragment();
 
-        // First, add courses that are in the custom order
+        // Сначала добавляем курсы в сохраненном порядке
         for (const courseId of customOrder) {
             if (courseMap.has(courseId)) {
+                fragment.appendChild(courseMap.get(courseId));
                 finalOrder.push(courseId);
                 courseMap.delete(courseId);
             }
         }
 
-        // Then add any new courses that weren't in the custom order
+        // Добавляем новые курсы (которых не было в сохраненном порядке) в конец
         courseMap.forEach((course, id) => {
+            fragment.appendChild(course);
             finalOrder.push(id);
         });
 
-        // Save the final order
-        await saveCustomOrder(finalOrder);
-
-        // Apply the order to the DOM
-        const fragment = document.createDocumentFragment();
-        for (const courseId of finalOrder) {
-            const course = courseList.querySelector(`[data-course-id="${courseId}"]`);
-            if (course) {
-                fragment.appendChild(course);
-            }
-        }
+        // Применяем порядок к DOM и сохраняем его
         courseList.innerHTML = '';
         courseList.appendChild(fragment);
+        await saveCustomOrder(finalOrder);
     }
 
     function setupDragAndDrop(courseList) {
@@ -242,62 +225,43 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
 
         let draggedElement = null;
 
-        function handleDragStart(e) {
+        const handleDragStart = function(e) {
             draggedElement = this;
             this.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', this.getAttribute('data-course-id'));
-        }
+        };
 
-        function handleDragEnd(e) {
+        const handleDragEnd = function() {
             this.classList.remove('dragging');
             draggedElement = null;
-
-            // Save the new order after drag ends
             const newOrder = Array.from(courseList.children)
                 .map(item => item.getAttribute('data-course-id'))
                 .filter(Boolean);
             saveCustomOrder(newOrder);
-        }
-
-        function handleDragOver(e) {
+        };
+        
+        const handleDragOver = function(e) {
             e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-
-            if (!draggedElement) return;
-
+            if (!draggedElement || this === draggedElement) return;
             const rect = this.getBoundingClientRect();
-            const midY = rect.top + (rect.height / 2);
-
+            const midY = rect.top + rect.height / 2;
             if (e.clientY < midY) {
                 this.parentNode.insertBefore(draggedElement, this);
             } else {
                 this.parentNode.insertBefore(draggedElement, this.nextSibling);
             }
-        }
+        };
 
-        function handleDrop(e) {
-            e.preventDefault();
-        }
-
-        // Remove existing event listeners first
-        const existingCards = courseList.querySelectorAll('li.course-card');
-        existingCards.forEach(card => {
-            card.draggable = false;
-            card.removeEventListener('dragstart', handleDragStart);
-            card.removeEventListener('dragend', handleDragEnd);
-            card.removeEventListener('dragover', handleDragOver);
-            card.removeEventListener('drop', handleDrop);
-        });
-
-        // Add new event listeners
         const cards = courseList.querySelectorAll('li.course-card');
         cards.forEach(card => {
             card.draggable = true;
+            card.removeEventListener('dragstart', handleDragStart); // Очистка старых слушателей
             card.addEventListener('dragstart', handleDragStart);
+            card.removeEventListener('dragend', handleDragEnd);
             card.addEventListener('dragend', handleDragEnd);
+            card.removeEventListener('dragover', handleDragOver);
             card.addEventListener('dragover', handleDragOver);
-            card.addEventListener('drop', handleDrop);
         });
     }
 
@@ -337,17 +301,17 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         }
 
         const courseCards = document.querySelectorAll('ul.course-list > li.course-card');
-        courseCards.forEach(card => {
+        for (const card of courseCards) {
             const nameElement = card.querySelector('.course-name');
-            if (!nameElement) return;
+            if (!nameElement) continue;
 
             const courseName = normalizeEmoji(nameElement.textContent.trim());
             const courseData = courseNameMap.get(courseName);
-            if (!courseData) return;
+            if (!courseData) continue;
 
             const courseId = courseData.id;
-            // Ensure the DOM element knows its course id for ordering and persistence
-            try { card.setAttribute('data-course-id', courseId); } catch (e) { /* ignore */ }
+            card.setAttribute('data-course-id', courseId); // Важно для сортировки
+
             const isLocallyArchived = storedArchivedCourseIds.has(courseId);
 
             if (isLocallyArchived) {
@@ -356,36 +320,43 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                 card.style.display = '';
                 addOrUpdateButton(card, courseId, isLocallyArchived, isDarkTheme);
             }
-        });
-    }
-
-    async function renderArchivedPageFromScratch() {
-        const currentIds = courses.map(c => c.getAttribute && c.getAttribute('data-course-id')).filter(Boolean);
-        if (currentIds.length > 0) {
-            await saveCustomOrder(currentIds);
         }
+    }
+    
+    async function renderArchivedPageFromScratch() {
+        const courseListContainer = document.querySelector('ul.course-list');
+        if (!courseListContainer) return;
+
+        const storedArchivedCourseIds = await getArchivedCoursesFromStorage();
+        const allApiCourses = await fetchAllCoursesData();
         const themeData = await browser.storage.sync.get('themeEnabled');
         const isDarkTheme = !!themeData.themeEnabled;
 
         const templateLi = document.querySelector('li.course-card');
-        if (!templateLi) return;
+        // Если нет шаблона, возможно, страница еще не загрузилась.
+        if (!templateLi) {
+             console.error("Course Archiver: Template course card not found.");
+             return;
+        }
 
         const coursesToDisplay = allApiCourses.filter(course => {
             const isLocallyArchived = storedArchivedCourseIds.has(course.id);
-            const isApiArchived = course.isArchived;
+            const isApiArchived = course.isArchived; // `isArchived` приходит из API
             return isApiArchived || isLocallyArchived;
         });
 
-        courseListContainer.innerHTML = '';
+        courseListContainer.innerHTML = ''; // Очищаем список
 
         coursesToDisplay.forEach(courseData => {
             const newLi = createCourseCardElement(courseData, templateLi);
             if (newLi) {
                 courseListContainer.appendChild(newLi);
-                addOrUpdateButton(newLi, courseData.id, storedArchivedCourseIds.has(courseData.id), isDarkTheme);
+                // На странице архива кнопка всегда должна быть "разархивировать"
+                addOrUpdateButton(newLi, courseData.id, true, isDarkTheme);
             }
         });
     }
+
 
     async function fetchAllCoursesData() {
         try {
@@ -393,11 +364,18 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             const activeResponse = await fetch(`${API_BASE_URL}/courses/student?limit=10000&state=published`);
             const archivedResponse = await fetch(`${API_BASE_URL}/courses/student?limit=10000&state=archived`);
             if (!activeResponse.ok || !archivedResponse.ok) throw new Error('HTTP error!');
-            const activeCourses = (await activeResponse.json()).items;
-            const archivedCourses = (await archivedResponse.json()).items;
+            const activeData = await activeResponse.json();
+            const archivedData = await archivedResponse.json();
             const allCoursesMap = new Map();
-            activeCourses.forEach(course => allCoursesMap.set(course.id, course));
-            archivedCourses.forEach(course => allCoursesMap.set(course.id, course));
+            // Добавляем поле isArchived для удобства
+            (activeData.items || []).forEach(course => {
+                course.isArchived = false;
+                allCoursesMap.set(course.id, course);
+            });
+            (archivedData.items || []).forEach(course => {
+                course.isArchived = true;
+                allCoursesMap.set(course.id, course);
+            });
             return Array.from(allCoursesMap.values());
         } catch (error) {
             window.cuLmsLog(`Course Archiver: Failed to fetch all courses:`, error);
@@ -484,19 +462,17 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             }
             await setArchivedCoursesInStorage(currentArchivedCourseIds);
 
-            const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
-            const useOldDesign = !!designData.oldCoursesDesignToggle;
-
-            if (useOldDesign) {
-                const isNowArchived = currentArchivedCourseIds.has(courseId);
-                const currentPath = window.location.pathname;
-                const isOnArchivedPage = currentPath.includes('/courses/view/archived');
-                const cardLi = li.closest('li.course-card');
-                if (!isOnArchivedPage && isNowArchived) {
-                    if (cardLi) cardLi.style.display = 'none';
-                } else if (isOnArchivedPage && !isNowArchived) {
-                    if (cardLi) cardLi.style.display = 'none';
-                }
+            // Вместо перезагрузки страницы, просто скрываем/показываем элемент
+            const isNowArchived = currentArchivedCourseIds.has(courseId);
+            const currentPath = window.location.pathname;
+            const isOnArchivedPage = currentPath.includes('/courses/view/archived');
+            
+            if (isOnArchivedPage) {
+                // Если мы на странице архива и разархивировали курс, он должен исчезнуть
+                if(!isNowArchived) li.style.display = 'none';
+            } else {
+                // Если мы на странице активных курсов и заархивировали, он должен исчезнуть
+                if(isNowArchived) li.style.display = 'none';
             }
         });
     }
@@ -515,12 +491,15 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             observer.observe(document.body, { childList: true, subtree: true });
             setTimeout(() => {
                 observer.disconnect();
-                reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+                const stillNotFound = document.querySelector(selector);
+                if (stillNotFound) resolve(stillNotFound);
+                else reject(new Error(`Element ${selector} not found within ${timeout}ms`));
             }, timeout);
         });
     }
 
     function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
         const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
         return String(text).replace(/[&<>"']/g, m => map[m]);
     }
