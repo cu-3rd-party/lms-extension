@@ -1,9 +1,11 @@
 // background.js
 
-try {
-    importScripts('browser-polyfill.js');
-} catch (e) {
-    window.cuLmsLog("Running in a non-MV3 environment or Firefox.");
+if (typeof importScripts === 'function') {
+    try {
+        importScripts('browser-polyfill.js');
+    } catch (e) {
+        window.cuLmsLog("Running in a non-MV3 environment or Firefox.");
+    }
 }
 
 // ====================================================================
@@ -331,13 +333,6 @@ function handleNavigation(tabId, url) {
         }).catch(err => window.cuLmsLog(`[BG_LOG] Error injecting default scripts:`, err));
     }
 
-    if (url.includes("/learn/courses/view/actual")) {
-        browser.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ["browser-polyfill.js", "course_exporter.js"]
-        }).catch(err => console.error(`[BG_LOG] Error injecting course_exporter.js:`, err));
-    }
-
     if (url.includes("/learn/courses/view")) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
@@ -349,7 +344,13 @@ function handleNavigation(tabId, url) {
     if (url.includes("/longreads/")) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
-            files: ["homework_weight_fix.js", "instant_doc_view_fix.js"]
+            files: ["homework_weight_fix.js", "instant_doc_view_fix.js", "task_status_adaptation.js"]
         }).catch(err => window.cuLmsLog(`[BG_LOG] Error injecting Longreads scripts:`, err));
+    }
+    if (url.includes("/learn/reports/student-performance")) {
+         browser.scripting.executeScript({
+            target: { tabId: tabId },
+            files: ["archive-statements.js"]
+        }).catch(err => console.error(`[BG_LOG] Error injecting reports scripts:`, err))
     }
 }
