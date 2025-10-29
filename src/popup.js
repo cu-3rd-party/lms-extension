@@ -1,67 +1,119 @@
-// popup.js (кросс-браузерная версия)
+// popup.js - УНИВЕРСАЛЬНАЯ ФИНАЛЬНАЯ ВЕРСИЯ (с контекстной плашкой)
+'use strict';
 
-const themeToggle = document.getElementById('theme-toggle');
-const oledToggle = document.getElementById('oled-toggle');
-const emojiHeartsToggle = document.getElementById('emoji-hearts-toggle');
-const oldCoursesDesignToggle = document.getElementById('old-courses-design-toggle');
-const futureExamsViewToggle = document.getElementById('future-exams-view-toggle');
+// --- ОПРЕДЕЛЕНИЕ КОНТЕКСТА ---
+// Эта проверка определяет, запущен ли скрипт внутри iframe на странице
+const isInsideIframe = (window.self !== window.top);
 
-// 1. При открытии popup, получить текущее состояние и обновить переключатель
-// Используем browser.storage, который возвращает Promise, понятный полифиллу
-browser.storage.sync.get(['themeEnabled', 'oledEnabled', 'emojiHeartsEnabled',
-                          'oldCoursesDesignToggle', 'futureExamsViewToggle']).then((data) => {
-    themeToggle.checked = !!data.themeEnabled;
-    if (oledToggle) {
-        oledToggle.checked = !!data.oledEnabled;
-        oledToggle.disabled = !themeToggle.checked;
+
+// --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP (без изменений) ---
+
+const darkThemeLinkID = 'popup-dark-theme-style';
+
+function applyPopupTheme(isEnabled) {
+    const existingLink = document.getElementById(darkThemeLinkID);
+    if (isEnabled && !existingLink) {
+        const link = document.createElement('link');
+        link.id = darkThemeLinkID;
+        link.rel = 'stylesheet';
+        link.href = browser.runtime.getURL('popup_dark.css');
+        document.head.appendChild(link);
+        document.body.classList.add('dark-theme');
+    } else if (!isEnabled && existingLink) {
+        existingLink.remove();
+        document.body.classList.remove('dark-theme');
     }
-    if (emojiHeartsToggle) {
-        emojiHeartsToggle.checked = !!data.emojiHeartsEnabled;
-    }
-    if (oldCoursesDesignToggle) {
-        oldCoursesDesignToggle.checked = !!data.oldCoursesDesignToggle;
-    }
-    if (futureExamsViewToggle) {
-        futureExamsViewToggle.checked = !!data.futureExamsViewToggle;
+}
+
+
+// --- УПРАВЛЕНИЕ ПЕРЕКЛЮЧАТЕЛЯМИ И ПЛАШКОЙ ---
+
+const toggles = {
+    themeEnabled: document.getElementById('theme-toggle'),
+    oledEnabled: document.getElementById('oled-toggle'),
+    emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
+    oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
+    futureExamsViewToggle: document.getElementById('future-exams-view-toggle')
+};
+
+const reloadNotice = document.getElementById('reload-notice');
+const allKeys = Object.keys(toggles);
+let pendingChanges = {};
+
+/**
+ * Обновляет состояние всех переключателей на основе данных из хранилища.
+ */
+function refreshToggleStates() {
+    browser.storage.sync.get(allKeys).then((data) => {
+        allKeys.forEach(key => {
+            if (toggles[key]) {
+                toggles[key].checked = !!data[key];
+            }
+        });
+        if (toggles.oledEnabled) {
+            toggles.oledEnabled.disabled = !toggles.themeEnabled.checked;
+        }
+        applyPopupTheme(!!data.themeEnabled);
+    });
+}
+
+// 1. Добавляем обработчики, которые работают по-разному в зависимости от контекста
+allKeys.forEach(key => {
+    const toggleElement = toggles[key];
+    if (toggleElement) {
+        toggleElement.addEventListener('change', () => {
+            const isEnabled = toggleElement.checked;
+            
+            if (isInsideIframe) {
+                // Показываем плашку, только если мы на странице, где перезагрузка отложена
+                if (reloadNotice) reloadNotice.style.display = 'block';
+                // Накапливаем изменения для отложенной записи
+                pendingChanges[key] = isEnabled;
+            } else {
+                // Если мы в popup браузера - сохраняем немедленно
+                browser.storage.sync.set({ [key]: isEnabled });
+            }
+
+            // Особая логика для OLED
+            if (key === 'themeEnabled') {
+                if (toggles.oledEnabled) {
+                    toggles.oledEnabled.disabled = !isEnabled;
+                    if (!isEnabled && toggles.oledEnabled.checked) {
+                        toggles.oledEnabled.checked = false;
+                        if (isInsideIframe) {
+                            pendingChanges['oledEnabled'] = false;
+                        } else {
+                            browser.storage.sync.set({ oledEnabled: false });
+                        }
+                    }
+                }
+            }
+        });
     }
 });
 
-// 2. При клике на переключатель, сохранить новое состояние.
-// Content script на странице сам подхватит это изменение через storage.onChanged
-themeToggle.addEventListener('change', () => {
-    const isEnabled = themeToggle.checked;
-    browser.storage.sync.set({ themeEnabled: isEnabled });
-    if (oledToggle) {
-        oledToggle.disabled = !isEnabled;
+// 2. Слушатели сообщений и изменений в хранилище
+
+if (isInsideIframe) {
+    window.addEventListener('message', (event) => {
+        if (event.source !== window.parent) return;
+        if (event.data && event.data.action === 'getPendingChanges') {
+            window.parent.postMessage({
+                action: 'receivePendingChanges',
+                payload: pendingChanges
+            }, '*');
+            
+            pendingChanges = {}; 
+            if (reloadNotice) reloadNotice.style.display = 'none';
+        }
+    });
+}
+
+browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync') {
+        refreshToggleStates();
     }
 });
 
-// 3. OLED toggle controls variant of dark
-if (oledToggle) {
-    oledToggle.addEventListener('change', () => {
-        const isOled = oledToggle.checked;
-        browser.storage.sync.set({ oledEnabled: isOled });
-    });
-}
-
-if (emojiHeartsToggle) {
-    emojiHeartsToggle.addEventListener('change', () => {
-        const isEnabled = emojiHeartsToggle.checked;
-        browser.storage.sync.set({ emojiHeartsEnabled: isEnabled });
-    });
-}
-
-if (oldCoursesDesignToggle) {
-    oldCoursesDesignToggle.addEventListener('change', () => {
-        const isEnabled = oldCoursesDesignToggle.checked;
-        browser.storage.sync.set({ oldCoursesDesignToggle: isEnabled });
-    });
-}
-
-if (futureExamsViewToggle) {
-    futureExamsViewToggle.addEventListener('change', () => {
-        const isEnabled = futureExamsViewToggle.checked;
-        browser.storage.sync.set({ futureExamsViewToggle: isEnabled });
-    });
-}
-
+// 3. При первой загрузке обновляем состояние
+refreshToggleStates();

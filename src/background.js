@@ -54,4 +54,64 @@ function handleNavigation(tabId, url) {
             files: ["archive-statements.js", "metrics_statements.js"]
         }).catch(err => console.error(`[BG_LOG] Error injecting reports scripts:`, err))
     }
+
+    browser.scripting.executeScript({
+        target: { tabId: tabId },
+        files: ["plugin_page_loader.js"]
+    }).catch(err => console.error(`[BG_LOG] Error injecting plugin_page_loader.js:`, err));
 }
+
+// Вставьте этот код в конец вашего существующего файла background.js
+
+// Слушатели навигации
+chrome.webNavigation.onHistoryStateUpdated.addListener(details => {
+    if (details.frameId === 0) handleNavigation(details.tabId, details.url);
+});
+chrome.webNavigation.onCompleted.addListener(details => {
+    if (details.frameId === 0) handleNavigation(details.tabId, details.url);
+});
+// --- Конец блока внедрения скриптов ---
+
+
+// *** НОВАЯ, НАДЕЖНАЯ ЛОГИКА ОЧИСТКИ GIST ***
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "fetchGistContent") {
+        fetch(request.url)
+            .then(response => response.text())
+            .then(text => {
+                let processedText = text.trim();
+                
+                const prefix = "document.write('";
+                const suffix = "')";
+                // Это "шов", который появляется между файлами в Gist, \s* означает любой пробельный символ (включая перенос строки)
+                const separatorRegex = /'\)\s*document\.write\('/g; 
+
+                if (processedText.startsWith(prefix) && processedText.endsWith(suffix)) {
+                    
+                    // 1. Убираем внешнюю "обертку"
+                    processedText = processedText.substring(prefix.length, processedText.length - suffix.length);
+                    
+                    // 2. Заменяем все "швы" между файлами на пустую строку
+                    let rawHtml = processedText.replace(separatorRegex, '');
+                    
+                    // 3. Убираем экранирование символов
+                    rawHtml = rawHtml
+                        .replace(/\\'/g, "'").replace(/\\"/g, '"')
+                        .replace(/\\n/g, '\n').replace(/\\\//g, '/')
+                        .replace(/\\\\/g, '\\');
+
+                    // 4. Извлекаем из чистого HTML ссылку на стили
+                    const cssMatch = rawHtml.match(/<link.*?href="(.*?)"/);
+                    const cssUrl = cssMatch ? cssMatch[1] : null;
+
+                    sendResponse({ success: true, html: rawHtml, cssUrl: cssUrl });
+
+                } else {
+                    sendResponse({ success: false, error: "Ответ от Gist имеет неожиданный формат." });
+                }
+            })
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        
+        return true; // Обязательно для асинхронного ответа
+    }
+});

@@ -1,0 +1,66 @@
+/* gist_dark.css - ИСПРАВЛЕННАЯ ВЕРСИЯ С !important */
+
+/* Общий фон и рамки */
+.gist,
+.gist .gist-file {
+    background-color: #202124 !important;
+    border-color: #4d4d4d !important;
+    color: #e8eaed !important;
+}
+
+/* Фон области с кодом - САМОЕ ВАЖНОЕ ИСПРАВЛЕНИЕ */
+.gist .gist-data,
+.gist .blob-wrapper,
+.gist .highlight {
+    background-color: #202124 !important;
+}
+
+/* Рамка вокруг кода */
+.gist .gist-data {
+    border-color: #4d4d4d !important;
+}
+
+/* Нижняя панель с ссылкой на GitHub */
+.gist .gist-meta {
+    background-color: #2b2c2f !important;
+    color: #bdc1c6 !important;
+}
+.gist .gist-meta a {
+    color: #8ab4f8 !important;
+}
+
+/* Подсветка синтаксиса (основные цвета) */
+.gist .blob-code,
+.gist .blob-num {
+    color: #bdc1c6 !important; /* Цвет номеров строк и обычного текста */
+}
+
+.gist .pl-c, /* Комментарии */
+.gist .pl-c span {
+    color: #969896 !important;
+}
+
+.gist .pl-k { /* Ключевые слова (const, function) */
+    color: #f08a8a !important;
+}
+
+.gist .pl-s, /* Строки */
+.gist .pl-s .pl-s1,
+.gist .pl-s .pl-s1 span {
+    color: #8fbc8b !important;
+}
+
+.gist .pl-en, /* Имена функций */
+.gist .pl-e {
+    color: #79b6f2 !important;
+}
+
+.gist .pl-c1 { /* Константы (true, false, null) */
+    color: #c5a6ff !important;
+}
+
+.gist .pl-pds, /* Кавычки */
+.gist .pl-mp,
+.gist .pl-sr .pl-cce {
+    color: #8fbc8b !important;
+}

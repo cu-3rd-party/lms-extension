@@ -10,15 +10,21 @@
             width: 350px;
             padding: 10px;
             background-color: #f0f0f0;
+            box-sizing: border-box;
         }
 
         .toggle-container {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        h3 {
+            margin-top: 16px;
+            margin-bottom: 8px;
         }
 
-        /* Простой CSS для переключателя */
         .switch {
             position: relative;
             display: inline-block;
@@ -26,9 +32,7 @@
             height: 24px;
         }
 
-        .switch input {
-            display: none;
-        }
+        .switch input { display: none; }
 
         .slider {
             position: absolute;
@@ -54,12 +58,26 @@
             border-radius: 50%;
         }
 
-        input:checked+.slider {
-            background-color: #2196F3;
+        input:checked+.slider { background-color: #2196F3; }
+        input:disabled + .slider { cursor: not-allowed; background-color: #e0e0e0; }
+        input:checked+.slider:before { transform: translateX(26px); }
+
+        /* --- НОВЫЕ СТИЛИ ДЛЯ УВЕДОМЛЕНИЯ --- */
+        .notice {
+            padding: 10px;
+            margin-top: 15px;
+            text-align: center;
+            background-color: #e9e9eb;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #333;
+            transition: background-color 0.3s, color 0.3s;
         }
 
-        input:checked+.slider:before {
-            transform: translateX(26px);
+        /* Стиль уведомления для темной темы */
+        body.dark-theme .notice {
+            background-color: #4a4a4f;
+            color: #e0e0e0;
         }
     </style>
 </head>
@@ -73,7 +91,7 @@
             <span class="slider"></span>
         </label>
     </div>
-    <div class="toggle-container" style="margin-top:8px">
+    <div class="toggle-container">
         <span>OLED чёрный:</span>
         <label class="switch">
             <input type="checkbox" id="oled-toggle">
@@ -89,20 +107,24 @@
             <span class="slider"></span>
         </label>
     </div>
-    <div class="toggle-container" style="margin-top:8px">
+    <div class="toggle-container">
         <span>Возвращение старого дизайна курсов:</span>
         <label class="switch">
             <input type="checkbox" id="old-courses-design-toggle">
             <span class="slider"></span>
         </label>
     </div>
-    <div class="toggle-container" style="margin-top:8px">
+    <div class="toggle-container">
         <span>Видеть предстоящие контрольные:</span>
         <label class="switch">
             <input type="checkbox" id="future-exams-view-toggle">
             <span class="slider"></span>
         </label>
     </div>
+
+    <!-- === ДОБАВЛЕННЫЙ ЭЛЕМЕНТ УВЕДОМЛЕНИЯ === -->
+    <div id="reload-notice" class="notice" style="display: none;">Изменения применятся после закрытия меню</div>
+
     <script type="application/javascript" src="browser-polyfill.js"></script>
     <script src="popup.js"></script>
 </body>

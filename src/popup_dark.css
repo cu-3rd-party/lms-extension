@@ -1,0 +1,19 @@
+/* popup_dark.css */
+body.dark-theme {
+    background-color: #202124; /* Основной фон, как в вашей темной теме */
+    color: #e8eaed; /* Основной цвет текста */
+}
+
+body.dark-theme h3 {
+    border-bottom: 1px solid #444;
+}
+
+.notice {
+    padding: 10px;
+    margin-top: 10px;
+    text-align: center;
+    background-color: #4a4a4f;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #e0e0e0;
+}

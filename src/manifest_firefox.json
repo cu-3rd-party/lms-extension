@@ -58,7 +58,11 @@
                 "emoji_swap.js",
                 "style.css",
                 "dark_theme.js",
-                "archive-statements.js"
+                "archive-statements.js",
+                "plugin_page_loader.js",
+                "metrics_statements.js",
+                "popup.html",
+                "popup.js"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"
