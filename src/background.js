@@ -12,12 +12,20 @@ browser.webNavigation.onHistoryStateUpdated.addListener(details => {
     if (details.frameId === 0) handleNavigation(details.tabId, details.url);
 });
 
+
+
 browser.webNavigation.onCompleted.addListener(details => {
     if (details.frameId === 0) handleNavigation(details.tabId, details.url);
 });
 
 function handleNavigation(tabId, url) {
     if (!url || !url.startsWith("https://my.centraluniversity.ru/")) return;
+
+    browser.scripting.executeScript({
+        target: { tabId: tabId },
+        files: ["version_check.js"]
+    }).catch(err => console.error(`[BG_LOG] Error injecting version_check.js:`, err));
+
 
     // --- ЛОГИКА РАЗДЕЛЬНОГО ВНЕДРЕНИЯ ---
     if (url.includes("/learn/tasks")) {
