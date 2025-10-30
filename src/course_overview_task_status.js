@@ -1,3 +1,23 @@
+const SKIPPED_TASKS_KEY = 'cu.lms.skipped-tasks';
+
+function stripEmojis(text) {
+    const EMOJI_REGEX = /[🔴🔵⚫️⚫❤️💙🖤]/g;
+    if (!text) return '';
+    return text.replace(EMOJI_REGEX, '').trim();
+}
+
+function getTaskIdentifier(taskName, courseName) {
+    if (!taskName || !courseName) return null;
+    return `${stripEmojis(courseName.toLowerCase())}::${stripEmojis(taskName.toLowerCase())}`;
+} 
+
+function getSkippedTasks() {
+    try {
+        const skipped = localStorage.getItem(SKIPPED_TASKS_KEY);
+        return skipped ? new Set(JSON.parse(skipped)) : new Set();
+    } catch (e) { return new Set(); }
+}
+
 async function activateCourseOverviewTaskStatus() {
   // Достаем id курса из url
   const match = window.location.pathname.match(/actual\/(\d+)/);
@@ -15,10 +35,22 @@ async function activateCourseOverviewTaskStatus() {
     // https://my.centraluniversity.ru/api/micro-lms/materials/33293
     const exercisesData = await exercisesResponse.json();
     const performanceData = await performanceResponse.json();
+
+    const skippedTasks = getSkippedTasks();
+    const courseName = exercisesData.name;
     
     // Создаем мап для типа таски и оценки по ней
     const longreadToTaskMap = {};
-    const inProgressTasks = performanceData.tasks.filter(t => t.state === 'inProgress');
+
+    const inProgressTasks = performanceData.tasks.filter(t => {
+      if (t.state !== 'inProgress') return false;
+      
+      const exercise = exercisesData.exercises.find(ex => ex.id === t.exerciseId);
+      if (!exercise) return false;
+      
+      const taskIdentifier = getTaskIdentifier(exercise.name, courseName);
+      return !skippedTasks.has(taskIdentifier);
+    });
 
     const materialChecks = await Promise.all(
       inProgressTasks.map(async (task) => {
@@ -51,10 +83,12 @@ async function activateCourseOverviewTaskStatus() {
         const task = performanceData.tasks.find(t => t.exerciseId === exercise.id);
         
         if (task) {
+          const taskIdentifier = getTaskIdentifier(exercise.name, courseName);
           let state = task.state;
           
-          // Если задача в работе и есть submitAt, меняем статус на hasSolution
-          if (state === 'inProgress' && submissionMap[exercise.id]) {
+          if (skippedTasks.has(taskIdentifier)) {
+            state = 'skipped';
+          } else if (state === 'inProgress' && submissionMap[exercise.id]) {
             state = 'hasSolution';
           }
           
@@ -65,8 +99,6 @@ async function activateCourseOverviewTaskStatus() {
         }
       }
     }
-    
-    console.log('Longread to Task mapping:', longreadToTaskMap);
     
     // Ждем появления главного контейнера
     const courseOverview = await waitForElement('cu-course-overview', 10000);
@@ -140,6 +172,9 @@ function addStatusChips(container, longreadToTaskMap) {
         case 'evaluated':
           chipHTML = `<tui-chip data-appearance="positive-pale">${score}/10</tui-chip>`;
           break;
+        case 'skipped':
+          chipHTML = `<tui-chip data-original-status="Метод скипа">Метод скипа</tui-chip>`;
+          break;
         default:
           return; 
       }
@@ -157,7 +192,7 @@ function addStatusChips(container, longreadToTaskMap) {
       chipElement.classList.add('state-chip');
       chipElement.setAttribute('data-size', 's');
       chipElement.setAttribute('data-original-culms-status', '');
-      chipElement.style.cssText = 'padding: var(--cu-chip-padding-vertical-s) var(--cu-chip-padding-horizontal-s); position: absolute; right: 6px; top: 50%; transform: translateY(-50%);';
+      chipElement.style.cssText = `padding: var(--cu-chip-padding-vertical-s) var(--cu-chip-padding-horizontal-s); position: absolute; right: 6px; top: 50%; transform: translateY(-50%); ${state === 'skipped' ? 'background-color: #b516d7 !important; color: white !important' : ''}`;
 
       li.appendChild(chipElement);
     }
