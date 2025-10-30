@@ -12,20 +12,54 @@ async function activateCourseOverviewTaskStatus() {
       fetch(`https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/exercises`),
       fetch(`https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/student-performance`)
     ]);
-    
+    // https://my.centraluniversity.ru/api/micro-lms/materials/33293
     const exercisesData = await exercisesResponse.json();
     const performanceData = await performanceResponse.json();
     
     // Создаем мап для типа таски и оценки по ней
     const longreadToTaskMap = {};
+    const inProgressTasks = performanceData.tasks.filter(t => t.state === 'inProgress');
+
+    const materialChecks = await Promise.all(
+      inProgressTasks.map(async (task) => {
+        try {
+          const materialResponse = await fetch(
+            `https://my.centraluniversity.ru/api/micro-lms/materials/${task.exerciseId}`
+          );
+          const materialData = await materialResponse.json();
+          return {
+            exerciseId: task.exerciseId,
+            hasSubmission: materialData.task?.submitAt != null
+          };
+        } catch (e) {
+          console.log(`Error checking material ${task.exerciseId}:`, e);
+          return {
+            exerciseId: task.exerciseId,
+            hasSubmission: false
+          };
+        }
+      })
+    );
+
+    const submissionMap = {};
+    materialChecks.forEach(check => {
+      submissionMap[check.exerciseId] = check.hasSubmission;
+    });
     
     for (const exercise of exercisesData.exercises) {
       if (exercise.longread) {
         const task = performanceData.tasks.find(t => t.exerciseId === exercise.id);
         
         if (task) {
+          let state = task.state;
+          
+          // Если задача в работе и есть submitAt, меняем статус на hasSolution
+          if (state === 'inProgress' && submissionMap[exercise.id]) {
+            state = 'hasSolution';
+          }
+          
           longreadToTaskMap[exercise.longread.id] = {
-            state: task.state,
+            state: state,
             score: Number(Math.min((task.score || 0) + (task.extraScore || 0), 10).toFixed(2))
           };
         }
@@ -93,6 +127,9 @@ function addStatusChips(container, longreadToTaskMap) {
           break;
         case 'inProgress':
           chipHTML = `<tui-chip data-appearance="support-categorical-12-pale" data-original-status="В работе">В работе</tui-chip>`;
+          break;
+        case 'hasSolution':
+          chipHTML = `<tui-chip data-appearance="support-categorical-12-pale" data-original-status="Есть решение">Есть решение</tui-chip>`;
           break;
         case 'review':
           chipHTML = `<tui-chip data-appearance="support-categorical-13-pale" data-original-status="На проверке">На проверке</tui-chip>`;
