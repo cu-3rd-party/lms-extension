@@ -1,5 +1,5 @@
 async function activateCourseOverviewTaskStatus() {
-  // Extract course ID from URL
+  // Достаем id курса из url
   const match = window.location.pathname.match(/actual\/(\d+)/);
   if (!match) {
     return;
@@ -7,7 +7,7 @@ async function activateCourseOverviewTaskStatus() {
   const courseId = match[1];
   
   try {
-    // Fetch exercises and student performance data
+    // Добываем таски и оценки к ним
     const [exercisesResponse, performanceResponse] = await Promise.all([
       fetch(`https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/exercises`),
       fetch(`https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/student-performance`)
@@ -16,7 +16,7 @@ async function activateCourseOverviewTaskStatus() {
     const exercisesData = await exercisesResponse.json();
     const performanceData = await performanceResponse.json();
     
-    // Create dict where key is longread.id and value is task info
+    // Создаем мап для типа таски и оценки по ней
     const longreadToTaskMap = {};
     
     for (const exercise of exercisesData.exercises) {
@@ -34,18 +34,16 @@ async function activateCourseOverviewTaskStatus() {
     
     console.log('Longread to Task mapping:', longreadToTaskMap);
     
-    // Wait for course overview element
+    // Ждем появления главного контейнера
     const courseOverview = await waitForElement('cu-course-overview', 10000);
     const expandContainers = courseOverview.querySelectorAll('tui-expand');
     
-    // Set up observer for each container
+    // Для каждого ставим обсервер на открытие
     expandContainers.forEach(function(container) {
-      // Check if container is already expanded and add chips immediately
       if (container.getAttribute('aria-expanded') === 'true') {
         addStatusChips(container, longreadToTaskMap);
       }
       
-      // Create a MutationObserver to watch for aria-expanded changes
       const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
           if (mutation.attributeName === 'aria-expanded') {
@@ -58,7 +56,6 @@ async function activateCourseOverviewTaskStatus() {
         });
       });
       
-      // Start observing the container for attribute changes
       observer.observe(container, { 
         attributes: true,
         attributeFilter: ['aria-expanded']
@@ -74,9 +71,7 @@ function addStatusChips(container, longreadToTaskMap) {
   const liElements = container.querySelectorAll('li.longreads-list-item');
   
   liElements.forEach(function(li) {
-    // Check if the status element hasn't been added already
     if (!li.querySelector('.task-table__state')) {
-      // Find the anchor element and extract longread ID
       const anchor = li.querySelector('a[href*="/longreads/"]');
       if (!anchor) return;
       
@@ -85,11 +80,10 @@ function addStatusChips(container, longreadToTaskMap) {
       
       const longreadId = parseInt(hrefMatch[1]);
       
-      // Check if this longread has task data
       const taskData = longreadToTaskMap[longreadId];
-      if (!taskData) return; // Don't add chip if not in map
+      if (!taskData) return; // не добавляем плашку, если в списке тасок элемента нет (лонгриды)
       
-      // Determine chip content based on state
+      // На основе типа таски создаем элемент
       let chipHTML = '';
       const state = taskData.state;
       const score = taskData.score 
@@ -110,7 +104,7 @@ function addStatusChips(container, longreadToTaskMap) {
           chipHTML = `<tui-chip data-appearance="positive-pale">${score}/10</tui-chip>`;
           break;
         default:
-          return; // не добавляем, если статус какой-то другой
+          return; 
       }
 
       li.style.position = 'relative';
@@ -119,7 +113,6 @@ function addStatusChips(container, longreadToTaskMap) {
       tempDiv.innerHTML = chipHTML;
       const chipElement = tempDiv.firstElementChild;
 
-      // Set attributes and styles directly on the chip
       chipElement.setAttribute('_ngcontent-ng-c869453584', '');
       chipElement.setAttribute('tuiappearance', '');
       chipElement.setAttribute('tuiicons', '');
