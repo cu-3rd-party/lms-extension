@@ -5,11 +5,12 @@ const oledToggle = document.getElementById('oled-toggle');
 const emojiHeartsToggle = document.getElementById('emoji-hearts-toggle');
 const oldCoursesDesignToggle = document.getElementById('old-courses-design-toggle');
 const futureExamsViewToggle = document.getElementById('future-exams-view-toggle');
+const courseOverviewTaskStatusToggle = document.getElementById('course-overview-task-status-toggle');
 
 // 1. При открытии popup, получить текущее состояние и обновить переключатель
 // Используем browser.storage, который возвращает Promise, понятный полифиллу
 browser.storage.sync.get(['themeEnabled', 'oledEnabled', 'emojiHeartsEnabled',
-                          'oldCoursesDesignToggle', 'futureExamsViewToggle']).then((data) => {
+                          'oldCoursesDesignToggle', 'futureExamsViewToggle', 'courseOverviewTaskStatusToggle']).then((data) => {
     themeToggle.checked = !!data.themeEnabled;
     if (oledToggle) {
         oledToggle.checked = !!data.oledEnabled;
@@ -23,6 +24,9 @@ browser.storage.sync.get(['themeEnabled', 'oledEnabled', 'emojiHeartsEnabled',
     }
     if (futureExamsViewToggle) {
         futureExamsViewToggle.checked = !!data.futureExamsViewToggle;
+    }
+    if (courseOverviewTaskStatusToggle) {
+        courseOverviewTaskStatusToggle.checked = !!data.courseOverviewTaskStatusToggle;
     }
 });
 
@@ -62,6 +66,13 @@ if (futureExamsViewToggle) {
     futureExamsViewToggle.addEventListener('change', () => {
         const isEnabled = futureExamsViewToggle.checked;
         browser.storage.sync.set({ futureExamsViewToggle: isEnabled });
+    });
+}
+
+if (courseOverviewTaskStatusToggle) {
+    courseOverviewTaskStatusToggle.addEventListener('change', () => {
+        const isEnabled = courseOverviewTaskStatusToggle.checked;
+        browser.storage.sync.set({ courseOverviewTaskStatusToggle: isEnabled });
     });
 }
 
