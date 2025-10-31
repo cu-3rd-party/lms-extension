@@ -1,8 +1,8 @@
-// version_check.js (с удалением уведомления при актуальной версии)
+// version_check.js (с удалением уведомления при актуальной версии и парсингом версии из манифеста)
 
 (function() {
     // --- НАСТРОЙКА ---
-    const CURRENT_PLUGIN_VERSION = "1.4.1"; // Текущая версия плагина
+    const CURRENT_PLUGIN_VERSION = browser.runtime.getManifest().version; // Версия плагина из manifest.json
     const GIST_URL = 'https://api.github.com/gists/f108f457039a5b11154dcb8e79f1b0da';
     const RELEASES_PAGE_URL = 'https://github.com/cu-3rd-party/lms-extension/releases/';
     const CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 минут
