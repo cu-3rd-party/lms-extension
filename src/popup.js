@@ -10,27 +10,29 @@ const courseOverviewTaskStatusToggle = document.getElementById('course-overview-
 
 // 1. При открытии popup, получить текущее состояние и обновить переключатель
 browser.storage.sync.get(['themeEnabled', 'oledEnabled', 'emojiHeartsEnabled',
-                          'oldCoursesDesignToggle', 'futureExamsViewToggle', 'autoRenameEnabled', 'courseOverviewTaskStatusToggle']).then((data) => {
-    themeToggle.checked = !!data.themeEnabled;
-    if (oledToggle) {
-        oledToggle.checked = !!data.oledEnabled;
-        oledToggle.disabled = !themeToggle.checked;
-    }
-    if (emojiHeartsToggle) {
-        emojiHeartsToggle.checked = !!data.emojiHeartsEnabled;
-    }
-    if (oldCoursesDesignToggle) {
-        oldCoursesDesignToggle.checked = !!data.oldCoursesDesignToggle;
-    }
-    if (futureExamsViewToggle) {
-        futureExamsViewToggle.checked = !!data.futureExamsViewToggle;
-    }
-    if (autoRenameToggle) {
-        autoRenameToggle.checked = !!data.autoRenameEnabled;
-    if (courseOverviewTaskStatusToggle) {
-        courseOverviewTaskStatusToggle.checked = !!data.courseOverviewTaskStatusToggle;
-    }
-});
+                          'oldCoursesDesignToggle', 'futureExamsViewToggle', 'autoRenameEnabled', 'courseOverviewTaskStatusToggle'])
+    .then((data) => {
+        themeToggle.checked = !!data.themeEnabled;
+        if (oledToggle) {
+            oledToggle.checked = !!data.oledEnabled;
+            oledToggle.disabled = !themeToggle.checked;
+        }
+        if (emojiHeartsToggle) {
+            emojiHeartsToggle.checked = !!data.emojiHeartsEnabled;
+        }
+        if (oldCoursesDesignToggle) {
+            oldCoursesDesignToggle.checked = !!data.oldCoursesDesignToggle;
+        }
+        if (futureExamsViewToggle) {
+            futureExamsViewToggle.checked = !!data.futureExamsViewToggle;
+        }
+        if (autoRenameToggle) {
+            autoRenameToggle.checked = !!data.autoRenameEnabled;
+        }
+        if (courseOverviewTaskStatusToggle) {
+            courseOverviewTaskStatusToggle.checked = !!data.courseOverviewTaskStatusToggle;
+        }
+    });
 
 // 2. При клике на переключатель, сохранить новое состояние.
 themeToggle.addEventListener('change', () => {
