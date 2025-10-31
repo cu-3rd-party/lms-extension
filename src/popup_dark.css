@@ -1,19 +1,32 @@
-/* popup_dark.css */
+/* popup_dark.css - Исправленная версия */
+
 body.dark-theme {
-    background-color: #202124; /* Основной фон, как в вашей темной теме */
-    color: #e8eaed; /* Основной цвет текста */
+    background-color: #202124;
+    color: #e8eaed;
+}
+
+body.dark-theme .section {
+    background-color: #2d2e31;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    border: 1px solid #444;
 }
 
 body.dark-theme h3 {
-    border-bottom: 1px solid #444;
+    color: #e8eaed;
 }
 
-.notice {
-    padding: 10px;
-    margin-top: 10px;
-    text-align: center;
+body.dark-theme .notice {
     background-color: #4a4a4f;
-    border-radius: 6px;
-    font-size: 13px;
     color: #e0e0e0;
+}
+
+/* Фон переключателя в ВЫКЛЮЧЕННОМ состоянии */
+body.dark-theme .slider {
+    background-color: #5f6368;
+}
+
+/* === ВОТ ИСПРАВЛЕНИЕ === */
+/* Возвращаем синий фон для ВКЛЮЧЕННОГО состояния */
+body.dark-theme input:checked + .slider {
+    background-color: #2196F3;
 }
