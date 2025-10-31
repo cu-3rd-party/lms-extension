@@ -48,6 +48,12 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                 return;
             }
 
+            if (changes.courseOverviewTaskStatusToggle) {
+                window.location.reload();
+                return;
+            }
+
+            // 🔧 Разделено, чтобы корректно отслеживать themeEnabled
             if (changes.archivedCourseIds) {
                 window.cuLmsLog('Course Archiver: archivedCourseIds changed, re-rendering.');
                 const currentPath = window.location.pathname;
@@ -77,6 +83,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                 const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
                 if (isOnIndividualCoursePage) {
                     processFutureExams();
+                    processCourseOverviewTaskStatus();
                 }
             }
         });
@@ -89,6 +96,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
         if (isOnIndividualCoursePage) {
             processFutureExams();
+            processCourseOverviewTaskStatus();
         }
     }
 
@@ -284,6 +292,18 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             }
         } catch (e) {
             console.log("Something went wrong with future exams", e);
+        }
+    }
+
+    async function processCourseOverviewTaskStatus() {
+        try {
+            const courseOverviewTaskStatusData = await browser.storage.sync.get('courseOverviewTaskStatusToggle');
+            const useCourseOverviewTaskStatus = !!courseOverviewTaskStatusData.courseOverviewTaskStatusToggle;
+            if (useCourseOverviewTaskStatus && typeof activateCourseOverviewTaskStatus === 'function') {
+                activateCourseOverviewTaskStatus();
+            }
+        } catch (e) {
+            console.log("Something went wrong with course overview task status", e);
         }
     }
 

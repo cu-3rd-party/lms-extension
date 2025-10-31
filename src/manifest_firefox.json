@@ -51,6 +51,7 @@
                 "tasks_fix.js",
                 "course_card_simplifier.js",
                 "future_exams_view.js",
+                "course_overview_task_status.js",
                 "courses_fix.js",
                 "debug_utils.js",
                 "instant_doc_view_fix.js",
@@ -58,7 +59,8 @@
                 "emoji_swap.js",
                 "style.css",
                 "dark_theme.js",
-                "archive-statements.js"
+                "archive-statements.js",
+                "rename_hw.js"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"

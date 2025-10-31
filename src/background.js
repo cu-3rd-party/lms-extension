@@ -39,13 +39,13 @@ function handleNavigation(tabId, url) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
             files: ["browser-polyfill.js", "course_card_simplifier.js",
-                    "future_exams_view.js", "courses_fix.js"]
+                    "future_exams_view.js", "courses_fix.js", "course_overview_task_status.js"]
         }).catch(err => console.error(`[BG_LOG] Error injecting courses_fix.js:`, err));
     }
     if (url.includes("/longreads/")) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
-            files: ["homework_weight_fix.js", "instant_doc_view_fix.js", "task_status_adaptation.js"]
+            files: ["homework_weight_fix.js", "instant_doc_view_fix.js", "task_status_adaptation.js", "rename_hw.js"]
         }).catch(err => window.cuLmsLog(`[BG_LOG] Error injecting Longreads scripts:`, err));
     }
     if (url.includes("/learn/reports/student-performance")) {
