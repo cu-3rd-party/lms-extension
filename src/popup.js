@@ -1,12 +1,11 @@
-// popup.js - УНИВЕРСАЛЬНАЯ ФИНАЛЬНАЯ ВЕРСИЯ (с контекстной плашкой)
+// popup.js - УНИВЕРСАЛЬНАЯ ФИНАЛЬНАЯ ВЕРСИЯ (с контекстной плашкой и всеми опциями)
 'use strict';
 
 // --- ОПРЕДЕЛЕНИЕ КОНТЕКСТА ---
 // Эта проверка определяет, запущен ли скрипт внутри iframe на странице
 const isInsideIframe = (window.self !== window.top);
 
-
-// --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP (без изменений) ---
+// --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP ---
 
 const darkThemeLinkID = 'popup-dark-theme-style';
 
@@ -28,9 +27,13 @@ function applyPopupTheme(isEnabled) {
 
 // --- УПРАВЛЕНИЕ ПЕРЕКЛЮЧАТЕЛЯМИ И ПЛАШКОЙ ---
 
+// Централизованный объект для всех переключателей.
+// Ключ - это имя опции в browser.storage.sync
 const toggles = {
     themeEnabled: document.getElementById('theme-toggle'),
     oledEnabled: document.getElementById('oled-toggle'),
+    autoRenameEnabled: document.getElementById('auto-rename-toggle'),
+    courseOverviewTaskStatusToggle: document.getElementById('course-overview-task-status-toggle'),
     emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
     oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
     futureExamsViewToggle: document.getElementById('future-exams-view-toggle')
@@ -50,9 +53,11 @@ function refreshToggleStates() {
                 toggles[key].checked = !!data[key];
             }
         });
+        // Особая логика для OLED-переключателя
         if (toggles.oledEnabled) {
             toggles.oledEnabled.disabled = !toggles.themeEnabled.checked;
         }
+        // Применяем тему к самому popup
         applyPopupTheme(!!data.themeEnabled);
     });
 }
@@ -74,10 +79,11 @@ allKeys.forEach(key => {
                 browser.storage.sync.set({ [key]: isEnabled });
             }
 
-            // Особая логика для OLED
+            // Особая логика для OLED: он зависит от темной темы
             if (key === 'themeEnabled') {
                 if (toggles.oledEnabled) {
                     toggles.oledEnabled.disabled = !isEnabled;
+                    // Если темную тему выключают, OLED тоже выключается
                     if (!isEnabled && toggles.oledEnabled.checked) {
                         toggles.oledEnabled.checked = false;
                         if (isInsideIframe) {
@@ -92,28 +98,34 @@ allKeys.forEach(key => {
     }
 });
 
-// 2. Слушатели сообщений и изменений в хранилище
+// 2. Слушатели сообщений (для iframe) и изменений в хранилище (для синхронизации)
 
 if (isInsideIframe) {
+    // Этот код работает только на странице настроек
     window.addEventListener('message', (event) => {
+        // Убеждаемся, что сообщение пришло от родительского окна
         if (event.source !== window.parent) return;
+
         if (event.data && event.data.action === 'getPendingChanges') {
+            // Отправляем накопленные изменения родительскому окну
             window.parent.postMessage({
                 action: 'receivePendingChanges',
                 payload: pendingChanges
             }, '*');
             
+            // Сбрасываем изменения и скрываем плашку
             pendingChanges = {}; 
             if (reloadNotice) reloadNotice.style.display = 'none';
         }
     });
 }
 
+// Слушаем изменения в хранилище, чтобы popup всегда отражал актуальное состояние
 browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync') {
         refreshToggleStates();
     }
 });
 
-// 3. При первой загрузке обновляем состояние
+// 3. При первой загрузке popup, обновляем состояние всех переключателей
 refreshToggleStates();

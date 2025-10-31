@@ -49,6 +49,7 @@
                 "icons/*.png",
                 "course_card_simplifier.js",
                 "future_exams_view.js",
+                "course_overview_task_status.js",
                 "tasks_fix.js",
                 "courses_fix.js",
                 "debug_utils.js",
@@ -63,7 +64,8 @@
                 "popup.html",
                 "popup.js",
                 "gist_dark.css",
-                "popup_dark.css"
+                "popup_dark.css",
+                "rename_hw.js"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"

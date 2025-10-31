@@ -192,6 +192,16 @@ browser.storage.onChanged.addListener((changes) => {
     }
 });
 
-// Старт
-observeCourseListChanges();
-simplifyAllCourseCards();
+// Старт: выполняем только если включён oldCoursesDesignToggle в настройках
+browser.storage.sync.get('oldCoursesDesignToggle').then((data) => {
+    const useOldDesign = !!data.oldCoursesDesignToggle;
+    if (useOldDesign) {
+        observeCourseListChanges();
+        simplifyAllCourseCards();
+    } else {
+        // Если не используется — ничего не делаем. courses_fix.js обработает переключение и reload'ы.
+    }
+}).catch(err => {
+    // В случае ошибки чтения настроек безопаснее ничего не менять
+    console.error('[course_card_simplifier] Failed to read oldCoursesDesignToggle:', err);
+});
