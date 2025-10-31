@@ -64,17 +64,17 @@ function handleNavigation(tabId, url) {
 // Вставьте этот код в конец вашего существующего файла background.js
 
 // Слушатели навигации
-chrome.webNavigation.onHistoryStateUpdated.addListener(details => {
+browser.webNavigation.onHistoryStateUpdated.addListener(details => {
     if (details.frameId === 0) handleNavigation(details.tabId, details.url);
 });
-chrome.webNavigation.onCompleted.addListener(details => {
+browser.webNavigation.onCompleted.addListener(details => {
     if (details.frameId === 0) handleNavigation(details.tabId, details.url);
 });
 // --- Конец блока внедрения скриптов ---
 
 
 // *** НОВАЯ, НАДЕЖНАЯ ЛОГИКА ОЧИСТКИ GIST ***
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "fetchGistContent") {
         fetch(request.url)
             .then(response => response.text())

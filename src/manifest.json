@@ -10,7 +10,8 @@
     ],
     "host_permissions": [
         "https://my.centraluniversity.ru/*",
-        "https://id.centraluniversity.ru/*"
+        "https://id.centraluniversity.ru/*",
+        "https://gist.github.com/*"
     ],
     "background": {
         "service_worker": "background.js"

@@ -10,7 +10,8 @@
     ],
     "host_permissions": [
         "https://my.centraluniversity.ru/*",
-        "https://id.centraluniversity.ru/*"
+        "https://id.centraluniversity.ru/*",
+        "https://gist.github.com/*"
     ],
     "background": {
         "scripts": [
@@ -62,7 +63,9 @@
                 "plugin_page_loader.js",
                 "metrics_statements.js",
                 "popup.html",
-                "popup.js"
+                "popup.js",
+                "gist_dark.css",
+                "popup_dark.css"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"
