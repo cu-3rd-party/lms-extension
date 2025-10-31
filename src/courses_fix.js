@@ -470,7 +470,6 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         `;
         archiveButton.appendChild(iconSpan);
         buttonContainer.appendChild(archiveButton);
-
         archiveButton.addEventListener('click', async (event) => {
             event.preventDefault();
             event.stopPropagation();

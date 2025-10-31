@@ -301,7 +301,6 @@ async function viewFutureExams() {
             if (icon) {
                 icon.style.setProperty('color', '#dc2626', 'important');
             }
-
             existingAccordion.appendChild(accordionItem);
         });
     } catch (e) {
@@ -318,7 +317,6 @@ function createAccordionItem(themeId, title, index) {
     item.setAttribute('data-theme-id', themeId);
     item.setAttribute('data-borders', 'all');
     item.setAttribute('data-size', 'm');
-
     item.innerHTML = `
         <div _ngcontent-ng-c1368414471="" automation-id="tui-accordion__item-wrapper" class="t-wrapper">
             <button _ngcontent-ng-c1368414471="" automation-id="tui-accordion__item-header" type="button" class="t-header t-header_hoverable">
@@ -336,13 +334,11 @@ function createAccordionItem(themeId, title, index) {
             </tui-expand>
         </div>
     `;
-
     return item;
 }
 
 function getUpcomingScheduleItems(courseTitle, schedule) {
     const titleLower = courseTitle.toLowerCase();
-
     let matchingKey = null;
     for (const key of Object.keys(schedule)) {
         if (titleLower.includes(key.toLowerCase())) {
@@ -359,13 +355,11 @@ function getUpcomingScheduleItems(courseTitle, schedule) {
     const currentYear = now.getFullYear();
     const daysLater = new Date(now);
     daysLater.setDate(now.getDate() + 1);
-
     const items = schedule[matchingKey]
         .map(item => {
             const [day, month] = item.date.split(' ').map(d => d.padStart(2, '0'));
             // считаем что все в одном году
             const itemDate = new Date(currentYear, parseInt(month) - 1, parseInt(day));
-
             return {
                 ...item,
                 parsedDate: itemDate
@@ -376,13 +370,11 @@ function getUpcomingScheduleItems(courseTitle, schedule) {
             const startDate = item.parsedDate;
             const endDate = new Date(startDate);
             endDate.setDate(startDate.getDate() + 7);
-
             const formatDate = (date) => {
                 const d = String(date.getDate()).padStart(2, '0');
                 const m = String(date.getMonth() + 1).padStart(2, '0');
                 return `${d}.${m}`;
             };
-
             return {
                 title: `${item.name}. ${formatDate(startDate)}-${formatDate(endDate)}`,
                 originalName: item.name,
