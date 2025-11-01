@@ -10,7 +10,8 @@
     ],
     "host_permissions": [
         "https://my.centraluniversity.ru/*",
-        "https://id.centraluniversity.ru/*"
+        "https://id.centraluniversity.ru/*",
+        "https://gist.github.com/*"
     ],
     "background": {
         "service_worker": "background.js"
@@ -22,7 +23,8 @@
         {
             "matches": [
                 "https://my.centraluniversity.ru/*",
-                "https://id.centraluniversity.ru/*"
+                "https://id.centraluniversity.ru/*",
+                "https://gist.github.com/*"
             ],
             "js": [
                 "debug_utils.js"
@@ -57,6 +59,12 @@
                 "style_oled.css",
                 "dark_theme.js",
                 "archive-statements.js",
+                "plugin_page_loader.js",
+                "metrics_statements.js",
+                "popup.html",
+                "popup.js",
+                "gist_dark.css",
+                "popup_dark.css",
                 "rename_hw.js"
             ],
             "matches": [

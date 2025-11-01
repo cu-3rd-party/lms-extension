@@ -14,6 +14,7 @@
             width: 350px;
             padding: 10px;
             background-color: #f0f0f0;
+            box-sizing: border-box;
         }
 
         .toggle-container {
@@ -22,7 +23,7 @@
             justify-content: space-between;
             margin-bottom: 8px;
         }
-
+        
         .toggle-label {
             flex: 1;
             margin-right: 10px;
@@ -43,7 +44,6 @@
             font-size: 17px;
         }
 
-        /* Простой CSS для переключателя */
         .switch {
             position: relative;
             display: inline-block;
@@ -52,9 +52,7 @@
             flex-shrink: 0; /* Запрещаем сжатие переключателя */
         }
 
-        .switch input {
-            display: none;
-        }
+        .switch input { display: none; }
 
         .slider {
             position: absolute;
@@ -80,12 +78,26 @@
             border-radius: 50%;
         }
 
-        input:checked+.slider {
-            background-color: #2196F3;
+        input:checked+.slider { background-color: #2196F3; }
+        input:disabled + .slider { cursor: not-allowed; background-color: #e0e0e0; }
+        input:checked+.slider:before { transform: translateX(26px); }
+
+        /* --- НОВЫЕ СТИЛИ ДЛЯ УВЕДОМЛЕНИЯ --- */
+        .notice {
+            padding: 10px;
+            margin-top: 15px;
+            text-align: center;
+            background-color: #e9e9eb;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #333;
+            transition: background-color 0.3s, color 0.3s;
         }
 
-        input:checked+.slider:before {
-            transform: translateX(26px);
+        /* Стиль уведомления для темной темы */
+        body.dark-theme .notice {
+            background-color: #4a4a4f;
+            color: #e0e0e0;
         }
 
         .disabled {
@@ -95,17 +107,6 @@
 </head>
 
 <body>
-    <div class="section">
-        <h3>Полезные скрипты</h3>
-        <div class="toggle-container">
-            <span class="toggle-label">Авто переименование ДЗ:</span>
-            <label class="switch">
-                <input type="checkbox" id="auto-rename-toggle">
-                <span class="slider"></span>
-            </label>
-        </div>
-    </div>
-
     <div class="section">
         <h3>Выбор темы</h3>
         <div class="toggle-container">
@@ -125,7 +126,25 @@
     </div>
 
     <div class="section">
-        <h3>Наведение вкусовщины</h3>
+        <h3>Полезные скрипты</h3>
+        <div class="toggle-container">
+            <span class="toggle-label">Авто переименование ДЗ:</span>
+            <label class="switch">
+                <input type="checkbox" id="auto-rename-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="toggle-container">
+            <span class="toggle-label">Статус заданий в обзоре курса:</span>
+            <label class="switch">
+                <input type="checkbox" id="course-overview-task-status-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Визуальные улучшения</h3>
         <div class="toggle-container">
             <span class="toggle-label">Замена кружков на сердечки:</span>
             <label class="switch">
@@ -148,13 +167,10 @@
             </label>
         </div>
     </div>
-    <div class="toggle-container" style="margin-top:8px">
-        <span>Отображать статус заданий в обзоре курса:</span>
-        <label class="switch">
-            <input type="checkbox" id="course-overview-task-status-toggle">
-            <span class="slider"></span>
-        </label>
-    </div>
+
+    <!-- === ЭЛЕМЕНТ УВЕДОМЛЕНИЯ === -->
+    <div id="reload-notice" class="notice" style="display: none;">Изменения применятся после закрытия меню</div>
+
     <script type="application/javascript" src="browser-polyfill.js"></script>
     <script src="popup.js"></script>
 </body>

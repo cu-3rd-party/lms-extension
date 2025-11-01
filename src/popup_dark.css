@@ -1,0 +1,32 @@
+/* popup_dark.css - Исправленная версия */
+
+body.dark-theme {
+    background-color: #202124;
+    color: #e8eaed;
+}
+
+body.dark-theme .section {
+    background-color: #2d2e31;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    border: 1px solid #444;
+}
+
+body.dark-theme h3 {
+    color: #e8eaed;
+}
+
+body.dark-theme .notice {
+    background-color: #4a4a4f;
+    color: #e0e0e0;
+}
+
+/* Фон переключателя в ВЫКЛЮЧЕННОМ состоянии */
+body.dark-theme .slider {
+    background-color: #5f6368;
+}
+
+/* === ВОТ ИСПРАВЛЕНИЕ === */
+/* Возвращаем синий фон для ВКЛЮЧЕННОГО состояния */
+body.dark-theme input:checked + .slider {
+    background-color: #2196F3;
+}

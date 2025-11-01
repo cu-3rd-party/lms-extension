@@ -10,7 +10,8 @@
     ],
     "host_permissions": [
         "https://my.centraluniversity.ru/*",
-        "https://id.centraluniversity.ru/*"
+        "https://id.centraluniversity.ru/*",
+        "https://gist.github.com/*"
     ],
     "background": {
         "scripts": [
@@ -60,6 +61,12 @@
                 "style.css",
                 "dark_theme.js",
                 "archive-statements.js",
+                "plugin_page_loader.js",
+                "metrics_statements.js",
+                "popup.html",
+                "popup.js",
+                "gist_dark.css",
+                "popup_dark.css",
                 "rename_hw.js"
             ],
             "matches": [
