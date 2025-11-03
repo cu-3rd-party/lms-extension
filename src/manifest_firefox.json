@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "CU LMS Enhancer",
-    "version": "1.4.1",
+    "version": "1.5",
     "description": "Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий",
     "permissions": [
         "storage",
@@ -67,7 +67,8 @@
                 "popup.js",
                 "gist_dark.css",
                 "popup_dark.css",
-                "rename_hw.js"
+                "rename_hw.js",
+                "version_check.js"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"
