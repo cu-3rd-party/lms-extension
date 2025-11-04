@@ -11,7 +11,7 @@
 Мы залили наше расширение в официальные магазины браузеров, вот ссылки:
 <div align="center">
 
-**[Установить для Chrome](https://chromewebstore.google.com/detail/cu-lms-enhancer/)**  
+**[Установить для Chrome](https://chromewebstore.google.com/detail/cu-lms-enhancer/cbkadnkphiaalgjpgilbkphoecacfjop?authuser=7&hl=en)**  
 **[Установить для Firefox](https://addons.mozilla.org/en-US/firefox/addon/cu-lms-enhancer/)**
 
 </div>
