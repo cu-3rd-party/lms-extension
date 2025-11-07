@@ -448,7 +448,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             buttonContainer.className = 'archive-button-container';
             imageAreaContainer.appendChild(buttonContainer);
         }
-        buttonContainer.style.cssText = `position: absolute; right: 8px; bottom: 4px; z-index: 10;`;
+        buttonContainer.style.cssText = `position: absolute; right: 8px; bottom: 4px; z-index: 2;`;
         buttonContainer.innerHTML = '';
         const archiveButton = document.createElement('button');
         archiveButton.style.cssText = `background: none; border: none; padding: 0; cursor: pointer; line-height: 0;`;
