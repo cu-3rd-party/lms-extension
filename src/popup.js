@@ -36,11 +36,15 @@ const toggles = {
     courseOverviewTaskStatusToggle: document.getElementById('course-overview-task-status-toggle'),
     emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
     oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
-    futureExamsViewToggle: document.getElementById('future-exams-view-toggle')
+    futureExamsViewToggle: document.getElementById('future-exams-view-toggle'),
+    courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
 };
 
+const futureExamsDisplayContainer = document.getElementById('future-exams-display-container');
+const futureExamsDisplayFormat = document.getElementById('future-exams-display-format');
+
 const reloadNotice = document.getElementById('reload-notice');
-const allKeys = Object.keys(toggles);
+const allKeys = [...Object.keys(toggles), 'futureExamsDisplayFormat'];
 let pendingChanges = {};
 
 /**
@@ -59,7 +63,23 @@ function refreshToggleStates() {
         }
         // Применяем тему к самому popup
         applyPopupTheme(!!data.themeEnabled);
+
+        // Апдейты отображения полей, зависящих от состояний переключателей
+        updateFormatDisplayVisibility(data.futureExamsDisplayFormat);
     });
+}
+
+function updateFormatDisplayVisibility(displayFormat) {
+  if (toggles['futureExamsViewToggle'].checked) {
+    futureExamsDisplayContainer.style.display = 'block';
+  }
+  else {
+    futureExamsDisplayContainer.style.display = 'none';
+  }
+
+  if (futureExamsDisplayFormat && displayFormat) {
+    futureExamsDisplayFormat.value = displayFormat;
+  }
 }
 
 // 1. Добавляем обработчики, которые работают по-разному в зависимости от контекста
@@ -94,6 +114,10 @@ allKeys.forEach(key => {
                     }
                 }
             }
+
+            if (key === 'futureExamsViewToggle') {
+                updateFormatDisplayVisibility();
+            }
         });
     }
 });
@@ -116,6 +140,21 @@ if (isInsideIframe) {
             // Сбрасываем изменения и скрываем плашку
             pendingChanges = {}; 
             if (reloadNotice) reloadNotice.style.display = 'none';
+        }
+    });
+}
+
+if (futureExamsDisplayFormat) {
+    futureExamsDisplayFormat.addEventListener('change', () => {
+        const selectedFormat = futureExamsDisplayFormat.value;
+        
+        if (isInsideIframe) {
+            // В iframe накапливаем изменения
+            if (reloadNotice) reloadNotice.style.display = 'block';
+            pendingChanges['futureExamsDisplayFormat'] = selectedFormat;
+        } else {
+            // В popup браузера сохраняем сразу
+            browser.storage.sync.set({ futureExamsDisplayFormat: selectedFormat });
         }
     });
 }
