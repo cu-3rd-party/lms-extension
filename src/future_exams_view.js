@@ -1,4 +1,4 @@
-async function viewFutureExams() {
+async function viewFutureExams(displayFormat) {
     const schedule = {
       "Основы математического анализа и линейной алгебры (MiA)": [
         { name: "Контест 1", weight: "10%", date: "08 09" },
@@ -283,7 +283,7 @@ async function viewFutureExams() {
 
         const titleElement = courseOverview.querySelector('h1.page-title');
         const courseTitle = titleElement.textContent.trim();
-        const items = getUpcomingScheduleItems(courseTitle, schedule);
+        const items = getUpcomingScheduleItems(courseTitle, schedule, displayFormat);
 
         if (items.length === 0) {
             return;
@@ -318,6 +318,8 @@ function createAccordionItem(themeId, title, index) {
     item.setAttribute('data-theme-id', themeId);
     item.setAttribute('data-borders', 'all');
     item.setAttribute('data-size', 'm');
+    const itemType = 'future-exam';
+    item.setAttribute('data-item-type', itemType);
 
     item.innerHTML = `
         <div _ngcontent-ng-c1368414471="" automation-id="tui-accordion__item-wrapper" class="t-wrapper">
@@ -340,7 +342,7 @@ function createAccordionItem(themeId, title, index) {
     return item;
 }
 
-function getUpcomingScheduleItems(courseTitle, schedule) {
+function getUpcomingScheduleItems(courseTitle, schedule, displayFormat) {
     const titleLower = courseTitle.toLowerCase();
 
     let matchingKey = null;
@@ -359,6 +361,7 @@ function getUpcomingScheduleItems(courseTitle, schedule) {
     const currentYear = now.getFullYear();
     const daysLater = new Date(now);
     daysLater.setDate(now.getDate() + 1);
+    const weekStart = new Date(currentYear, 8, 8);
 
     const items = schedule[matchingKey]
         .map(item => {
@@ -374,21 +377,28 @@ function getUpcomingScheduleItems(courseTitle, schedule) {
         .filter(item => item.parsedDate >= daysLater)
         .map(item => {
             const startDate = item.parsedDate;
-            const endDate = new Date(startDate);
-            endDate.setDate(startDate.getDate() + 7);
-
-            const formatDate = (date) => {
-                const d = String(date.getDate()).padStart(2, '0');
-                const m = String(date.getMonth() + 1).padStart(2, '0');
-                return `${d}.${m}`;
-            };
+            let title;
+            if (displayFormat === 'week') {
+                const msPerDay = 24 * 60 * 60 * 1000;
+                const weekNumber = Math.floor((startDate - weekStart) / (7 * msPerDay)) + 1;
+                title = `Неделя ${weekNumber}. ${item.name}`;
+            } else {
+                const endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + 7);
+                const formatDate = (date) => {
+                    const d = String(date.getDate()).padStart(2, '0');
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    return `${d}.${m}`;
+                };
+                title = `${item.name}. ${formatDate(startDate)}-${formatDate(endDate)}`;
+            }
 
             return {
-                title: `${item.name}. ${formatDate(startDate)}-${formatDate(endDate)}`,
-                originalName: item.name,
-                dateRange: `${formatDate(startDate)}-${formatDate(endDate)}`
+                title,
+                originalName: item.name
             };
         });
+
 
     return items;
 }
