@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
     <title>extension control panel</title>
@@ -23,13 +22,13 @@
             justify-content: space-between;
             margin-bottom: 8px;
         }
-        
+
         .toggle-label {
             flex: 1;
             margin-right: 10px;
-            line-height: 24px; /* Выравнивание по высоте переключателя */
+            line-height: 1.4;
         }
-
+        
         .section {
             margin: 15px 0;
             padding: 10px;
@@ -49,7 +48,7 @@
             display: inline-block;
             width: 50px;
             height: 24px;
-            flex-shrink: 0; /* Запрещаем сжатие переключателя */
+            flex-shrink: 0;
         }
 
         .switch input { display: none; }
@@ -82,7 +81,6 @@
         input:disabled + .slider { cursor: not-allowed; background-color: #e0e0e0; }
         input:checked+.slider:before { transform: translateX(26px); }
 
-        /* --- НОВЫЕ СТИЛИ ДЛЯ УВЕДОМЛЕНИЯ --- */
         .notice {
             padding: 10px;
             margin-top: 15px;
@@ -93,15 +91,14 @@
             color: #333;
             transition: background-color 0.3s, color 0.3s;
         }
-
-        /* Стиль уведомления для темной темы */
+        
         body.dark-theme .notice {
             background-color: #4a4a4f;
             color: #e0e0e0;
         }
 
-        .disabled {
-            opacity: 0.6;
+        .disabled-label {
+            color: #999;
         }
 
         .dropdown-container {
@@ -164,6 +161,23 @@
                 <span class="slider"></span>
             </label>
         </div>
+        <!-- === ИЗМЕНЕННЫЙ БЛОК НАЧАЛО === -->
+        <div class="toggle-container">
+            <span class="toggle-label">Стандартизированная ведомость:</span>
+            <label class="switch">
+                <input type="checkbox" id="advanced-statements-toggle" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+        <!-- Просто используем тот же класс, что и у остальных -->
+        <div class="toggle-container">
+            <span class="toggle-label" id="end-of-course-calc-label">Расчёт на конец курса:</span>
+            <label class="switch">
+                <input type="checkbox" id="end-of-course-calc-toggle" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+        <!-- === ИЗМЕНЕННЫЙ БЛОК КОНЕЦ === -->
     </div>
 
     <div class="section">
@@ -211,11 +225,9 @@
       </div>
     </div>
 
-    <!-- === ЭЛЕМЕНТ УВЕДОМЛЕНИЯ === -->
     <div id="reload-notice" class="notice" style="display: none;">Изменения применятся после закрытия меню</div>
 
     <script type="application/javascript" src="browser-polyfill.js"></script>
     <script src="popup.js"></script>
 </body>
-
 </html>

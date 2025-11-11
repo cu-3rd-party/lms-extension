@@ -2,11 +2,9 @@
 'use strict';
 
 // --- ОПРЕДЕЛЕНИЕ КОНТЕКСТА ---
-// Эта проверка определяет, запущен ли скрипт внутри iframe на странице
 const isInsideIframe = (window.self !== window.top);
 
 // --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP ---
-
 const darkThemeLinkID = 'popup-dark-theme-style';
 
 function applyPopupTheme(isEnabled) {
@@ -24,11 +22,7 @@ function applyPopupTheme(isEnabled) {
     }
 }
 
-
 // --- УПРАВЛЕНИЕ ПЕРЕКЛЮЧАТЕЛЯМИ И ПЛАШКОЙ ---
-
-// Централизованный объект для всех переключателей.
-// Ключ - это имя опции в browser.storage.sync
 const toggles = {
     themeEnabled: document.getElementById('theme-toggle'),
     oledEnabled: document.getElementById('oled-toggle'),
@@ -38,12 +32,16 @@ const toggles = {
     oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
     futureExamsViewToggle: document.getElementById('future-exams-view-toggle'),
     courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
+    advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
+    endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'),
 };
 
+const endOfCourseCalcLabel = document.getElementById('end-of-course-calc-label');
 const futureExamsDisplayContainer = document.getElementById('future-exams-display-container');
 const futureExamsDisplayFormat = document.getElementById('future-exams-display-format');
 
 const reloadNotice = document.getElementById('reload-notice');
+// Объединяем все ключи настроек для удобства
 const allKeys = [...Object.keys(toggles), 'futureExamsDisplayFormat'];
 let pendingChanges = {};
 
@@ -57,97 +55,93 @@ function refreshToggleStates() {
                 toggles[key].checked = !!data[key];
             }
         });
-        // Особая логика для OLED-переключателя
-        if (toggles.oledEnabled) {
-            toggles.oledEnabled.disabled = !toggles.themeEnabled.checked;
-        }
-        // Применяем тему к самому popup
-        applyPopupTheme(!!data.themeEnabled);
 
-        // Апдейты отображения полей, зависящих от состояний переключателей
+        // Особая логика для зависимых переключателей
+        const isThemeEnabled = !!data.themeEnabled;
+        const isAdvancedStatementsEnabled = !!data.advancedStatementsEnabled;
+
+        if (toggles.oledEnabled) {
+            toggles.oledEnabled.disabled = !isThemeEnabled;
+        }
+
+        if (toggles.endOfCourseCalcEnabled) {
+            toggles.endOfCourseCalcEnabled.disabled = !isAdvancedStatementsEnabled;
+            endOfCourseCalcLabel.classList.toggle('disabled-label', !isAdvancedStatementsEnabled);
+        }
+
+        // Применяем тему к самому popup
+        applyPopupTheme(isThemeEnabled);
+
+        // Обновляем отображение полей, зависящих от состояний переключателей
         updateFormatDisplayVisibility(data.futureExamsDisplayFormat);
     });
 }
 
 function updateFormatDisplayVisibility(displayFormat) {
-  if (toggles['futureExamsViewToggle'].checked) {
-    futureExamsDisplayContainer.style.display = 'block';
-  }
-  else {
-    futureExamsDisplayContainer.style.display = 'none';
-  }
+    if (toggles['futureExamsViewToggle'] && futureExamsDisplayContainer) {
+        futureExamsDisplayContainer.style.display = toggles['futureExamsViewToggle'].checked ? 'block' : 'none';
+    }
 
-  if (futureExamsDisplayFormat && displayFormat) {
-    futureExamsDisplayFormat.value = displayFormat;
-  }
+    if (futureExamsDisplayFormat && displayFormat) {
+        futureExamsDisplayFormat.value = displayFormat;
+    }
 }
 
-// 1. Добавляем обработчики, которые работают по-разному в зависимости от контекста
+// Добавляем обработчики событий для всех переключателей
 allKeys.forEach(key => {
     const toggleElement = toggles[key];
     if (toggleElement) {
         toggleElement.addEventListener('change', () => {
             const isEnabled = toggleElement.checked;
-            
+            const change = { [key]: isEnabled };
+
             if (isInsideIframe) {
-                // Показываем плашку, только если мы на странице, где перезагрузка отложена
                 if (reloadNotice) reloadNotice.style.display = 'block';
-                // Накапливаем изменения для отложенной записи
-                pendingChanges[key] = isEnabled;
+                pendingChanges = { ...pendingChanges, ...change };
             } else {
-                // Если мы в popup браузера - сохраняем немедленно
-                browser.storage.sync.set({ [key]: isEnabled });
+                browser.storage.sync.set(change);
             }
 
-            // Особая логика для OLED: он зависит от темной темы
+            // Логика зависимостей между переключателями
             if (key === 'themeEnabled') {
                 if (toggles.oledEnabled) {
                     toggles.oledEnabled.disabled = !isEnabled;
-                    // Если темную тему выключают, OLED тоже выключается
                     if (!isEnabled && toggles.oledEnabled.checked) {
                         toggles.oledEnabled.checked = false;
+                        const oledChange = { oledEnabled: false };
                         if (isInsideIframe) {
-                            pendingChanges['oledEnabled'] = false;
+                            pendingChanges = { ...pendingChanges, ...oledChange };
                         } else {
-                            browser.storage.sync.set({ oledEnabled: false });
+                            browser.storage.sync.set(oledChange);
                         }
                     }
                 }
-            }
-
-            if (key === 'futureExamsViewToggle') {
+            } else if (key === 'advancedStatementsEnabled') {
+                if (toggles.endOfCourseCalcEnabled) {
+                    toggles.endOfCourseCalcEnabled.disabled = !isEnabled;
+                    endOfCourseCalcLabel.classList.toggle('disabled-label', !isEnabled);
+                    if (!isEnabled && toggles.endOfCourseCalcEnabled.checked) {
+                        toggles.endOfCourseCalcEnabled.checked = false;
+                        const endOfCourseChange = { endOfCourseCalcEnabled: false };
+                        if (isInsideIframe) {
+                            pendingChanges = { ...pendingChanges, ...endOfCourseChange };
+                        } else {
+                            browser.storage.sync.set(endOfCourseChange);
+                        }
+                    }
+                }
+            } else if (key === 'futureExamsViewToggle') {
                 updateFormatDisplayVisibility();
             }
         });
     }
 });
 
-// 2. Слушатели сообщений (для iframe) и изменений в хранилище (для синхронизации)
-
-if (isInsideIframe) {
-    // Этот код работает только на странице настроек
-    window.addEventListener('message', (event) => {
-        // Убеждаемся, что сообщение пришло от родительского окна
-        if (event.source !== window.parent) return;
-
-        if (event.data && event.data.action === 'getPendingChanges') {
-            // Отправляем накопленные изменения родительскому окну
-            window.parent.postMessage({
-                action: 'receivePendingChanges',
-                payload: pendingChanges
-            }, '*');
-            
-            // Сбрасываем изменения и скрываем плашку
-            pendingChanges = {}; 
-            if (reloadNotice) reloadNotice.style.display = 'none';
-        }
-    });
-}
-
+// Добавляем обработчик для выпадающего списка формата экзаменов
 if (futureExamsDisplayFormat) {
     futureExamsDisplayFormat.addEventListener('change', () => {
         const selectedFormat = futureExamsDisplayFormat.value;
-        
+
         if (isInsideIframe) {
             // В iframe накапливаем изменения
             if (reloadNotice) reloadNotice.style.display = 'block';
@@ -159,6 +153,22 @@ if (futureExamsDisplayFormat) {
     });
 }
 
+
+// Слушатели сообщений и изменений
+if (isInsideIframe) {
+    window.addEventListener('message', (event) => {
+        if (event.source !== window.parent) return;
+        if (event.data && event.data.action === 'getPendingChanges') {
+            window.parent.postMessage({
+                action: 'receivePendingChanges',
+                payload: pendingChanges
+            }, '*');
+            pendingChanges = {};
+            if (reloadNotice) reloadNotice.style.display = 'none';
+        }
+    });
+}
+
 // Слушаем изменения в хранилище, чтобы popup всегда отражал актуальное состояние
 browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync') {
@@ -166,5 +176,5 @@ browser.storage.onChanged.addListener((changes, area) => {
     }
 });
 
-// 3. При первой загрузке popup, обновляем состояние всех переключателей
+// Первоначальная загрузка состояний переключателей
 refreshToggleStates();
