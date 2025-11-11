@@ -5,6 +5,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
 
     'use strict';
     let currentUrl = location.href;
+    let previousUrl = null; 
 
     (async function () {
         const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
@@ -42,15 +43,15 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     }
 
     function main() {
+        const reloadKeys = [
+          'oldCoursesDesignToggle',
+          'futureExamsViewToggle',
+          'courseOverviewTaskStatusToggle',
+          'futureExamsDisplayFormat'
+        ];
         browser.storage.onChanged.addListener((changes) => {
-            if (changes.oldCoursesDesignToggle || changes.futureExamsViewToggle) {
+            if (reloadKeys.some(key => key in changes)) {
                 window.location.reload();
-                return;
-            }
-
-            if (changes.courseOverviewTaskStatusToggle) {
-                window.location.reload();
-                return;
             }
 
             // 🔧 Разделено, чтобы корректно отслеживать themeEnabled
@@ -75,6 +76,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
 
         const observer = new MutationObserver(() => {
             if (location.href !== currentUrl) {
+                previousUrl = currentUrl; // save old URL
                 currentUrl = location.href;
                 console.log('Course Archiver: URL changed, re-running logic.');
                 processCourses();
@@ -82,8 +84,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                 const currentPath = window.location.pathname;
                 const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
                 if (isOnIndividualCoursePage) {
-                    processFutureExams();
-                    processCourseOverviewTaskStatus();
+                   processInvidualCoursePage();
                 }
             }
         });
@@ -95,8 +96,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         const currentPath = window.location.pathname;
         const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
         if (isOnIndividualCoursePage) {
-            processFutureExams();
-            processCourseOverviewTaskStatus();
+          processInvidualCoursePage();
         }
     }
 
@@ -283,12 +283,36 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         });
     }
 
+    async function processInvidualCoursePage() {
+      try {
+          await processFutureExams();
+          await processCourseOverviewTaskStatus();
+          
+          const activeCoursesPathRegex = /^\/learn\/courses\/view\/actual$/;
+          // уже есть встроенный автоскролл, если переход не со страницы всех курсов, поэтому проверяем
+          if (previousUrl) {
+            const previousPath = new URL(previousUrl).pathname;
+            if (activeCoursesPathRegex.test(previousPath)) {
+                await processCourseOverviewAutoscroll();
+            }
+          } else {
+            await processCourseOverviewAutoscroll();
+          }
+
+      } catch (e) {
+          window.cuLmsLog("Error processing individual course page", e);
+      }
+    }
+
     async function processFutureExams() {
         try {
             const futureExamsData = await browser.storage.sync.get('futureExamsViewToggle');
             const useFutureExams = !!futureExamsData.futureExamsViewToggle;
+            const futureExamsDisplayData = await browser.storage.sync.get('futureExamsDisplayFormat');
+            const futureExamsDisplay = futureExamsDisplayData.futureExamsDisplayFormat || 'date';
+
             if (useFutureExams && typeof viewFutureExams === 'function') {
-                viewFutureExams();
+                await viewFutureExams(futureExamsDisplay);
             }
         } catch (e) {
             console.log("Something went wrong with future exams", e);
@@ -300,7 +324,19 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             const courseOverviewTaskStatusData = await browser.storage.sync.get('courseOverviewTaskStatusToggle');
             const useCourseOverviewTaskStatus = !!courseOverviewTaskStatusData.courseOverviewTaskStatusToggle;
             if (useCourseOverviewTaskStatus && typeof activateCourseOverviewTaskStatus === 'function') {
-                activateCourseOverviewTaskStatus();
+                await activateCourseOverviewTaskStatus();
+            }
+        } catch (e) {
+            console.log("Something went wrong with course overview task status", e);
+        }
+    }
+
+    async function processCourseOverviewAutoscroll() {
+        try {
+            const autoscrollData = await browser.storage.sync.get('courseOverviewAutoscrollToggle');
+            const useAutoscroll = !!autoscrollData.courseOverviewAutoscrollToggle;
+            if (useAutoscroll && typeof activateCourseOverviewAutoscroll === 'function') {
+                await activateCourseOverviewAutoscroll();
             }
         } catch (e) {
             console.log("Something went wrong with course overview task status", e);

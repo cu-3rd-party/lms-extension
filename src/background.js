@@ -46,8 +46,9 @@ function handleNavigation(tabId, url) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
             files: ["browser-polyfill.js", "course_card_simplifier.js",
-                    "future_exams_view.js", "courses_fix.js", "course_overview_task_status.js"]
-        }).catch(err => console.error(`[BG_LOG] Error injecting course view scripts:`, err));
+                    "future_exams_view.js", "courses_fix.js", "course_overview_task_status.js",
+                    "course_overview_autoscroll.js"]
+        }).catch(err => console.error(`[BG_LOG] Error injecting courses_fix.js:`, err));
     }
 
     // Внедрение скриптов для страниц с материалами (лонгридами)

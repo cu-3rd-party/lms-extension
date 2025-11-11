@@ -33,12 +33,16 @@ const toggles = {
     futureExamsViewToggle: document.getElementById('future-exams-view-toggle'),
     courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
     advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
-    endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'), // <-- НОВАЯ СТРОКА
+    endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'),
 };
 
-const endOfCourseCalcLabel = document.getElementById('end-of-course-calc-label'); // <-- НОВАЯ СТРОКА
+const endOfCourseCalcLabel = document.getElementById('end-of-course-calc-label');
+const futureExamsDisplayContainer = document.getElementById('future-exams-display-container');
+const futureExamsDisplayFormat = document.getElementById('future-exams-display-format');
+
 const reloadNotice = document.getElementById('reload-notice');
-const allKeys = Object.keys(toggles);
+// Объединяем все ключи настроек для удобства
+const allKeys = [...Object.keys(toggles), 'futureExamsDisplayFormat'];
 let pendingChanges = {};
 
 /**
@@ -51,7 +55,7 @@ function refreshToggleStates() {
                 toggles[key].checked = !!data[key];
             }
         });
-        
+
         // Особая логика для зависимых переключателей
         const isThemeEnabled = !!data.themeEnabled;
         const isAdvancedStatementsEnabled = !!data.advancedStatementsEnabled;
@@ -59,24 +63,36 @@ function refreshToggleStates() {
         if (toggles.oledEnabled) {
             toggles.oledEnabled.disabled = !isThemeEnabled;
         }
-        
-        // --- НОВАЯ ЛОГИКА ЗАВИСИМОСТИ ---
+
         if (toggles.endOfCourseCalcEnabled) {
             toggles.endOfCourseCalcEnabled.disabled = !isAdvancedStatementsEnabled;
             endOfCourseCalcLabel.classList.toggle('disabled-label', !isAdvancedStatementsEnabled);
         }
-        
+
+        // Применяем тему к самому popup
         applyPopupTheme(isThemeEnabled);
+
+        // Обновляем отображение полей, зависящих от состояний переключателей
+        updateFormatDisplayVisibility(data.futureExamsDisplayFormat);
     });
 }
 
-// Обработчики событий
+function updateFormatDisplayVisibility(displayFormat) {
+    if (toggles['futureExamsViewToggle'] && futureExamsDisplayContainer) {
+        futureExamsDisplayContainer.style.display = toggles['futureExamsViewToggle'].checked ? 'block' : 'none';
+    }
+
+    if (futureExamsDisplayFormat && displayFormat) {
+        futureExamsDisplayFormat.value = displayFormat;
+    }
+}
+
+// Добавляем обработчики событий для всех переключателей
 allKeys.forEach(key => {
     const toggleElement = toggles[key];
     if (toggleElement) {
         toggleElement.addEventListener('change', () => {
             const isEnabled = toggleElement.checked;
-            
             const change = { [key]: isEnabled };
 
             if (isInsideIframe) {
@@ -86,7 +102,7 @@ allKeys.forEach(key => {
                 browser.storage.sync.set(change);
             }
 
-            // --- ОБНОВЛЕННАЯ ЛОГИКА ЗАВИСИМОСТЕЙ ---
+            // Логика зависимостей между переключателями
             if (key === 'themeEnabled') {
                 if (toggles.oledEnabled) {
                     toggles.oledEnabled.disabled = !isEnabled;
@@ -114,10 +130,29 @@ allKeys.forEach(key => {
                         }
                     }
                 }
+            } else if (key === 'futureExamsViewToggle') {
+                updateFormatDisplayVisibility();
             }
         });
     }
 });
+
+// Добавляем обработчик для выпадающего списка формата экзаменов
+if (futureExamsDisplayFormat) {
+    futureExamsDisplayFormat.addEventListener('change', () => {
+        const selectedFormat = futureExamsDisplayFormat.value;
+
+        if (isInsideIframe) {
+            // В iframe накапливаем изменения
+            if (reloadNotice) reloadNotice.style.display = 'block';
+            pendingChanges['futureExamsDisplayFormat'] = selectedFormat;
+        } else {
+            // В popup браузера сохраняем сразу
+            browser.storage.sync.set({ futureExamsDisplayFormat: selectedFormat });
+        }
+    });
+}
+
 
 // Слушатели сообщений и изменений
 if (isInsideIframe) {
@@ -128,17 +163,18 @@ if (isInsideIframe) {
                 action: 'receivePendingChanges',
                 payload: pendingChanges
             }, '*');
-            pendingChanges = {}; 
+            pendingChanges = {};
             if (reloadNotice) reloadNotice.style.display = 'none';
         }
     });
 }
 
+// Слушаем изменения в хранилище, чтобы popup всегда отражал актуальное состояние
 browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync') {
         refreshToggleStates();
     }
 });
 
-// Первоначальная загрузка
+// Первоначальная загрузка состояний переключателей
 refreshToggleStates();
