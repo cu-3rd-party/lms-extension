@@ -7,183 +7,136 @@ try {
 let courseListObserver = null;
 
 /**
- * Применяет цвета карточек в зависимости от темы
+ * Применяет стили с правильными цветами.
  */
 function styleSimplifiedCard(simpleContainer, fontSize, isDarkTheme) {
+    // --- ИСПРАВЛЕНИЕ ЦВЕТА ---
+    // Эти цвета подобраны в точном соответствии с вашим скриншотом
+    const darkThemeBg = '#202124';           // Правильный темно-серый фон
+    const darkThemeBorder = '#505052';      // Светлая рамка
+    const darkThemeHoverBg = '#3D3D40';     // Фон при наведении
+    const darkThemeHoverBorder = '#707072'; // Рамка при наведении
+
     simpleContainer.style.cssText = `
         padding: 12px 16px;
-        border: 1px solid ${isDarkTheme ? '#404040' : '#d0d0d0'};
+        border: 1px solid ${isDarkTheme ? darkThemeBorder : '#d0d0d0'};
         border-radius: 12px;
-        background-color: ${isDarkTheme ? '#181a1c' : '#ffffff'};
+        background-color: ${isDarkTheme ? darkThemeBg : '#ffffff'};
         font-size: ${fontSize};
         font-weight: 500;
         text-align: left;
         color: ${isDarkTheme ? '#e5e5e5' : '#1f2937'};
         cursor: pointer;
         transition: all 0.25s ease;
-        min-height: 90px;
-        min-width: 180px;
-        display: flex;
         width: 100%;
+        height: 100%;
+        min-height: 110px;
         box-sizing: border-box;
         word-wrap: break-word;
         overflow-wrap: break-word;
-        position: relative;
+        position: relative; 
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     `;
 
     simpleContainer.addEventListener('mouseenter', () => {
-        simpleContainer.style.backgroundColor = isDarkTheme ? '#222' : '#f5f5f5';
-        simpleContainer.style.borderColor = isDarkTheme ? '#919191' : '#c0c0c0';
+        simpleContainer.style.backgroundColor = isDarkTheme ? darkThemeHoverBg : '#f5f5f5';
+        simpleContainer.style.borderColor = isDarkTheme ? darkThemeHoverBorder : '#c0c0c0';
     });
 
     simpleContainer.addEventListener('mouseleave', () => {
-        simpleContainer.style.backgroundColor = isDarkTheme ? '#181a1c' : '#ffffff';
-        simpleContainer.style.borderColor = isDarkTheme ? '#404040' : '#d0d0d0';
+        simpleContainer.style.backgroundColor = isDarkTheme ? darkThemeBg : '#ffffff';
+        simpleContainer.style.borderColor = isDarkTheme ? darkThemeBorder : '#d0d0d0';
     });
 }
 
 /**
- * Упрощает все карточки
+ * Заменяет старую карточку на новую, перенося кнопку архивации.
  */
 function simplifyAllCourseCards() {
-    const courseCards = document.querySelectorAll('li.course-card');
+    if (window.location.pathname.includes('/courses/view/archived')) {
+        return;
+    }
 
-    courseCards.forEach(card => {
-        const cuCourseCard = card.querySelector('cu-course-card');
-        if (!cuCourseCard) return;
+    const courseList = document.querySelector('ul.course-list');
+    if (!courseList) return;
 
-        // если уже обработана
+    const courseCards = courseList.querySelectorAll('li.course-list__item');
+
+    courseCards.forEach(li => {
+        const cuCourseCard = li.querySelector('cu-course-card');
+        const nameElement = li.querySelector('.course-name.font-text-s-bold');
+        if (!cuCourseCard || !nameElement) return;
         if (cuCourseCard.querySelector('.simplified-course-card')) return;
 
-        const courseLink = cuCourseCard.querySelector('a[href*="/learn/courses/view/"]');
-        let courseId = null;
-        if (courseLink) {
-            const hrefMatch = courseLink.href.match(/\/learn\/courses\/view\/[^\/]+\/(\d+)/);
-            if (hrefMatch) {
-                courseId = hrefMatch[1];
-                card.setAttribute('data-course-id', courseId);
-            }
-        }
-
-        const nameElement = cuCourseCard.querySelector('.course-name');
-        if (!nameElement) return;
-
-        const courseName = nameElement.textContent.trim();
         const archiveButtonContainer = cuCourseCard.querySelector('.archive-button-container');
-        cuCourseCard.innerHTML = '';
+        const courseName = nameElement.textContent.trim();
+        const simpleContainer = document.createElement('div');
+        simpleContainer.className = 'simplified-course-card';
 
-        // адаптивное обрезание названия
         const mediaQueryTablet = window.matchMedia('(max-width: 1200px)');
         const mediaQueryMobile = window.matchMedia('(max-width: 900px)');
-
-        let maxLength;
-        if (mediaQueryMobile.matches) {
-            maxLength = 40;
-        } else if (mediaQueryTablet.matches) {
-            maxLength = 55;
-        } else {
-            maxLength = null;
-        }
-
+        let maxLength = mediaQueryMobile.matches ? 40 : (mediaQueryTablet.matches ? 55 : null);
+        
         let displayName = courseName;
         if (maxLength && courseName.length > maxLength) {
             let truncated = courseName.substring(0, maxLength);
             const lastSpaceIndex = truncated.lastIndexOf(' ');
-
             if (lastSpaceIndex > 0) {
-                const remainingText = courseName.substring(lastSpaceIndex + 1);
-                const nextSpaceIndex = remainingText.indexOf(' ');
-                const thrownOutWord = nextSpaceIndex > 0
-                    ? remainingText.substring(0, nextSpaceIndex)
-                    : remainingText;
-
-                truncated = truncated.substring(0, lastSpaceIndex);
-
-                displayName = thrownOutWord.toLowerCase() === 'уровень'
-                    ? truncated
-                    : truncated + '...';
+                 const remainingText = courseName.substring(lastSpaceIndex + 1);
+                 const nextSpaceIndex = remainingText.indexOf(' ');
+                 const thrownOutWord = nextSpaceIndex > 0 ? remainingText.substring(0, nextSpaceIndex) : remainingText;
+                 truncated = truncated.substring(0, lastSpaceIndex);
+                 displayName = thrownOutWord.toLowerCase() === 'уровень' ? truncated : truncated + '...';
             } else {
-                displayName = truncated + '...';
+                 displayName = truncated + '...';
             }
         }
-
-        const simpleContainer = document.createElement('div');
-        simpleContainer.className = 'simplified-course-card';
         simpleContainer.textContent = displayName;
 
         const fontSize = mediaQueryMobile.matches ? '12px' : mediaQueryTablet.matches ? '13px' : '14px';
 
-        // получаем текущую тему и применяем стили
         browser.storage.sync.get('themeEnabled').then(data => {
             const isDarkTheme = !!data.themeEnabled;
             styleSimplifiedCard(simpleContainer, fontSize, isDarkTheme);
         });
 
+        cuCourseCard.innerHTML = '';
         cuCourseCard.appendChild(simpleContainer);
-
+        
         if (archiveButtonContainer) {
             simpleContainer.appendChild(archiveButtonContainer);
         }
+
+        const clickHandler = (e) => {
+            if (e.target.closest('.archive-button-container')) return;
+            if (cuCourseCard) cuCourseCard.click();
+        };
+        li.removeEventListener('click', clickHandler);
+        li.addEventListener('click', clickHandler);
     });
+
+    courseList.classList.add('course-archiver-ready');
 }
 
-/**
- * Наблюдает за изменениями DOM и вызывает simplifyAllCourseCards
- */
 function observeCourseListChanges() {
-    const courseLearning = document.querySelector('cu-course-learning');
-    if (!courseLearning) return;
+    const targetNode = document.body;
+    if (!targetNode) return;
+    if (courseListObserver) courseListObserver.disconnect();
 
-    if (courseListObserver) {
-        courseListObserver.disconnect();
-    }
-
-    courseListObserver = new MutationObserver((mutations) => {
-        let shouldSimplify = false;
-
-        mutations.forEach(mutation => {
-            if (mutation.type === 'childList') {
-                mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === 1) {
-                        let courseListElement = null;
-
-                        if (node.matches('ul.course-list')) {
-                            courseListElement = node;
-                        } else {
-                            courseListElement = node.querySelector('ul.course-list');
-                        }
-
-                        if (courseListElement) {
-                            courseListElement.classList.add('course-archiver-ready');
-                            shouldSimplify = true;
-                        }
-                    }
-                });
-
-                if (mutation.target.matches('ul.course-list') || mutation.target.closest('ul.course-list')) {
-                    shouldSimplify = true;
-                }
-            }
-        });
-
-        if (shouldSimplify) {
-            simplifyAllCourseCards();
+    courseListObserver = new MutationObserver(() => {
+        if (document.querySelector('ul.course-list') && !document.querySelector('.simplified-course-card')) {
+            setTimeout(simplifyAllCourseCards, 350);
         }
     });
 
-    courseListObserver.observe(courseLearning, {
-        childList: true,
-        subtree: true
-    });
+    courseListObserver.observe(targetNode, { childList: true, subtree: true });
 }
 
-/**
- * Реакция на изменение темы — обновляем все карточки
- */
 browser.storage.onChanged.addListener((changes) => {
     if (changes.themeEnabled) {
         const isDarkTheme = !!changes.themeEnabled.newValue;
-
         document.querySelectorAll('.simplified-course-card').forEach(card => {
             const computedStyle = window.getComputedStyle(card);
             const fontSize = computedStyle.fontSize;
@@ -192,16 +145,15 @@ browser.storage.onChanged.addListener((changes) => {
     }
 });
 
-// Старт: выполняем только если включён oldCoursesDesignToggle в настройках
+// Старт
 browser.storage.sync.get('oldCoursesDesignToggle').then((data) => {
     const useOldDesign = !!data.oldCoursesDesignToggle;
-    if (useOldDesign) {
+    if (useOldDesign && !window.location.pathname.includes('/courses/view/archived')) {
+        if (document.querySelector('ul.course-list')) {
+             setTimeout(simplifyAllCourseCards, 350);
+        }
         observeCourseListChanges();
-        simplifyAllCourseCards();
-    } else {
-        // Если не используется — ничего не делаем. courses_fix.js обработает переключение и reload'ы.
     }
 }).catch(err => {
-    // В случае ошибки чтения настроек безопаснее ничего не менять
-    console.error('[course_card_simplifier] Failed to read oldCoursesDesignToggle:', err);
+    console.error('[course_card_simplifier] Failed to read settings:', err);
 });
