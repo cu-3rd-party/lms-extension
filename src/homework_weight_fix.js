@@ -42,33 +42,49 @@ function findItemByTitle(list, title) {
 }
 function insertWeightElement(infoList, weight) {
     if (infoList.querySelector('[data-culms-longread-weight]')) return;
+
     const scoreIcon = infoList.querySelector('tui-icon[icon="cuIconAward02"]');
+    let anchorItem;
+
     if (scoreIcon) {
-        const anchorItem = scoreIcon.closest('li.task-info__item');
-        if (anchorItem) {
-            const weightListItem = anchorItem.cloneNode(true);
-            weightListItem.setAttribute('data-culms-longread-weight', 'true');
+        anchorItem = scoreIcon.closest('li.task-info__item');
+    } else {
+        anchorItem = findItemByTitle(infoList, 'Оценка');
+    }
+
+    if (anchorItem) {
+        const weightListItem = anchorItem.cloneNode(true);
+        weightListItem.setAttribute('data-culms-longread-weight', 'true');
+
+        // --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+        // Ищем и удаляем кнопку "Оценить" из клонированного элемента
+        const buttonToRemove = weightListItem.querySelector('button');
+        if (buttonToRemove) {
+            buttonToRemove.remove();
+        }
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+        // Логика для случая, когда нашли элемент по иконке
+        if (scoreIcon) {
             const icon = weightListItem.querySelector('tui-icon');
             if (icon) {
                 const newIconName = 'cuIconPieChart';
                 icon.setAttribute('icon', newIconName);
                 icon.style.setProperty('--t-icon', `url(/assets/cu/icons/${newIconName}.svg)`);
             }
-            const valueSpan = weightListItem.querySelector('span.font-text-m');
+            const valueSpan = weightListItem.querySelector('span.font-text-m') || weightListItem.querySelector('.task-info__item-title + span');
             if (valueSpan) valueSpan.textContent = `Вес: ${Math.round(weight * 100)}%`;
-            anchorItem.parentNode.insertBefore(weightListItem, anchorItem.nextSibling);
-        }
-    } else {
-        const anchorItemByTitle = findItemByTitle(infoList, 'Оценка');
-        if (anchorItemByTitle) {
-            const weightListItem = anchorItemByTitle.cloneNode(true);
-            weightListItem.setAttribute('data-culms-longread-weight', 'true');
+        
+        // Логика для случая, когда нашли элемент по заголовку "Оценка"
+        } else {
             const titleSpan = weightListItem.querySelector('.task-info__item-title');
             if (titleSpan) titleSpan.textContent = 'Вес';
+            
             const valueSpan = titleSpan.nextElementSibling;
             if (valueSpan) valueSpan.textContent = ` ${Math.round(weight * 100)}% `;
-            anchorItemByTitle.parentNode.insertBefore(weightListItem, anchorItemByTitle.nextSibling);
         }
+
+        anchorItem.parentNode.insertBefore(weightListItem, anchorItem.nextSibling);
     }
 }
 function waitForElement(selector, timeout = 5000) {
