@@ -11756,16 +11756,34 @@ body .course-card.withoutCategory {
  * - По умолчанию иконка светлая.
  * - На светлых фонах (softSkills) делаем иконку темной.
 */
-body .course-card .course-icon {
+
+
+
+
+body .course-card tui-icon.course-icon {
     color: var(--culms-dark-text-primary) !important;
 }
-body .course-card.softSkills .course-icon {
+
+/* На светлых фонах (softSkills) делаем главную иконку темной. */
+body .course-card.softSkills tui-icon.course-icon {
     color: #1c1c1e !important; /* Темная иконка для светло-зеленого фона */
 }
 
+/* Фон для блока с иконками уровня */
 body .course-card .skill-level {
     background-color: var(--culms-dark-bg-hover-light) !important;
 }
+
+/* 
+ * Этот блок больше не нужен, так как JS-код теперь надежно управляет цветами звёздочек.
+ * Оставлять его рискованно, он может создать новые конфликты.
+ *
+ * body .course-card .skill-level tui-icon {
+ *    color: revert !important;
+ * } 
+*/
+
+
 
 /* body .course-card .skill-level tui-icon {
     color: revert !important;

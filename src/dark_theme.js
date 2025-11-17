@@ -8,6 +8,39 @@ if (typeof window.darkThemeInitialized === 'undefined') {
     const STYLE_ID_BASE = 'culms-dark-theme-style-base';
     const STYLE_ID_OLED = 'culms-dark-theme-style-oled';
     let themeToggleButton = null;
+    
+    /**
+     * НОВАЯ ФУНКЦИЯ: Принудительно исправляет цвета иконок на карточках курсов.
+     * Это нужно, чтобы !important из style.css не перебивал цвета "звёздочек".
+     */
+    function fixCourseCardColors(isEnabled) {
+        const icons = document.querySelectorAll('cu-course-card .skill-level .level-icon-item tui-icon');
+    
+        icons.forEach(icon => {
+            if (isEnabled) {
+                // Сохраняем оригинальный стиль, если он еще не сохранен
+                if (!icon.dataset.originalStyle) {
+                    icon.dataset.originalStyle = icon.getAttribute('style') || '';
+                }
+    
+                const originalStyle = icon.dataset.originalStyle;
+                // Ищем значение цвета в сохраненном стиле
+                const colorMatch = originalStyle.match(/color:\s*([^;]+)/);
+    
+                // Применяем !important только если у иконки есть свой собственный цвет (не 'inherit')
+                if (colorMatch && colorMatch[1] && colorMatch[1].trim() !== 'inherit') {
+                    const colorValue = colorMatch[1].trim();
+                    icon.style.setProperty('color', colorValue, 'important');
+                }
+            } else {
+                // Для светлой темы восстанавливаем оригинальный стиль, если он был изменен
+                if (typeof icon.dataset.originalStyle !== 'undefined') {
+                    icon.setAttribute('style', icon.dataset.originalStyle);
+                    delete icon.dataset.originalStyle; // Удаляем временный атрибут
+                }
+            }
+        });
+    }
 
     /**
      * Применяет или удаляет CSS темной темы со страницы.
@@ -19,6 +52,7 @@ if (typeof window.darkThemeInitialized === 'undefined') {
         if (!isEnabled) {
             if (base) base.remove();
             if (oled) oled.remove();
+            fixCourseCardColors(false); // <--- ВЫЗЫВАЕМ ИСПРАВЛЕНИЕ ПРИ ОТКЛЮЧЕНИИ
             return;
         }
 
@@ -46,6 +80,9 @@ if (typeof window.darkThemeInitialized === 'undefined') {
         } else if (oled) {
             oled.remove();
         }
+        
+        // Даем стилям мгновение на применение и затем исправляем цвета
+        setTimeout(() => fixCourseCardColors(true), 100); // <--- ВЫЗЫВАЕМ ИСПРАВЛЕНИЕ ПРИ ВКЛЮЧЕНИИ
     }
 
     /**
@@ -241,6 +278,7 @@ if (typeof window.darkThemeInitialized === 'undefined') {
         const data = await browser.storage.sync.get(['themeEnabled', 'oledEnabled']);
         if (data.themeEnabled) {
             toggleShadowDomTheme(true, !!data.oledEnabled);
+            fixCourseCardColors(true); // <--- ИСПРАВЛЯЕМ ЦВЕТА ПРИ ПОЯВЛЕНИИ НОВЫХ КАРТОЧЕК
         }
     });
 
