@@ -18,7 +18,6 @@ async function processWeightInfo() {
         if (infoList) insertWeightElement(infoList, weight);
     } catch (error) {
         if (!error.message.includes('not found within')) {
-            console.error('Longread Weight: Error processing weight:', error);
         }
     }
 }
@@ -133,9 +132,279 @@ function persistentIconReplacer() {
     iconObserver.observe(document.body, { childList: true, subtree: true });
 }
 
+function processLdOnTaskPage() {
+    const processedAttribute = 'data-culms-ld-button-added';
+
+    async function fetchStudent() {
+        try {
+            const r = await fetch("https://my.centraluniversity.ru/api/micro-lms/students/me", {
+                credentials: "include"
+            });
+            if (!r.ok) return null;
+            return await r.json();
+        } catch {
+            return null;
+        }
+    }
+
+    async function fetchLongreadMeta() {
+        try {
+            // Take the current page URL
+            const url = location.href;
+
+            const match = url.match(/longreads\/(\d+)/);
+            if (!match) return null;
+
+            const longreadId = match[1];
+            const apiUrl = `https://my.centraluniversity.ru/api/micro-lms/longreads/${longreadId}/materials?limit=10000`;
+
+            const r = await fetch(apiUrl, { credentials: "include" });
+            if (!r.ok) return null;
+
+            const json = await r.json();
+            if (!json?.items?.length) return null;
+
+            return json.items[0];
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function showDeadlineModal(lateDaysBalance, taskId) {
+        const overlay = document.createElement('div');
+        const isDarkTheme = !!document.getElementById('culms-dark-theme-style-base');
+
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        `;
+        
+        // Создаем контейнер модального окна
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: ${isDarkTheme ? '#202124' : 'white'};
+            color: ${isDarkTheme ? 'white' : 'black'};
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 360px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        `;
+        
+        // Вставляем содержимое модального окна
+        modal.innerHTML = `
+            <cu-late-days-editor _nghost-ng-c2119068531="" style="display: flex; flex-direction: column; gap: 24px;">
+                <h3 _ngcontent-ng-c2119068531="" class="header" style="font: var(--font-service-heading-3-desktop); margin: 0;">Перенести дедлайн</h3>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <label _ngcontent-ng-c2119068531="" tuilabel="" class="cu-label days-form__available-days-label" data-orientation="vertical">
+                        Кол-во дней 
+                    </label>
+                    <div style="position: relative; width: 100%;">
+                        <tui-textfield _ngcontent-ng-c2119068531="" tuiicons="" tuitextfieldsize="m" class="cu-text-field" style="--t-side: 0px; width: 100%; font-family: inherit;" data-size="m">
+                            <input _ngcontent-ng-c2119068531="" tuiappearance="" tuitextfield="" tuiinputnumber="" placeholder="0" 
+                            style="width: 100%; height: 48px; padding: 0px 0px 0px 12px; box-sizing:border-box; border-radius: 8px; font-size: 16px;"
+                            data-appearance="textfield" data-focus="false" id="tui_31763374551225" class="_empty ng-untouched ng-pristine ng-invalid" inputmode="numeric" maxlength="23">   
+                        </tui-textfield>
+                        <span style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: ${isDarkTheme ? 'white' : '#999'}; font-family: 'Inter', sans-serif; font-size: 16px; pointer-events: none;">из ${lateDaysBalance}</span>
+                    </div>
+                </div>
+                <div _ngcontent-ng-c907829761="" automation-id="tui-error__text" tuianimated="" class="t-message-text" style="color: red;  font-family: 'Inter', sans-serif; display:none;">
+                    Ошибка: проверьте введённые данные
+                </div>
+                <div _ngcontent-ng-c2119068531="" class="days-form-buttons" style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button _ngcontent-ng-c2119068531="" tuiappearance="" tuiicons="" tuibutton="" size="m" type="button" 
+                    style="background: var(--cu-button-background-color, var(--cu-button-background-color-default)); color: var(--cu-button-text-color, var(--cu-button-text-color-default))" data-appearance="tertiary" data-size="m" class="cancel-btn">
+                        Отменить
+                    </button>
+                    <button _ngcontent-ng-c2119068531="" tuiappearance="" tuiicons="" tuibutton="" size="m" type="submit" style="" data-appearance="primary" data-size="m" class="submit-btn">
+                        Перенести
+                    </button>
+                </div>
+
+            </cu-late-days-editor>
+        `;
+
+        const closeModal = () => overlay.remove();
+
+        overlay.addEventListener("click", e => {
+            if (e.target === overlay) closeModal();
+        });
+
+        modal.querySelector(".cancel-btn").addEventListener("click", closeModal);
+
+        modal.querySelector(".submit-btn").addEventListener("click", async e => {
+            e.preventDefault();
+
+            const input = modal.querySelector("input[tuiinputnumber]");
+            const errorLabel = modal.querySelector('.t-message-text');
+            const days = parseInt(input.value, 10);
+
+            // Hide error by default
+            errorLabel.style.display = "none";
+
+            // Validation
+            if (isNaN(days) || days <= 0 || days > lateDaysBalance) {
+                errorLabel.textContent = `Доступно ${lateDaysBalance} дней`;
+                errorLabel.style.display = "block";
+                return;
+            }
+
+            try {
+                const r = await fetch(`https://my.centraluniversity.ru/api/micro-lms/tasks/${taskId}/late-days-prolong`, {
+                    method: "PUT",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ lateDays: days })
+                });
+
+                if (!r.ok) {
+                    errorLabel.textContent = "Более недели скипать нельзя :(";
+                    errorLabel.style.display = "block";
+                    return;
+                }
+
+                // Success — close modal
+                closeModal();
+                window.location.reload();
+
+            } catch (err) {
+                errorLabel.textContent = "Сетевая ошибка.";
+                errorLabel.style.display = "block";
+            }
+        });
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+    }
+
+    async function insertDeadlineButton(taskPreview) {
+        if (taskPreview.hasAttribute(processedAttribute)) return;
+
+        const taskTagsDiv = taskPreview.querySelector(".task-tags");
+        if (!taskTagsDiv) return;
+
+        const meta = await fetchLongreadMeta(taskPreview);
+        let allowLateDays =
+            meta &&
+            meta?.estimation?.activity?.isLateDaysEnabled === true &&
+            meta?.task?.state !== "evaluated" &&
+            meta?.task?.state !== "review";
+
+        let alreadyExists =
+          taskTagsDiv.querySelector('button[tuiiconbutton]') ||
+          taskTagsDiv.querySelector('tui-icon.warning-icon');
+
+        if (alreadyExists) {
+            return;
+        }
+
+      
+        let lateDaysBalance = 0;
+        if (allowLateDays)
+        {
+            const student = await fetchStudent();
+            lateDaysBalance = student?.lateDaysBalance ?? 0;
+
+            if (lateDaysBalance === 0) {
+                taskPreview.setAttribute(processedAttribute, "true");
+                return;
+            }
+        }
+
+        alreadyExists =
+            taskTagsDiv.querySelector('button[tuiiconbutton]') ||
+            taskTagsDiv.querySelector('tui-icon.warning-icon');
+
+        if (alreadyExists) return;
+    
+        if (allowLateDays) {
+            // → Normal LD button
+            const button = document.createElement("button");
+            button.setAttribute('tuiappearance', '');
+            button.setAttribute('tuiicons', '');
+            button.setAttribute('tuiiconbutton', '');
+            button.setAttribute('type', 'button');
+            button.setAttribute('tuihint', 'Перенести дедлайн');
+            button.setAttribute('data-appearance', 'tertiary');
+            button.setAttribute('data-icon-start', 'svg');
+            button.setAttribute('data-size', 'xxs');
+            button.style.cssText = '--t-icon-start: url(assets/cu/icons/cuIconCalendarPlus01.svg);';
+
+            button.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                showDeadlineModal(lateDaysBalance, meta?.task?.id);
+            });
+
+            taskTagsDiv.appendChild(button);
+
+            if (meta?.task?.lateDays != null) {
+                const cancelBtn = document.createElement("button");
+                cancelBtn.setAttribute('tuiappearance', '');
+                cancelBtn.setAttribute('tuiicons', '');
+                cancelBtn.setAttribute('tuiiconbutton', '');
+                cancelBtn.setAttribute('type', 'button');
+                cancelBtn.setAttribute('tuihint', 'Отменить перенос');
+                cancelBtn.classList.add("task-table__late-days-reset-button");
+                cancelBtn.style.cssText = '--t-icon-start: url(assets/cu/icons/cuIconXClose.svg);';
+                cancelBtn.setAttribute('data-appearance', 'tertiary-destructive');
+                cancelBtn.setAttribute('data-icon-start', 'svg');
+                cancelBtn.setAttribute('data-size', 'xxs');
+
+                cancelBtn.addEventListener("click", async e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const taskId = meta?.task?.id;
+                    if (!taskId) return;
+
+                    try {
+                        const r = await fetch(
+                            `https://my.centraluniversity.ru/api/micro-lms/tasks/${taskId}/late-days-cancel`,
+                            {
+                                method: "PUT",
+                                credentials: "include"
+                            }
+                        );
+
+                        if (r.ok) {
+                          window.location.reload();
+                        }
+                    } catch (err) {
+                    
+                    }
+                });
+
+                taskTagsDiv.appendChild(cancelBtn);
+            }
+
+        }
+
+        taskPreview.setAttribute(processedAttribute, "true");
+    }
+
+    function runForExisting() {
+        const list = document.querySelectorAll("cu-student-task-preview");
+        for (const preview of list) insertDeadlineButton(preview);
+    }
+
+    runForExisting();
+}
+
+
 // --- ЗАПУСК ВСЕГО ---
 persistentIconReplacer();
 const navigationObserver = new MutationObserver(() => {
     processWeightInfo();
+    processLdOnTaskPage();
 });
 navigationObserver.observe(document.body, { childList: true, subtree: true });
