@@ -1,4 +1,4 @@
-// advanced_statements.js (Версия 44 - Исправлена ошибка TypeError)
+// advanced_statements.js (Версия 46 - Гибкий расчет веса и количества)
 
 (async function () {
     'use strict';
@@ -14,9 +14,6 @@
     const COURSE_INFO_URL_TEMPLATE = "https://my.centraluniversity.ru/api/micro-lms/courses/{courseId}/exercises";
 
     // --- НАСТРОЙКИ КУРСОВ ---
-    // ВАЖНО: Ключ должен ТОЧНО совпадать с полем "name" из ответа API, включая эмодзи.
-
-    // ну и хуйня же хардкодить такое, пока по другому никак
     const COURSE_DATA = {
         "архитектура компьютера и операционные системы": {
             "домашние задания": { "count": 9, "weight": 0.2 },
@@ -55,13 +52,13 @@
         },
         "введение в экономику. основной уровень": {
             "домашние задания": { "count": 14, "weight": 0.25 },
-            "аудиторная работа": { "count": 14, "weight": 0.1 },
+            "аудиторная работа": { "count": 1, "weight": 0.1 },
             "мини-контрольные": { "count": 7, "weight": 0.15 },
             "контрольная работа 1": { "count": 1, "weight": 0.25 },
             "экзамен": { "count": 1, "weight": 0.25 }
         },
         "основы бизнес-аналитики. основной уровень": {
-            "аудиторная работа": { "count": 13, "weight": 0.1 },
+            "аудиторная работа": { "count": 1, "weight": 0.1 },
             "домашние задания": { "count": 12, "weight": 0.25 },
             "групповой проект": { "count": 1, "weight": 0.2 },
             "контрольная работа": { "count": 1, "weight": 0.15 },
@@ -89,13 +86,13 @@
         },
         "введение в экономику. продвинутый уровень": {
             "домашние задания": { "count": 13, "weight": 0.2 },
-            "аудиторная работа (на дополнительных 13 семинарах)": { "count": 13, "weight": 0.15 },
+            "аудиторная работа": { "count": 1, "weight": 0.15 },
             "финальный проект": { "count": 1, "weight": 0.15 },
             "дополнительная контрольная работа 1": { "count": 1, "weight": 0.25 },
             "дополнительная контрольная работа 2": { "count": 1, "weight": 0.25 }
         },
         "основы бизнес-аналитики. продвинутый уровень": {
-            "аудиторная работа": { "count": 14, "weight": 0.3 },
+            "аудиторная работа": { "count": 1, "weight": 0.3 },
             "домашние задания": { "count": 12, "weight": 0.4 },
             "кейс-чемпионат": { "count": 1, "weight": 0.3 }
         },
@@ -220,7 +217,7 @@
         "основы финансов": {
             "домашние задания": { "count": 11, "weight": 0.25 },
             "контрольная работа": { "count": 1, "weight": 0.2 },
-            "аудиторная работа": { "count": 16, "weight": 0.15 },
+            "аудиторная работа": { "count": 1, "weight": 0.15 },
             "командный проект": { "count": 1, "weight": 0.2 },
             "экзамен": { "count": 1, "weight": 0.2 }
         },
@@ -238,7 +235,7 @@
             "экзамен": { "count": 1, "weight": 0.3 }
         },
         "введение в микроструктуру рынков (introduction to market microstructure)": {
-            "аудиторная работа": { "count": 15, "weight": 0.1 },
+            "аудиторная работа": { "count": 1, "weight": 0.1 },
             "защита проекта в рамках семинаров": { "count": 6, "weight": 0.4 },
             "зачёт": { "count": 1, "weight": 0.5 }
         },
@@ -360,9 +357,9 @@
             "пасхалка: в хендбуке мало что сказано": { "count": 0, "weight": 0 }
         },
         "основы российской государственности": {
-            "домашние задания": { "count": 0, "weight": 0.25 },
-            "аудиторная работа": { "count": 0, "weight": 0.25 },
-            "проект": { "count": 0, "weight": 0.5 }
+            "домашнее задание": { "count": 4, "weight": 0.25 },
+            "аудиторная работа": { "count": 11, "weight": 0.25 },
+            "проект": { "count": 1, "weight": 0.5 }
         }
     };
 
@@ -416,27 +413,63 @@
         return (longerLength - levenshteinDistance(longer, shorter)) / parseFloat(longerLength);
     }
 
+    // --- ФИНАЛЬНАЯ ВЕРСИЯ ФУНКЦИИ ПОИСКА ---
     function findBestCourseMatch(apiCourseName, courseData) {
         if (!apiCourseName) return null;
-        const processedApiName = apiCourseName.toLowerCase().replace(/\s*\d+[a-z]+\d*\s*$/, '').trim();
-        let bestMatchKey = null;
-        let maxScore = 0.0;
 
+        const apiNameLower = apiCourseName.toLowerCase().trim();
+
+        // 1. Поиск точного совпадения (самый надежный)
         for (const key in courseData) {
-            const processedKey = key.toLowerCase().trim();
-            const score = calculateSimilarity(processedApiName, processedKey);
-            if (score > maxScore) {
-                maxScore = score;
-                bestMatchKey = key;
+            if (key.toLowerCase().trim() === apiNameLower) {
+                console.log(`[Adv. Statements] Найдено точное соответствие для курса: "${apiCourseName}"`);
+                return courseData[key];
             }
         }
 
-        if (maxScore > 0.7) {
-            console.log(`[Adv. Statements] Найдено соответствие для курса "${apiCourseName}": "${bestMatchKey}" (схожесть: ${maxScore.toFixed(2)})`);
-            return courseData[bestMatchKey];
+        // 2. Поиск по префиксу (для случаев "Курс. Подзаголовок")
+        let bestPrefixMatch = null;
+        let longestPrefix = 0;
+        for (const key in courseData) {
+            const keyLower = key.toLowerCase().trim();
+            if (apiNameLower.startsWith(keyLower) && keyLower.length > longestPrefix) {
+                 bestPrefixMatch = key;
+                 longestPrefix = keyLower.length;
+            }
+        }
+        if (bestPrefixMatch) {
+            console.log(`[Adv. Statements] Найдено соответствие по префиксу для "${apiCourseName}": "${bestPrefixMatch}"`);
+            return courseData[bestPrefixMatch];
         }
 
-        console.warn(`[Adv. Statements] Не найдена конфигурация для курса "${apiCourseName}". Наивысшая схожесть: ${maxScore.toFixed(2)} с "${bestMatchKey}"`);
+        // 3. Поиск по схожести (для опечаток)
+        let bestSimilarityMatch = null;
+        let maxScore = 0.0;
+        for (const key in courseData) {
+            const keyLower = key.toLowerCase().trim();
+            const score = calculateSimilarity(apiNameLower, keyLower);
+            if (score > maxScore) {
+                maxScore = score;
+                bestSimilarityMatch = key;
+            }
+        }
+        if (maxScore > 0.8) {
+            console.log(`[Adv. Statements] Найдено соответствие по схожести для "${apiCourseName}": "${bestSimilarityMatch}" (схожесть: ${maxScore.toFixed(2)})`);
+            return courseData[bestSimilarityMatch];
+        }
+        
+        // 4. Очистка номера группы (для случаев "Курс_3")
+        const processedApiName = apiNameLower.replace(/(?:\s+|\.|_)(?:поток|группа|group|stream)?\s*\d+$/, '').trim();
+        if (processedApiName !== apiNameLower) {
+             for (const key in courseData) {
+                if (key.toLowerCase().trim() === processedApiName) {
+                    console.log(`[Adv. Statements] Найдено соответствие после очистки номера группы для "${apiCourseName}": "${key}"`);
+                    return courseData[key];
+                }
+            }
+        }
+
+        console.warn(`[Adv. Statements] Не найдена конфигурация для курса "${apiCourseName}". Наивысшая схожесть: ${maxScore.toFixed(2)} с "${bestSimilarityMatch}"`);
         return null;
     }
 
@@ -481,6 +514,7 @@
         contentObserver.observe(loaderElement, { childList: true, subtree: true });
     }
 
+    // Новая, улучшенная версия функции calculateScores
     function calculateScores(tasks, courseConfig, mode) {
         const activities = new Map();
 
@@ -488,6 +522,7 @@
             if (!task.activity) return;
             const nameLower = task.activity.name.trim().toLowerCase();
             if (!activities.has(nameLower)) {
+                // Сохраняем вес из API по умолчанию
                 activities.set(nameLower, { name: task.activity.name, weight: task.activity.weight, scores: [], sum: 0, });
             }
             if (task.score !== null) {
@@ -528,61 +563,61 @@
         let totalWeight = 0;
 
         for (const [nameLower, data] of finalActivities.entries()) {
-            // --- ИСПРАВЛЕННАЯ ЛОГИКА ПОИСКА КОНФИГУРАЦИИ ---
             let activityConfig = null;
             if (courseConfig) {
-                // Сначала ищем точное совпадение
-                activityConfig = courseConfig[nameLower];
-                // Если не нашли, ищем наиболее похожее
-                if (!activityConfig) {
-                    let bestMatchKey = null;
-                    let maxScore = 0.0;
-                    for (const configKey in courseConfig) {
-                        const score = calculateSimilarity(nameLower, configKey.toLowerCase().trim());
-                        if (score > maxScore) {
-                            maxScore = score;
-                            bestMatchKey = configKey;
-                        }
-                    }
-                    if (maxScore > 0.7) {
-                        activityConfig = courseConfig[bestMatchKey];
+                let bestMatchKey = null;
+                let maxScore = 0.0;
+                for (const configKey in courseConfig) {
+                    const score = calculateSimilarity(nameLower, configKey.toLowerCase().trim());
+                    if (score > maxScore) {
+                        maxScore = score;
+                        bestMatchKey = configKey;
                     }
                 }
+                if (maxScore > 0.7) {
+                    activityConfig = courseConfig[bestMatchKey];
+                }
             }
-            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+            
+            // --- НОВАЯ УМНАЯ ЛОГИКА ОПРЕДЕЛЕНИЯ ВЕСА И КОЛИЧЕСТВА ---
 
+            const actualCount = data.scores.length; // Количество сданных работ из API
             let divisor;
             let countDisplay;
-            const actualCount = data.scores.length;
+            let finalWeight = data.weight; // Вес из API по умолчанию
 
-            if (activityConfig && activityConfig.count > 0) {
+            // 1. Определяем итоговый ВЕС (weight)
+            // Если в конфиге есть вес и он больше нуля, он имеет приоритет.
+            if (activityConfig && activityConfig.weight > 0) {
+                finalWeight = activityConfig.weight;
+            }
+
+            // 2. Определяем итоговый ДЕЛИТЕЛЬ (divisor) для среднего балла
+            if (mode === 'endOfCourse' && activityConfig && activityConfig.count > 0) {
+                // Если включен режим "на конец курса" и в конфиге указано ненулевое число работ, используем его.
+                divisor = activityConfig.count;
                 countDisplay = `${actualCount} / ${activityConfig.count}`;
             } else {
+                // Во всех остальных случаях (режим "текущий" или count в конфиге = 0),
+                // используем реальное количество сданных работ.
+                divisor = actualCount;
                 countDisplay = `${actualCount}`;
             }
-
-            if (mode === 'endOfCourse' && activityConfig) {
-                divisor = activityConfig.count;
-            } else {
-                divisor = actualCount;
-            }
-
-            if (data.weight === 0 && activityConfig && activityConfig.weight > 0) {
-                data.weight = activityConfig.weight;
-            }
+            
+            // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
             const avg = (divisor > 0) ? (data.sum / divisor) : 0;
-            const weightedScore = avg * data.weight;
+            const weightedScore = avg * finalWeight;
 
             calculatedActivities.push({
                 name: data.name,
                 averageScore: avg.toFixed(2),
-                weight: data.weight,
+                weight: finalWeight,
                 weightedScore: weightedScore.toFixed(2),
                 countDisplay: countDisplay,
             });
             totalWeightedScore += weightedScore;
-            totalWeight += data.weight;
+            totalWeight += finalWeight;
         }
 
         return {
