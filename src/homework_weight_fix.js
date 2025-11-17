@@ -378,6 +378,23 @@ function processLdOnTaskPage() {
 
                         if (r.ok) {
                           window.location.reload();
+                        } else if (r.status === 400) {
+                            // Проверяем, нет ли уже сообщения об ошибке
+                            let errorLabel = taskTagsDiv.querySelector('.t-message-text');
+                            if (!errorLabel) {
+                                errorLabel = document.createElement("div");
+                                errorLabel.setAttribute('automation-id', 'tui-error__text');
+                                errorLabel.setAttribute('tuianimated', '');
+                                errorLabel.className = 't-message-text';
+                                errorLabel.style.cssText = 'color: red; font-family: "Inter", sans-serif; display: block; margin-top: 8px;';
+                                errorLabel.textContent = 'Нет доступных Late Days для отмены – до дедлайна менее 24 часов';
+                                taskTagsDiv.parentElement.insertBefore(errorLabel, taskTagsDiv.nextSibling);
+                                
+                                // Убираем сообщение через 5 секунд
+                                setTimeout(() => {
+                                    errorLabel.remove();
+                                }, 5000);
+                            }
                         }
                     } catch (err) {
                     
