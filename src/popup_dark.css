@@ -1,4 +1,4 @@
-/* popup_dark.css - Исправленная версия */
+/* popup_dark.css */
 
 body.dark-theme {
     background-color: #202124;
@@ -15,18 +15,32 @@ body.dark-theme h3 {
     color: #e8eaed;
 }
 
+body.dark-theme .setting-label.disabled-label {
+    color: #888;
+}
+
 body.dark-theme .notice {
     background-color: #4a4a4f;
     color: #e0e0e0;
 }
 
-/* Фон переключателя в ВЫКЛЮЧЕННОМ состоянии */
+/* Стили элементов управления для темной темы */
+
 body.dark-theme .slider {
     background-color: #5f6368;
 }
 
-/* === ВОТ ИСПРАВЛЕНИЕ === */
-/* Возвращаем синий фон для ВКЛЮЧЕННОГО состояния */
+body.dark-theme input:disabled + .slider {
+    background-color: #444;
+}
+
 body.dark-theme input:checked + .slider {
     background-color: #2196F3;
+}
+
+body.dark-theme .dropdown-select {
+    background-color: #3c4043;
+    color: #e8eaed;
+    border-color: #5f6368;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e8eaed' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
 }
