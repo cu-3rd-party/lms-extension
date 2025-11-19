@@ -36,8 +36,9 @@
          return Math.floor(daysDiff / 7) + 1;
      }
      function findWeekNumberInUI() {
-         const weekElements = document.querySelectorAll('a[href*="/learn/courses/view/actual/"], .week-navigation__item--active, [class*="week"]');
-         for (const element of weekElements) {
+         const weekElementsNotArray = document.querySelectorAll('a[href*="/learn/courses/view/actual/"], .week-navigation__item--active, [class*="week"]');
+         const weekElements = Array.from(weekElementsNotArray);
+         for (const element of weekElements.reverse()) {
              const weekMatch = element.textContent.match(/неделя\s*(\d+)/i) || element.textContent.match(/(\d+)/);
              if (weekMatch) return parseInt(weekMatch[1]);
          }
@@ -58,8 +59,9 @@
          return lastDate ? calculateWeekNumber(lastDate) : 0;
      }
      function getUserNameParts() {
-         const historyNameElements = document.querySelectorAll('.task-history-card__actor-name');
-         for (const element of historyNameElements) {
+         const historyNameElementsNotArray = document.querySelectorAll('.task-history-card__actor-name');
+         const historyNameElements = Array.from(historyNameElementsNotArray);
+         for (const element of historyNameElements.reverse()) {
              const fullName = element.textContent.trim().replace(/\s+/g, ' ');
              if (fullName && !fullName.includes('Системный пользователь')) {
                  const nameParts = fullName.split(' ');
