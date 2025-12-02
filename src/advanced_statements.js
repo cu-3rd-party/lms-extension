@@ -1,19 +1,18 @@
-// advanced_statements.js (Версия 46 - Гибкий расчет веса и количества)
+// advanced_statements.js (Версия 49 - Fix позиции таблицы)
 
 (async function () {
     'use strict';
 
-    // --- ЗАЩИТА ОТ ПОВТОРНОГО ЗАПУСКА ---
-    if (window.isAdvancedStatementsInitialized) { return; }
-    window.isAdvancedStatementsInitialized = true;
-    // ------------------------------------
+    // --- ЗАЩИТА ОТ ДУБЛИРОВАНИЯ ---
+    if (window.isAdvancedStatementsRunning) return;
+    window.isAdvancedStatementsRunning = true;
 
     // --- КОНФИГУРАЦИЯ ---
     const TARGET_PATH_REGEX = /^\/learn\/reports\/student-performance\/\d+\/activity$/;
     const API_URL_TEMPLATE = "https://my.centraluniversity.ru/api/micro-lms/courses/{courseId}/student-performance";
     const COURSE_INFO_URL_TEMPLATE = "https://my.centraluniversity.ru/api/micro-lms/courses/{courseId}/exercises";
 
-    // --- НАСТРОЙКИ КУРСОВ ---
+    // ... ВАШ ОБЪЕКТ COURSE_DATA (ОСТАВЬТЕ КАК ЕСТЬ) ...
     const COURSE_DATA = {
         "архитектура компьютера и операционные системы": {
             "домашние задания": { "count": 9, "weight": 0.2 },
@@ -363,34 +362,27 @@
         }
     };
 
-    // --- СЕЛЕКТОРЫ И ID ---
+    // --- СЕЛЕКТОРЫ ---
     const CONTAINER_ID = "advanced-statements-container";
     const PARENT_COMPONENT_SELECTOR = "cu-student-course-performance";
-    const LOADER_SELECTOR = "cu-student-activity-performance-table tui-loader.content-loader";
+    const TABLE_WRAPPER_SELECTOR = "cu-student-activity-performance-table"; 
     const ORIGINAL_TABLE_SELECTOR = "table.cu-table";
     const STYLE_ID = "adv-statements-layout-styles";
 
-    let isInitialized = false;
+    let retryTimer = null;
 
-    // --- ЛОГИКА НЕЧЕТКОГО ПОИСКА ---
-
+    // --- ЛОГИКА ПОИСКА ---
     function levenshteinDistance(s1, s2) {
-        s1 = s1.toLowerCase();
-        s2 = s2.toLowerCase();
+        s1 = s1.toLowerCase(); s2 = s2.toLowerCase();
         const costs = [];
         for (let i = 0; i <= s1.length; i++) {
             let lastValue = i;
             for (let j = 0; j <= s2.length; j++) {
-                if (i === 0) {
-                    costs[j] = j;
-                } else {
+                if (i === 0) { costs[j] = j; } else {
                     if (j > 0) {
                         let newValue = costs[j - 1];
-                        if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
-                            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-                        }
-                        costs[j - 1] = lastValue;
-                        lastValue = newValue;
+                        if (s1.charAt(i - 1) !== s2.charAt(j - 1)) { newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; }
+                        costs[j - 1] = lastValue; lastValue = newValue;
                     }
                 }
             }
@@ -400,136 +392,90 @@
     }
 
     function calculateSimilarity(s1, s2) {
-        let longer = s1;
-        let shorter = s2;
-        if (s1.length < s2.length) {
-            longer = s2;
-            shorter = s1;
-        }
+        let longer = s1; let shorter = s2;
+        if (s1.length < s2.length) { longer = s2; shorter = s1; }
         const longerLength = longer.length;
-        if (longerLength === 0) {
-            return 1.0;
-        }
+        if (longerLength === 0) return 1.0;
         return (longerLength - levenshteinDistance(longer, shorter)) / parseFloat(longerLength);
     }
 
-    // --- ФИНАЛЬНАЯ ВЕРСИЯ ФУНКЦИИ ПОИСКА ---
     function findBestCourseMatch(apiCourseName, courseData) {
         if (!apiCourseName) return null;
-
         const apiNameLower = apiCourseName.toLowerCase().trim();
-
-        // 1. Поиск точного совпадения (самый надежный)
-        for (const key in courseData) {
-            if (key.toLowerCase().trim() === apiNameLower) {
-                console.log(`[Adv. Statements] Найдено точное соответствие для курса: "${apiCourseName}"`);
-                return courseData[key];
-            }
-        }
-
-        // 2. Поиск по префиксу (для случаев "Курс. Подзаголовок")
-        let bestPrefixMatch = null;
-        let longestPrefix = 0;
+        for (const key in courseData) { if (key.toLowerCase().trim() === apiNameLower) return courseData[key]; }
+        let bestPrefixMatch = null; let longestPrefix = 0;
         for (const key in courseData) {
             const keyLower = key.toLowerCase().trim();
-            if (apiNameLower.startsWith(keyLower) && keyLower.length > longestPrefix) {
-                 bestPrefixMatch = key;
-                 longestPrefix = keyLower.length;
-            }
+            if (apiNameLower.startsWith(keyLower) && keyLower.length > longestPrefix) { bestPrefixMatch = key; longestPrefix = keyLower.length; }
         }
-        if (bestPrefixMatch) {
-            console.log(`[Adv. Statements] Найдено соответствие по префиксу для "${apiCourseName}": "${bestPrefixMatch}"`);
-            return courseData[bestPrefixMatch];
-        }
-
-        // 3. Поиск по схожести (для опечаток)
-        let bestSimilarityMatch = null;
-        let maxScore = 0.0;
+        if (bestPrefixMatch) return courseData[bestPrefixMatch];
+        let bestSimilarityMatch = null; let maxScore = 0.0;
         for (const key in courseData) {
-            const keyLower = key.toLowerCase().trim();
-            const score = calculateSimilarity(apiNameLower, keyLower);
-            if (score > maxScore) {
-                maxScore = score;
-                bestSimilarityMatch = key;
-            }
+            const keyLower = key.toLowerCase().trim(); const score = calculateSimilarity(apiNameLower, keyLower);
+            if (score > maxScore) { maxScore = score; bestSimilarityMatch = key; }
         }
-        if (maxScore > 0.8) {
-            console.log(`[Adv. Statements] Найдено соответствие по схожести для "${apiCourseName}": "${bestSimilarityMatch}" (схожесть: ${maxScore.toFixed(2)})`);
-            return courseData[bestSimilarityMatch];
-        }
-        
-        // 4. Очистка номера группы (для случаев "Курс_3")
+        if (maxScore > 0.8) return courseData[bestSimilarityMatch];
         const processedApiName = apiNameLower.replace(/(?:\s+|\.|_)(?:поток|группа|group|stream)?\s*\d+$/, '').trim();
         if (processedApiName !== apiNameLower) {
-             for (const key in courseData) {
-                if (key.toLowerCase().trim() === processedApiName) {
-                    console.log(`[Adv. Statements] Найдено соответствие после очистки номера группы для "${apiCourseName}": "${key}"`);
-                    return courseData[key];
-                }
-            }
+             for (const key in courseData) { if (key.toLowerCase().trim() === processedApiName) return courseData[key]; }
         }
-
-        console.warn(`[Adv. Statements] Не найдена конфигурация для курса "${apiCourseName}". Наивысшая схожесть: ${maxScore.toFixed(2)} с "${bestSimilarityMatch}"`);
         return null;
     }
 
+    // --- ГЛАВНАЯ ФУНКЦИЯ ---
 
-    // --- ОСНОВНАЯ ЛОГИКА ---
+    async function tryRenderModule() {
+        if (!TARGET_PATH_REGEX.test(window.location.pathname)) {
+            resetState();
+            return;
+        }
 
-    async function initializeModule() {
-        if (isInitialized) return;
-        isInitialized = true;
-        console.log("[Adv. Statements] Инициализация модуля...");
+        if (document.getElementById(CONTAINER_ID)) {
+            const container = document.getElementById(CONTAINER_ID);
+            if (!document.body.contains(container)) {
+                resetState();
+            } else {
+                return;
+            }
+        }
 
         const parentComponent = document.querySelector(PARENT_COMPONENT_SELECTOR);
-        const loaderElement = document.querySelector(LOADER_SELECTOR);
-        if (!parentComponent || !loaderElement) { console.error("[Adv. Statements] Не найдены базовые компоненты страницы."); isInitialized = false; return; }
+        const tableWrapper = document.querySelector(TABLE_WRAPPER_SELECTOR);
+        const originalTable = tableWrapper ? tableWrapper.querySelector(ORIGINAL_TABLE_SELECTOR) : null;
 
-        const contentObserver = new MutationObserver(async (mutations, observer) => {
-            if (loaderElement.querySelector(ORIGINAL_TABLE_SELECTOR)) {
-                observer.disconnect();
-                if (document.getElementById(CONTAINER_ID)) return;
+        if (!parentComponent || !tableWrapper || !originalTable) {
+            clearTimeout(retryTimer);
+            retryTimer = setTimeout(tryRenderModule, 500);
+            return;
+        }
 
-                try {
-                    const { endOfCourseCalcEnabled } = await browser.storage.sync.get('endOfCourseCalcEnabled');
-                    const calculationMode = endOfCourseCalcEnabled ? 'endOfCourse' : 'current';
-                    const courseId = getCourseId();
-                    const courseName = await fetchCourseName(courseId);
-                    const courseConfig = findBestCourseMatch(courseName, COURSE_DATA);
+        console.log("[Adv. Statements] Таблица найдена. Запуск расчета...");
+        try {
+            const { endOfCourseCalcEnabled } = await browser.storage.sync.get('endOfCourseCalcEnabled');
+            const calculationMode = endOfCourseCalcEnabled ? 'endOfCourse' : 'current';
+            const courseId = getCourseId();
+            const courseName = await fetchCourseName(courseId);
+            const courseConfig = findBestCourseMatch(courseName, COURSE_DATA);
 
-                    if (courseName && !courseConfig && calculationMode === 'endOfCourse') {
-                        console.warn(`[Adv. Statements] Конфигурация для этого курса не найдена. Проверьте ключ в COURSE_DATA.`);
-                    }
-
-                    const tasks = await fetchPerformanceData(courseId);
-                    const calculatedData = calculateScores(tasks, courseConfig, calculationMode);
-                    renderSidebar(calculatedData, parentComponent, loaderElement, calculationMode);
-
-                } catch (error) {
-                    console.error("[Adv. Statements] Критическая ошибка в initializeModule:", error);
-                    isInitialized = false;
-                }
-            }
-        });
-        contentObserver.observe(loaderElement, { childList: true, subtree: true });
+            const tasks = await fetchPerformanceData(courseId);
+            const calculatedData = calculateScores(tasks, courseConfig, calculationMode);
+            
+            renderSidebar(calculatedData, parentComponent, tableWrapper, calculationMode);
+        } catch (error) {
+            console.error("[Adv. Statements] Ошибка:", error);
+            clearTimeout(retryTimer);
+            retryTimer = setTimeout(tryRenderModule, 1000);
+        }
     }
 
-    // Новая, улучшенная версия функции calculateScores
+    // --- РАСЧЕТ БАЛЛОВ ---
     function calculateScores(tasks, courseConfig, mode) {
         const activities = new Map();
-
         tasks.forEach(task => {
             if (!task.activity) return;
             const nameLower = task.activity.name.trim().toLowerCase();
-            if (!activities.has(nameLower)) {
-                // Сохраняем вес из API по умолчанию
-                activities.set(nameLower, { name: task.activity.name, weight: task.activity.weight, scores: [], sum: 0, });
-            }
-            if (task.score !== null) {
-                const activity = activities.get(nameLower);
-                activity.scores.push(task.score);
-                activity.sum += task.score;
-            }
+            if (!activities.has(nameLower)) { activities.set(nameLower, { name: task.activity.name, weight: task.activity.weight, scores: [], sum: 0, }); }
+            if (task.score !== null) { const activity = activities.get(nameLower); activity.scores.push(task.score); activity.sum += task.score; }
         });
 
         const finalActivities = new Map();
@@ -538,158 +484,86 @@
         if (mode === 'endOfCourse' && courseConfig) {
             for (const configName in courseConfig) {
                 const configNameLower = configName.toLowerCase();
-                let bestMatchName = null;
-                let maxScore = 0.0;
-                apiActivityNames.forEach(apiName => {
-                    const score = calculateSimilarity(configNameLower, apiName);
-                    if (score > maxScore) {
-                        maxScore = score;
-                        bestMatchName = apiName;
-                    }
-                });
-                if (bestMatchName && maxScore > 0.7) {
-                    finalActivities.set(configNameLower, activities.get(bestMatchName));
-                } else {
+                let bestMatchName = null; let maxScore = 0.0;
+                apiActivityNames.forEach(apiName => { const score = calculateSimilarity(configNameLower, apiName); if (score > maxScore) { maxScore = score; bestMatchName = apiName; } });
+                if (bestMatchName && maxScore > 0.7) { finalActivities.set(configNameLower, activities.get(bestMatchName)); } else {
                     const displayName = configName.charAt(0).toUpperCase() + configName.slice(1);
                     finalActivities.set(configNameLower, { name: displayName, weight: courseConfig[configName].weight, scores: [], sum: 0, });
                 }
             }
-        } else {
-            activities.forEach((value, key) => finalActivities.set(key, value));
-        }
+        } else { activities.forEach((value, key) => finalActivities.set(key, value)); }
 
         const calculatedActivities = [];
-        let totalWeightedScore = 0;
-        let totalWeight = 0;
+        let totalWeightedScore = 0; let totalWeight = 0;
 
         for (const [nameLower, data] of finalActivities.entries()) {
             let activityConfig = null;
             if (courseConfig) {
-                let bestMatchKey = null;
-                let maxScore = 0.0;
-                for (const configKey in courseConfig) {
-                    const score = calculateSimilarity(nameLower, configKey.toLowerCase().trim());
-                    if (score > maxScore) {
-                        maxScore = score;
-                        bestMatchKey = configKey;
-                    }
-                }
-                if (maxScore > 0.7) {
-                    activityConfig = courseConfig[bestMatchKey];
-                }
+                let bestMatchKey = null; let maxScore = 0.0;
+                for (const configKey in courseConfig) { const score = calculateSimilarity(nameLower, configKey.toLowerCase().trim()); if (score > maxScore) { maxScore = score; bestMatchKey = configKey; } }
+                if (maxScore > 0.7) { activityConfig = courseConfig[bestMatchKey]; }
             }
             
-            // --- НОВАЯ УМНАЯ ЛОГИКА ОПРЕДЕЛЕНИЯ ВЕСА И КОЛИЧЕСТВА ---
-
-            const actualCount = data.scores.length; // Количество сданных работ из API
-            let divisor;
-            let countDisplay;
-            let finalWeight = data.weight; // Вес из API по умолчанию
-
-            // 1. Определяем итоговый ВЕС (weight)
-            // Если в конфиге есть вес и он больше нуля, он имеет приоритет.
-            if (activityConfig && activityConfig.weight > 0) {
-                finalWeight = activityConfig.weight;
-            }
-
-            // 2. Определяем итоговый ДЕЛИТЕЛЬ (divisor) для среднего балла
+            const actualCount = data.scores.length;
+            let divisor; let countDisplay; let finalWeight = data.weight;
+            if (activityConfig && activityConfig.weight > 0) { finalWeight = activityConfig.weight; }
             if (mode === 'endOfCourse' && activityConfig && activityConfig.count > 0) {
-                // Если включен режим "на конец курса" и в конфиге указано ненулевое число работ, используем его.
-                divisor = activityConfig.count;
-                countDisplay = `${actualCount} / ${activityConfig.count}`;
+                divisor = activityConfig.count; countDisplay = `${actualCount} / ${activityConfig.count}`;
             } else {
-                // Во всех остальных случаях (режим "текущий" или count в конфиге = 0),
-                // используем реальное количество сданных работ.
-                divisor = actualCount;
-                countDisplay = `${actualCount}`;
+                divisor = actualCount; countDisplay = `${actualCount}`;
             }
             
-            // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
-
             const avg = (divisor > 0) ? (data.sum / divisor) : 0;
             const weightedScore = avg * finalWeight;
 
-            calculatedActivities.push({
-                name: data.name,
-                averageScore: avg.toFixed(2),
-                weight: finalWeight,
-                weightedScore: weightedScore.toFixed(2),
-                countDisplay: countDisplay,
-            });
-            totalWeightedScore += weightedScore;
-            totalWeight += finalWeight;
+            calculatedActivities.push({ name: data.name, averageScore: avg.toFixed(2), weight: finalWeight, weightedScore: weightedScore.toFixed(2), countDisplay: countDisplay, });
+            totalWeightedScore += weightedScore; totalWeight += finalWeight;
         }
 
-        return {
-            activities: calculatedActivities.sort((a, b) => a.name.localeCompare(b.name)),
-            totalWeightedScore: totalWeightedScore.toFixed(2),
-            totalWeight: totalWeight,
-        };
+        return { activities: calculatedActivities.sort((a, b) => a.name.localeCompare(b.name)), totalWeightedScore: totalWeightedScore.toFixed(2), totalWeight: totalWeight, };
     }
 
-    // --- ВСПОМОГАТЕЛЬНЫЕ И СЛУЖЕБНЫЕ ФУНКЦИИ ---
+    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
     function getCourseId() { const match = window.location.pathname.match(/student-performance\/(\d+)/); return match ? match[1] : null; }
-
+    
     async function fetchCourseName(courseId) {
         if (!courseId) return null;
-        const apiUrl = COURSE_INFO_URL_TEMPLATE.replace('{courseId}', courseId);
-        try {
-            const response = await fetch(apiUrl);
-            if (!response.ok) return null;
-            const data = await response.json();
-            return data.name ? data.name.trim() : null;
-        } catch (error) {
-            console.error("[Adv. Statements] Ошибка при получении имени курса:", error);
-            return null;
-        }
+        try { const response = await fetch(COURSE_INFO_URL_TEMPLATE.replace('{courseId}', courseId)); if (!response.ok) return null; const data = await response.json(); return data.name ? data.name.trim() : null; } catch (error) { return null; }
     }
 
-    async function fetchPerformanceData(courseId) { if (!courseId) return []; const apiUrl = API_URL_TEMPLATE.replace('{courseId}', courseId); try { const response = await fetch(apiUrl); if (!response.ok) throw new Error(`HTTP Error! Status: ${response.status}`); const data = await response.json(); return data.tasks || []; } catch (error) { console.error("[Adv. Statements] API Error:", error); return []; } }
+    async function fetchPerformanceData(courseId) { if (!courseId) return []; try { const response = await fetch(API_URL_TEMPLATE.replace('{courseId}', courseId)); if (!response.ok) throw new Error(); const data = await response.json(); return data.tasks || []; } catch (error) { return []; } }
 
     function resetState() {
-        if (!isInitialized) return;
         const component = document.getElementById(CONTAINER_ID);
         if (component) component.remove();
-        const styleSheet = document.getElementById(STYLE_ID);
-        if (styleSheet) styleSheet.remove();
-        isInitialized = false;
-        window.isAdvancedStatementsInitialized = false;
+        
+        clearTimeout(retryTimer);
+        retryTimer = null;
     }
 
-    function renderSidebar(data, parentComponent, loaderElement, calculationMode) {
+    function renderSidebar(data, parentComponent, tableWrapper, calculationMode) {
         if (document.getElementById(CONTAINER_ID)) document.getElementById(CONTAINER_ID).remove();
+        
         if (!document.getElementById(STYLE_ID)) {
             const styleSheet = document.createElement("style");
             styleSheet.id = STYLE_ID;
-            styleSheet.innerHTML = `
-                ${PARENT_COMPONENT_SELECTOR} { 
-                    position: relative !important; 
-                    padding-right: 580px !important; 
-                    box-sizing: border-box !important; 
-                } 
-                .adv-table-count-col { 
-                    text-align: center; 
-                    width: 80px; 
-                }
-                #${CONTAINER_ID} .cu-table th.adv-table-count-col,
-                #${CONTAINER_ID} .cu-table td.adv-table-count-col {
-                    border-right: 1px solid rgba(255, 255, 255, 0.12);
-                }
-            `.replace(/\s\s+/g, ' ').trim();
+            styleSheet.innerHTML = `${PARENT_COMPONENT_SELECTOR} { position: relative !important; padding-right: 580px !important; box-sizing: border-box !important; } .adv-table-count-col { text-align: center; width: 80px; } #${CONTAINER_ID} .cu-table th.adv-table-count-col, #${CONTAINER_ID} .cu-table td.adv-table-count-col { border-right: 1px solid rgba(255, 255, 255, 0.12); }`.replace(/\s\s+/g, ' ').trim();
             document.head.appendChild(styleSheet);
         }
 
-        const originalTable = loaderElement.querySelector(ORIGINAL_TABLE_SELECTOR);
+        const originalTable = tableWrapper.querySelector(ORIGINAL_TABLE_SELECTOR);
+        if (!originalTable) return;
+        
         const rowTemplate = originalTable.querySelector('tbody tr');
-        if (!originalTable || !rowTemplate) { console.error("[Adv. Statements] Не удалось найти оригинальную таблицу или шаблон строки."); return; }
+        if (!rowTemplate) return;
 
         const clonedTable = originalTable.cloneNode(true);
         clonedTable.querySelectorAll('thead th cu-tooltip').forEach(tip => tip.remove());
         
         const headerRow = clonedTable.querySelector('thead tr');
-        const firstHeaderCell = headerRow.querySelector('th');
-        if (firstHeaderCell) {
+        if (headerRow) {
+            const firstHeaderCell = headerRow.querySelector('th');
             const newHeaderCell = document.createElement('th');
             newHeaderCell.textContent = 'Количество';
             newHeaderCell.classList.add('adv-table-count-col');
@@ -701,12 +575,10 @@
         data.activities.forEach(act => {
             const newRow = rowTemplate.cloneNode(true);
             const firstCell = newRow.querySelector('td');
-            if (firstCell) {
-                const countCell = document.createElement('td');
-                countCell.textContent = act.countDisplay;
-                countCell.classList.add('adv-table-count-col');
-                firstCell.insertAdjacentElement('afterend', countCell);
-            }
+            const countCell = document.createElement('td');
+            countCell.textContent = act.countDisplay;
+            countCell.classList.add('adv-table-count-col');
+            firstCell.insertAdjacentElement('afterend', countCell);
 
             newRow.querySelector('.column-activity').textContent = act.name;
             newRow.querySelector('.column-average-score .signed-cell__average-score').textContent = act.averageScore;
@@ -715,35 +587,44 @@
             tbody.appendChild(newRow);
         });
         
+        const footerCells = clonedTable.querySelectorAll('tfoot td');
         const footerRow = clonedTable.querySelector('tfoot tr');
-        const firstFooterCell = footerRow.querySelector('td');
-        if (firstFooterCell) {
-            const emptyFooterCell = document.createElement('td');
-            firstFooterCell.insertAdjacentElement('afterend', emptyFooterCell);
+        if (footerRow && footerCells.length > 0) {
+             const firstFooterCell = footerRow.querySelector('td');
+             const emptyFooterCell = document.createElement('td');
+             firstFooterCell.insertAdjacentElement('afterend', emptyFooterCell);
         }
 
-        const footerCells = clonedTable.querySelectorAll('tfoot td');
-        if (footerCells.length === 5) {
-            footerCells[0].innerHTML = `<span cutext="s-bold" class="font-text-s-bold">Итог</span>`;
-            footerCells[3].textContent = `${Math.round(data.totalWeight * 100)}%`;
-            footerCells[4].querySelector('span').textContent = data.totalWeightedScore;
+        const updatedFooterCells = clonedTable.querySelectorAll('tfoot td');
+        if (updatedFooterCells.length >= 5) {
+            updatedFooterCells[0].innerHTML = `<span cutext="s-bold" class="font-text-s-bold">Итог</span>`;
+            updatedFooterCells[3].textContent = `${Math.round(data.totalWeight * 100)}%`;
+            updatedFooterCells[4].querySelector('span').textContent = data.totalWeightedScore;
         }
 
         const container = document.createElement("div");
         container.id = CONTAINER_ID;
-        const topOffset = loaderElement.offsetTop;
+        
+        // --- ФИКС ПОЗИЦИОНИРОВАНИЯ (ВЕРСИЯ 49) ---
+        // Рассчитываем отступ сверху на основе положения левой таблицы
+        const topOffset = tableWrapper.offsetTop || 0;
         container.style.cssText = `position: absolute; top: ${topOffset}px; right: 24px; width: 540px;`;
+        // ------------------------------------------
+        
         const explanation = calculationMode === 'endOfCourse' ? 'Средний балл вычисляется по <b>всем</b> заданиям, запланированным в курсе (согласно настройкам плагина). Задания без оценки учитываются как 0.' : 'Средний балл вычисляется только по тем заданиям, где <b>уже выставлена оценка</b> (включая 0). Задания без оценки не учитываются.';
-        container.innerHTML = `<fieldset class="t-content" style="border: none; padding: 0;"></fieldset><p style="font-size: 12px; color: #888; margin-top: 10px; line-height: 1.5;"><b>Принцип расчёта этой таблицы (справа):</b><br>${explanation}<br><br><b>Принцип расчёта ведомости LMS (слева):</b><br>Средний балл считается по <b>всем открытым</b> заданиям в рамках одной активности. Задания, по которым ещё не выставлена оценка, <b>учитываются в расчёте как 0.</b></p>`;
+        container.innerHTML = `<fieldset class="t-content" style="border: none; padding: 0;"></fieldset><p style="font-size: 12px; color: #888; margin-top: 10px; line-height: 1.5;"><b>Принцип расчёта этой таблицы (справа):</b><br>${explanation}<br><br><b>Принцип расчёта ведомости LMS (слева):</b><br>Средний балл считается по <b>всем открытым</b> заданиям в рамках одной активности.</p>`;
         container.querySelector('fieldset').appendChild(clonedTable);
         parentComponent.appendChild(container);
-        console.log(`[Adv. Statements] Боковая панель отрисована в режиме: ${calculationMode}.`);
     }
 
-    function handleLocationChange() { const isOnCorrectPage = TARGET_PATH_REGEX.test(window.location.pathname); const componentExists = document.querySelector(PARENT_COMPONENT_SELECTOR); if (isOnCorrectPage && componentExists && !isInitialized) { initializeModule(); } else if ((!isOnCorrectPage || !componentExists) && isInitialized) { resetState(); } }
-    const navigationObserver = new MutationObserver(handleLocationChange);
+    // --- ОБРАБОТЧИК НАВИГАЦИИ ---
+    const navigationObserver = new MutationObserver(() => {
+        tryRenderModule();
+    });
+    
     navigationObserver.observe(document.body, { childList: true, subtree: true });
-    handleLocationChange();
+    tryRenderModule();
+    
     console.log("[Adv. Statements] Скрипт загружен и готов к работе.");
 
 })();
