@@ -11788,3 +11788,7 @@ body .course-card .skill-level {
 /* body .course-card .skill-level tui-icon {
     color: revert !important;
 } */
+
+body {
+    --informer-tui-elevation-02: rgb(32,33,36) !important; /* Ваш новый цвет */
+}
