@@ -4,15 +4,43 @@
 if (typeof window.snowEffectInitialized === 'undefined') {
     window.snowEffectInitialized = true;
 
-    // --- УНИВЕРСАЛЬНЫЙ ДОСТУП К API БРАУЗЕРА ---
-    const api = window.browser || window.chrome;
+    // --- УНИВЕРСАЛЬНЫЙ ДОСТУП К API ---
+    // В Firefox 'browser' доступен глобально, в Chrome 'chrome'.
+    // window.browser может быть недоступен в некоторых контекстах Firefox.
+    const api = (typeof browser !== 'undefined' ? browser : chrome);
 
+    /**
+     * Безопасное получение данных из хранилища (Promise-based)
+     */
     function safeGetStorage(keys) {
         return new Promise((resolve) => {
-            if (window.browser && window.browser.storage) {
-                window.browser.storage.sync.get(keys).then(resolve);
-            } else {
-                window.chrome.storage.sync.get(keys, resolve);
+            try {
+                // Попытка использовать стандартный browser API (Firefox)
+                if (typeof browser !== 'undefined' && browser.storage) {
+                    browser.storage.sync.get(keys)
+                        .then(resolve)
+                        .catch(err => {
+                            console.error('[SNOW] Storage error:', err);
+                            resolve({}); // Возвращаем пустоту, чтобы не ломать скрипт
+                        });
+                } 
+                // Попытка использовать chrome API (Chrome / Fallback)
+                else if (typeof chrome !== 'undefined' && chrome.storage) {
+                    chrome.storage.sync.get(keys, (data) => {
+                        if (chrome.runtime.lastError) {
+                            console.error('[SNOW] Chrome storage error:', chrome.runtime.lastError);
+                            resolve({});
+                        } else {
+                            resolve(data || {});
+                        }
+                    });
+                } else {
+                    console.warn('[SNOW] No storage API found');
+                    resolve({});
+                }
+            } catch (e) {
+                console.error('[SNOW] Unexpected storage error:', e);
+                resolve({});
             }
         });
     }
@@ -23,9 +51,9 @@ if (typeof window.snowEffectInitialized === 'undefined') {
 
     // Конфигурация снега
     const SNOW_CONFIG = {
-        count: 150, // Количество снежинок
-        speed: 1.5, // Скорость падения
-        wind: 0.5   // Боковое смещение
+        count: 150, 
+        speed: 1.5, 
+        wind: 0.5   
     };
 
     let particles = [];
@@ -54,7 +82,6 @@ if (typeof window.snowEffectInitialized === 'undefined') {
             this.y += this.speedY;
             this.x += this.speedX;
 
-            // Если улетела за пределы экрана
             if (this.y > h + 10 || this.x > w + 10 || this.x < -10) {
                 this.init(true);
             }
@@ -63,8 +90,7 @@ if (typeof window.snowEffectInitialized === 'undefined') {
         draw(ctx) {
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            
-            // Цвет: светло-голубой (Ice Blue), виден и на белом, и на черном фоне
+            // Цвет: светло-голубой
             ctx.fillStyle = `rgba(190, 215, 255, ${this.opacity})`;
             ctx.fill();
         }
@@ -95,18 +121,23 @@ if (typeof window.snowEffectInitialized === 'undefined') {
 
     // --- УПРАВЛЕНИЕ ВКЛ/ВЫКЛ ---
     function toggleSnowEffect(isEnabled) {
+        console.log('[SNOW] Toggling effect:', isEnabled); // Лог для отладки
+
         if (isEnabled) {
             if (snowCanvas) return; // Уже включено
 
             snowCanvas = document.createElement('canvas');
+            snowCanvas.id = 'culms-snow-canvas'; // ID для удобства поиска в DOM
             snowCanvas.style.position = 'fixed';
             snowCanvas.style.top = '0';
             snowCanvas.style.left = '0';
             snowCanvas.style.width = '100vw';
             snowCanvas.style.height = '100vh';
-            snowCanvas.style.pointerEvents = 'none'; // Клики проходят сквозь
-            snowCanvas.style.zIndex = '2147483647'; // Максимальный Z-Index
-            document.body.appendChild(snowCanvas);
+            snowCanvas.style.pointerEvents = 'none'; 
+            snowCanvas.style.zIndex = '2147483647'; 
+            
+            // ВАЖНО: Крепим к documentElement (<html>), это надежнее для Firefox/LMS
+            (document.documentElement || document.body).appendChild(snowCanvas);
 
             handleResize();
             window.addEventListener('resize', handleResize);
@@ -133,16 +164,18 @@ if (typeof window.snowEffectInitialized === 'undefined') {
 
     // --- ЗАПУСК ---
     
-    // 1. Слушаем изменения настроек из Popup (работает и в Chrome, и в Firefox)
-    api.storage.onChanged.addListener((changes) => {
-        if ('snowEnabled' in changes) {
-            const newValue = changes.snowEnabled.newValue;
-            toggleSnowEffect(!!newValue);
-        }
-    });
+    // 1. Слушатель изменений (универсальный)
+    if (api && api.storage) {
+        api.storage.onChanged.addListener((changes) => {
+            if ('snowEnabled' in changes) {
+                toggleSnowEffect(!!changes.snowEnabled.newValue);
+            }
+        });
+    }
 
-    // 2. Проверяем настройку при загрузке страницы
+    // 2. Инициализация при старте
     safeGetStorage('snowEnabled').then((data) => {
+        console.log('[SNOW] Initial state loaded:', data); // Лог
         if (data && data.snowEnabled) {
             toggleSnowEffect(true);
         }
