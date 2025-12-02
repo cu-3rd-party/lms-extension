@@ -70,7 +70,8 @@
                 "rename_hw.js",
                 "version_check.js",
                 "advanced_statements.js",
-                "snow.js"
+                "snow.js",
+                "course_card_image_replacer.js"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"

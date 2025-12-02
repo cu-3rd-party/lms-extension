@@ -10,6 +10,10 @@ if (typeof importScripts === 'function') {
     }
 }
 
+if (typeof browser === 'undefined' && typeof chrome !== 'undefined') {
+    var browser = chrome;
+}
+
 /**
  * Центральная функция для обработки навигации и внедрения скриптов.
  * @param {number} tabId - ID вкладки, где произошло событие.
@@ -31,13 +35,13 @@ function handleNavigation(tabId, url) {
         // СТРАНИЦА ЗАДАЧ: Внедряем объединенный tasks_fix, но НЕ emoji_swap
         browser.scripting.executeScript({
             target: { tabId: tabId },
-            files: ["browser-polyfill.js", "dark_theme.js", "tasks_fix.js", "snow.js"]
+            files: ["browser-polyfill.js", "dark_theme.js", "tasks_fix.js", "snow.js", "course_card_image_replacer.js"]
         }).catch(err => console.error(`[BG_LOG] Error injecting scripts for Tasks page:`, err));
     } else {
         // ДРУГИE СТРАНИЦЫ: Внедряем стандартный набор, включая emoji_swap
         browser.scripting.executeScript({
             target: { tabId: tabId },
-            files: ["browser-polyfill.js", "dark_theme.js", "emoji_swap.js", "snow.js"]
+            files: ["browser-polyfill.js", "dark_theme.js", "emoji_swap.js", "snow.js", "course_card_image_replacer.js"]
         }).catch(err => console.error(`[BG_LOG] Error injecting default scripts:`, err));
     }
 
