@@ -69,7 +69,8 @@
                 "popup_dark.css",
                 "rename_hw.js",
                 "version_check.js",
-                "advanced_statements.js"
+                "advanced_statements.js",
+                "snow.js"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"

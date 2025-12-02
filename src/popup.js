@@ -27,6 +27,7 @@ const toggles = {
     themeEnabled: document.getElementById('theme-toggle'),
     oledEnabled: document.getElementById('oled-toggle'),
     autoRenameEnabled: document.getElementById('auto-rename-toggle'),
+    snowEnabled: document.getElementById('snow-toggle'), 
     courseOverviewTaskStatusToggle: document.getElementById('course-overview-task-status-toggle'),
     emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
     oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
