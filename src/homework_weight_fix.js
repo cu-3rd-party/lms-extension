@@ -1,9 +1,7 @@
-// homework_weight_fix.js (ФИНАЛЬНАЯ ВЕРСИЯ с ИСПРАВЛЕНИЕМ РАЗМЕРА ИКОНКИ)
+// homework_weight_fix_full.js (ФИНАЛЬНАЯ ВЕРСИЯ: ИКОНКА + ВЕС + LATE DAYS)
 'use strict';
 
 // --- ЧАСТЬ 1: ЛОГИКА ДЛЯ ОТОБРАЖЕНИЯ ВЕСА ЗАДАНИЯ ---
-// (Этот блок кода не менялся)
-
 async function processWeightInfo() {
     const match = window.location.pathname.match(/longreads\/(\d+)/);
     if (!match || document.querySelector('[data-culms-longread-weight]')) {
@@ -18,20 +16,24 @@ async function processWeightInfo() {
         if (infoList) insertWeightElement(infoList, weight);
     } catch (error) {
         if (!error.message.includes('not found within')) {
+            console.error('Longread Weight: Error processing weight:', error);
         }
     }
 }
+
 async function fetchLongreadData(longreadId) {
     const apiUrl = `https://my.centraluniversity.ru/api/micro-lms/longreads/${longreadId}/materials?limit=10000`;
     const response = await fetch(apiUrl, { credentials: 'include' });
     if (!response.ok) throw new Error(`API request failed! Status: ${response.status}`);
     return await response.json();
 }
+
 function findWeightInApiResponse(data) {
     if (!data?.items?.length) return null;
     const itemWithWeight = data.items.find(item => item?.estimation?.activity?.weight !== undefined);
     return itemWithWeight ? itemWithWeight.estimation.activity.weight : null;
 }
+
 function findItemByTitle(list, title) {
     for (const li of list.querySelectorAll('.task-info__item')) {
         const titleSpan = li.querySelector('.task-info__item-title');
@@ -39,6 +41,7 @@ function findItemByTitle(list, title) {
     }
     return null;
 }
+
 function insertWeightElement(infoList, weight) {
     if (infoList.querySelector('[data-culms-longread-weight]')) return;
 
@@ -55,13 +58,11 @@ function insertWeightElement(infoList, weight) {
         const weightListItem = anchorItem.cloneNode(true);
         weightListItem.setAttribute('data-culms-longread-weight', 'true');
 
-        // --- НАЧАЛО ИСПРАВЛЕНИЯ ---
-        // Ищем и удаляем кнопку "Оценить" из клонированного элемента
+        // Удаляем кнопку "Оценить" из клонированного элемента
         const buttonToRemove = weightListItem.querySelector('button');
         if (buttonToRemove) {
             buttonToRemove.remove();
         }
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         // Логика для случая, когда нашли элемент по иконке
         if (scoreIcon) {
@@ -86,6 +87,7 @@ function insertWeightElement(infoList, weight) {
         anchorItem.parentNode.insertBefore(weightListItem, anchorItem.nextSibling);
     }
 }
+
 function waitForElement(selector, timeout = 5000) {
     return new Promise((resolve, reject) => {
         const element = document.querySelector(selector);
@@ -105,11 +107,11 @@ function waitForElement(selector, timeout = 5000) {
     });
 }
 
-// --- ЧАСТЬ 2: ЛОГИКА ДЛЯ ЗАМЕНЫ ИКОНКИ (С ИЗМЕНЕНИЯМИ) ---
+// --- ЧАСТЬ 2: ЛОГИКА ДЛЯ ЗАМЕНЫ ИКОНКИ (С ФИКСОМ РАЗМЕРА) ---
 
 function persistentIconReplacer() {
     const originalIconSrcPart = "task-card-preview.svg";
-    const newIconUrl = browser.runtime.getURL('icons/task-card-preview.svg'); // Убедитесь, что имя файла верное
+    const newIconUrl = browser.runtime.getURL('icons/task-card-preview.svg'); 
     const processedAttribute = 'data-culms-icon-replaced';
 
     const iconObserver = new MutationObserver(() => {
@@ -119,11 +121,9 @@ function persistentIconReplacer() {
             icon.src = newIconUrl;
             icon.setAttribute(processedAttribute, 'true');
             
-            // --- ДОБАВЛЕННЫЕ СТРОКИ ---
-            // Принудительно задаем размеры, чтобы картинка не схлопывалась
+            // Принудительно задаем размеры
             icon.style.width = '148px';
             icon.style.height = '150px';
-            // -------------------------
 
             console.log('Icon replaced and resized successfully.');
         }
@@ -131,6 +131,8 @@ function persistentIconReplacer() {
 
     iconObserver.observe(document.body, { childList: true, subtree: true });
 }
+
+// --- ЧАСТЬ 3: ЛОГИКА ДЛЯ LATE DAYS (ВЕРНУЛ ОБРАТНО) ---
 
 function processLdOnTaskPage() {
     const processedAttribute = 'data-culms-ld-button-added';
@@ -149,9 +151,7 @@ function processLdOnTaskPage() {
 
     async function fetchLongreadMeta() {
         try {
-            // Take the current page URL
             const url = location.href;
-
             const match = url.match(/longreads\/(\d+)/);
             if (!match) return null;
 
@@ -187,7 +187,6 @@ function processLdOnTaskPage() {
             z-index: 10000;
         `;
         
-        // Создаем контейнер модального окна
         const modal = document.createElement('div');
         modal.style.cssText = `
             background: ${isDarkTheme ? '#202124' : 'white'};
@@ -199,7 +198,6 @@ function processLdOnTaskPage() {
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         `;
         
-        // Вставляем содержимое модального окна
         modal.innerHTML = `
             <cu-late-days-editor _nghost-ng-c2119068531="" style="display: flex; flex-direction: column; gap: 24px;">
                 <h3 _ngcontent-ng-c2119068531="" class="header" style="font: var(--font-service-heading-3-desktop); margin: 0;">Перенести дедлайн</h3>
@@ -229,7 +227,6 @@ function processLdOnTaskPage() {
                         Перенести
                     </button>
                 </div>
-
             </cu-late-days-editor>
         `;
 
@@ -248,10 +245,8 @@ function processLdOnTaskPage() {
             const errorLabel = modal.querySelector('.t-message-text');
             const days = parseInt(input.value, 10);
 
-            // Hide error by default
             errorLabel.style.display = "none";
 
-            // Validation
             if (isNaN(days) || days <= 0 || days > lateDaysBalance) {
                 errorLabel.textContent = `Доступно ${lateDaysBalance} дней`;
                 errorLabel.style.display = "block";
@@ -272,7 +267,6 @@ function processLdOnTaskPage() {
                     return;
                 }
 
-                // Success — close modal
                 closeModal();
                 window.location.reload();
 
@@ -307,7 +301,6 @@ function processLdOnTaskPage() {
             return;
         }
 
-      
         let lateDaysBalance = 0;
         if (allowLateDays)
         {
@@ -327,7 +320,6 @@ function processLdOnTaskPage() {
         if (alreadyExists) return;
     
         if (allowLateDays) {
-            // → Normal LD button
             const button = document.createElement("button");
             button.setAttribute('tuiappearance', '');
             button.setAttribute('tuiicons', '');
@@ -379,7 +371,6 @@ function processLdOnTaskPage() {
                         if (r.ok) {
                           window.location.reload();
                         } else if (r.status === 400) {
-                            // Проверяем, нет ли уже сообщения об ошибке
                             let errorLabel = taskTagsDiv.querySelector('.t-message-text');
                             if (!errorLabel) {
                                 errorLabel = document.createElement("div");
@@ -390,7 +381,6 @@ function processLdOnTaskPage() {
                                 errorLabel.textContent = 'Нет доступных Late Days для отмены – до дедлайна менее 24 часов';
                                 taskTagsDiv.parentElement.insertBefore(errorLabel, taskTagsDiv.nextSibling);
                                 
-                                // Убираем сообщение через 5 секунд
                                 setTimeout(() => {
                                     errorLabel.remove();
                                 }, 5000);
@@ -403,9 +393,7 @@ function processLdOnTaskPage() {
 
                 taskTagsDiv.appendChild(cancelBtn);
             }
-
         }
-
         taskPreview.setAttribute(processedAttribute, "true");
     }
 
@@ -417,11 +405,10 @@ function processLdOnTaskPage() {
     runForExisting();
 }
 
-
 // --- ЗАПУСК ВСЕГО ---
 persistentIconReplacer();
 const navigationObserver = new MutationObserver(() => {
     processWeightInfo();
-    processLdOnTaskPage();
+    processLdOnTaskPage(); // Эта строка запускает логику Late Days
 });
 navigationObserver.observe(document.body, { childList: true, subtree: true });

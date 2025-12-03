@@ -19,113 +19,105 @@ function getSkippedTasks() {
 }
 
 async function activateCourseOverviewTaskStatus() {
-  // Достаем id курса из url
   const match = window.location.pathname.match(/actual\/(\d+)/);
-  if (!match) {
-    return;
-  }
-  const courseId = match[1];
+  if (!match) return;
+  
+  const courseId = parseInt(match[1]); // Важно привести к числу для сравнения
   
   try {
-    // Добываем таски и оценки к ним
-    const [exercisesResponse, performanceResponse] = await Promise.all([
+    // 1. Запрашиваем упражнения, успеваемость И глобальный список задач (где есть даты)
+    const [exercisesResponse, performanceResponse, allTasksResponse] = await Promise.all([
       fetch(`https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/exercises`),
-      fetch(`https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/student-performance`)
+      fetch(`https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/student-performance`),
+      fetch(`https://my.centraluniversity.ru/api/micro-lms/tasks/student`)
     ]);
-    // https://my.centraluniversity.ru/api/micro-lms/materials/33293
+
     const exercisesData = await exercisesResponse.json();
     const performanceData = await performanceResponse.json();
+    const allTasksData = await allTasksResponse.json();
 
     const skippedTasks = getSkippedTasks();
     const courseName = exercisesData.name;
-    
-    // Создаем мап для типа таски и оценки по ней
+
+    // 2. Создаем карту дат из глобального списка задач (tasks/student)
+    // Ключ = exercise.id, Значение = { submitAt, rejectAt }
+    const tasksDatesMap = {};
+    allTasksData.forEach(task => {
+        if (task.exercise && task.exercise.id) {
+            tasksDatesMap[task.exercise.id] = {
+                submitAt: task.submitAt ? new Date(task.submitAt).getTime() : 0,
+                rejectAt: task.rejectAt ? new Date(task.rejectAt).getTime() : 0
+            };
+        }
+    });
+
+    // 3. ГРУППИРОВКА: Собираем упражнения по ID лонгрида
+    const exercisesByLongread = {};
+    exercisesData.exercises.forEach(exercise => {
+      if (exercise.longread) {
+        if (!exercisesByLongread[exercise.longread.id]) {
+          exercisesByLongread[exercise.longread.id] = [];
+        }
+        exercisesByLongread[exercise.longread.id].push(exercise);
+      }
+    });
+
     const longreadToTaskMap = {};
 
-    const inProgressTasks = performanceData.tasks.filter(t => {
-      if (t.state !== 'inProgress') return false;
+    // 4. Проходим по каждому лонгриду и выбираем ПОСЛЕДНЮЮ задачу
+    for (const [longreadId, exercises] of Object.entries(exercisesByLongread)) {
+      const targetExercise = exercises[exercises.length - 1]; 
       
-      const exercise = exercisesData.exercises.find(ex => ex.id === t.exerciseId);
-      if (!exercise) return false;
+      // Находим статус в performance (там актуальный score)
+      const taskPerf = performanceData.tasks.find(t => t.exerciseId === targetExercise.id);
       
-      const taskIdentifier = getTaskIdentifier(exercise.name, courseName);
-      return !skippedTasks.has(taskIdentifier);
-    });
+      if (taskPerf) {
+        const taskIdentifier = getTaskIdentifier(targetExercise.name, courseName);
+        let state = taskPerf.state;
+        const score = Number(Math.min((taskPerf.score || 0) + (taskPerf.extraScore || 0), 10).toFixed(2));
 
-    const materialChecks = await Promise.all(
-      inProgressTasks.map(async (task) => {
-        try {
-          const materialResponse = await fetch(
-            `https://my.centraluniversity.ru/api/micro-lms/materials/${task.exerciseId}`
-          );
-          const materialData = await materialResponse.json();
-          return {
-            exerciseId: task.exerciseId,
-            hasSubmission: materialData.task?.submitAt != null
-          };
-        } catch (e) {
-          console.log(`Error checking material ${task.exerciseId}:`, e);
-          return {
-            exerciseId: task.exerciseId,
-            hasSubmission: false
-          };
-        }
-      })
-    );
-
-    const submissionMap = {};
-    materialChecks.forEach(check => {
-      submissionMap[check.exerciseId] = check.hasSubmission;
-    });
-    
-    for (const exercise of exercisesData.exercises) {
-      if (exercise.longread) {
-        const task = performanceData.tasks.find(t => t.exerciseId === exercise.id);
-        
-        if (task) {
-          const taskIdentifier = getTaskIdentifier(exercise.name, courseName);
-          let state = task.state;
+        if (skippedTasks.has(taskIdentifier)) {
+          state = 'skipped';
+        } else if (state === 'inProgress') {
+          // Берем даты из глобальной карты, которую мы создали выше
+          const times = tasksDatesMap[targetExercise.id] || { submitAt: 0, rejectAt: 0 };
           
-          if (skippedTasks.has(taskIdentifier)) {
-            state = 'skipped';
-          } else if (state === 'inProgress' && submissionMap[exercise.id]) {
-            state = 'hasSolution';
+          if (times.rejectAt > times.submitAt) {
+             state = 'revision'; // Отклонено позже отправки -> Доработка
+          } else if (times.submitAt > times.rejectAt) {
+             state = 'hasSolution'; // Отправлено позже отклонения -> Есть решение
+          } else if (score > 0 && score < 10) {
+             // ФОЛЛБЕК: Если даты равны (0), но есть оценка и статус inProgress — это Доработка
+             state = 'revision';
           }
-          
-          longreadToTaskMap[exercise.longread.id] = {
-            state: state,
-            score: Number(Math.min((task.score || 0) + (task.extraScore || 0), 10).toFixed(2))
-          };
         }
+        
+        longreadToTaskMap[longreadId] = {
+          state: state,
+          score: score
+        };
       }
     }
     
-    // Ждем появления главного контейнера
+    // Отрисовка (без изменений)
     const courseOverview = await waitForElement('cu-course-overview', 10000);
     const expandContainers = courseOverview.querySelectorAll('tui-expand');
     
-    // Для каждого ставим обсервер на открытие
     expandContainers.forEach(function(container) {
       if (container.getAttribute('aria-expanded') === 'true') {
         addStatusChips(container, longreadToTaskMap);
       }
-      
       const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
           if (mutation.attributeName === 'aria-expanded') {
             const isExpanded = container.getAttribute('aria-expanded') === 'true';
-            
             if (isExpanded) {
               addStatusChips(container, longreadToTaskMap);
             }
           }
         });
       });
-      
-      observer.observe(container, { 
-        attributes: true,
-        attributeFilter: ['aria-expanded']
-      });
+      observer.observe(container, { attributes: true, attributeFilter: ['aria-expanded'] });
     });
   }
   catch (e) {
@@ -135,7 +127,12 @@ async function activateCourseOverviewTaskStatus() {
 
 function addStatusChips(container, longreadToTaskMap) {
   const liElements = container.querySelectorAll('li.longreads-list-item');
-  
+
+  // Ваши цвета
+  const SOLVED_COLOR = '#28a745';
+  const SKIPPED_COLOR = '#b516d7';
+  const REVISION_COLOR = '#FE456A'; 
+
   liElements.forEach(function(li) {
     if (!li.querySelector('.task-table__state')) {
       const anchor = li.querySelector('a[href*="/longreads/"]');
@@ -147,12 +144,15 @@ function addStatusChips(container, longreadToTaskMap) {
       const longreadId = parseInt(hrefMatch[1]);
       
       const taskData = longreadToTaskMap[longreadId];
-      if (!taskData) return; // не добавляем плашку, если в списке тасок элемента нет (лонгриды)
+      if (!taskData) return;
       
-      // На основе типа таски создаем элемент
       let chipHTML = '';
       const state = taskData.state;
-      const score = taskData.score 
+      const score = taskData.score;
+      
+      // Переменная для хранения кастомного цвета фона
+      let customBgColor = '';
+
       switch(state) {
         case 'backlog':
           chipHTML = `<tui-chip data-appearance="support-neutral" data-original-status="Не начато">Не начато</tui-chip>`;
@@ -161,7 +161,14 @@ function addStatusChips(container, longreadToTaskMap) {
           chipHTML = `<tui-chip data-appearance="support-categorical-12-pale" data-original-status="В работе">В работе</tui-chip>`;
           break;
         case 'hasSolution':
-          chipHTML = `<tui-chip data-appearance="support-categorical-12-pale" data-original-status="Есть решение">Есть решение</tui-chip>`;
+          // Убираем data-appearance, чтобы стили не перебивались, и задаем цвет
+          customBgColor = SOLVED_COLOR;
+          chipHTML = `<tui-chip data-original-status="Есть решение">Есть решение</tui-chip>`;
+          break;
+        case 'revision':
+          // Задаем цвет доработки
+          customBgColor = REVISION_COLOR;
+          chipHTML = `<tui-chip data-original-status="Доработка">Доработка</tui-chip>`;
           break;
         case 'review':
           chipHTML = `<tui-chip data-appearance="support-categorical-13-pale" data-original-status="На проверке">На проверке</tui-chip>`;
@@ -173,6 +180,8 @@ function addStatusChips(container, longreadToTaskMap) {
           chipHTML = `<tui-chip data-appearance="positive-pale">${score}/10</tui-chip>`;
           break;
         case 'skipped':
+          // Задаем цвет скипа
+          customBgColor = SKIPPED_COLOR;
           chipHTML = `<tui-chip data-original-status="Метод скипа">Метод скипа</tui-chip>`;
           break;
         default:
@@ -192,7 +201,13 @@ function addStatusChips(container, longreadToTaskMap) {
       chipElement.classList.add('state-chip');
       chipElement.setAttribute('data-size', 's');
       chipElement.setAttribute('data-original-culms-status', '');
-      chipElement.style.cssText = `padding: var(--cu-chip-padding-vertical-s) var(--cu-chip-padding-horizontal-s); position: absolute; right: 6px; top: 50%; transform: translateY(-50%); ${state === 'skipped' ? 'background-color: #b516d7 !important; color: white !important' : ''}`;
+      
+      // Формируем стили. Если задан кастомный цвет, добавляем его с !important и делаем текст белым
+      const colorStyles = customBgColor 
+        ? `background-color: ${customBgColor} !important; color: white !important;` 
+        : '';
+      
+      chipElement.style.cssText = `padding: var(--cu-chip-padding-vertical-s) var(--cu-chip-padding-horizontal-s); position: absolute; right: 6px; top: 50%; transform: translateY(-50%); ${colorStyles}`;
 
       li.appendChild(chipElement);
     }
