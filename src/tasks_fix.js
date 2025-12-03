@@ -4,23 +4,20 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     'use strict';
 
     // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ДЛЯ УПРАВЛЕНИЯ СОСТОЯНИЕМ ---
-    let dropdownObserver = null; // Будем хранить здесь наблюдателя за фильтрами
-    let isCleanedUp = false;     // Флаг, чтобы очистка не запускалась многократно
+    let dropdownObserver = null; 
+    let isCleanedUp = false;     
 
     // --- ПРОВЕРКА URL ПРИ НАВИГАЦИИ ВНУТРИ SPA ---
     const isArchivedPage = () => window.location.href.includes('/tasks/archived-student-tasks');
 
     // --- ОБНОВЛЕННАЯ ФУНКЦИЯ ОЧИСТКИ ---
     function cleanupModifications() {
-        // 1. Отключаем наблюдателя за выпадающими списками.
-        // ЭТО КЛЮЧЕВОЙ ШАГ для возврата оригинальных фильтров.
         if (dropdownObserver) {
             dropdownObserver.disconnect();
             dropdownObserver = null;
             window.cuLmsLog('Task Status Updater: Dropdown observer disconnected.');
         }
 
-        // 2. Удаляем элементы из таблицы
         document.querySelector('[data-culms-weight-header]')?.remove();
         document.querySelectorAll('tr[class*="task-table__task"]').forEach(row => {
             row.querySelector('[data-culms-weight-cell]')?.remove();
@@ -28,10 +25,9 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             row.style.display = ''; 
         });
         
-        // 3. Удаляем добавленные стили
         document.getElementById('culms-tasks-fix-styles')?.remove();
         
-        isCleanedUp = true; // Устанавливаем флаг, что очистка произведена
+        isCleanedUp = true; 
         window.cuLmsLog('Task Status Updater: Cleaned up DOM modifications for archived page.');
     }
 
@@ -43,6 +39,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
     // --- КОНСТАНТЫ СТАТУСОВ ---
     const SKIPPED_STATUS_TEXT = "Метод скипа";
+    const REVISION_STATUS_TEXT = "Доработка"; // Новый текст статуса
 
     // --- КЭШ ДЛЯ ЗАГРУЖЕННЫХ ИКОНОК ---
     const svgIconCache = {};
@@ -90,13 +87,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
     function throttledCheckAndRun() {
         if (isArchivedPage()) {
-            if (!isCleanedUp) { // Запускаем очистку только один раз
+            if (!isCleanedUp) { 
                 cleanupModifications();
             }
             return;
         }
         
-        // Если мы вернулись на страницу активных задач, сбрасываем флаг
         isCleanedUp = false;
 
         if (!canRunLogic) return;
@@ -129,7 +125,6 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
                 await populateTableData(tasksData, isEmojiSwapEnabled);
             }
             initializeFilters();
-            // Запускаем перехватчик фильтров КАЖДЫЙ РАЗ при запуске основной логики
             setupDropdownInterceptor();
         } catch (error) {
             window.cuLmsLog('Task Status Updater: Error in runLogic:', error);
@@ -145,22 +140,18 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`);
             let text = await response.text();
-
-            // Удаляем атрибуты fill и stroke, чтобы цвет полностью управлялся через CSS
             text = text.replace(/ (fill|stroke)="[^"]+"/g, '');
-
             const sanitizedText = text.replace(/<\?xml.*?\?>/g, '').replace(/<!DOCTYPE.*?>/g, '');
             svgIconCache[iconName] = sanitizedText;
             return sanitizedText;
         } catch (error) {
             console.error(`Error fetching icon ${iconName}:`, error);
-            return `<span style="color: red; font-weight: bold;">!</span>`; // Fallback
+            return `<span style="color: red; font-weight: bold;">!</span>`; 
         }
     }
 
     function refreshDynamicStyles() {
         const styleId = 'culms-tasks-fix-styles';
-        // Удаляем старые стили, если они есть
         if (document.getElementById(styleId)) {
             document.getElementById(styleId).remove();
         }
@@ -170,6 +161,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         const seminarChipBg = '#000000';
         const solvedChipBg = '#28a745';
         const skippedChipBg = '#b516d7';
+        const revisionChipBg = '#FE456A'; // Цвет для статуса "Доработка" (Оранжевый)
         const modalBgColor = `var(--tui-base-01, ${isDarkTheme ? '#2d2d2d' : 'white'})`;
         const modalTextColor = `var(--tui-text-01, ${isDarkTheme ? '#e0e0e0' : '#333'})`;
         const iconColor = isDarkTheme ? '#FFFFFF' : 'var(--tui-status-attention, #000000)';
@@ -183,21 +175,21 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             : '';
 
         const cssRules = `
-            /* 1. Импортируем шрифт Inter с нужным начертанием (400) с Google Fonts */
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
-            /* --- Стили таблицы (остаются без изменений) --- */
+            /* --- Стили таблицы --- */
             tr[data-culms-row-type="seminar"] { background-color: ${seminarRowBg} !important; }
             .state-chip[data-culms-status="seminar"] { background-color: ${seminarChipBg} !important; color: white !important; ${isDarkTheme ? 'border: 1px solid #444;' : ''} }
             .state-chip[data-culms-status="solved"] { background-color: ${solvedChipBg} !important; color: white !important; }
             .state-chip[data-culms-status="skipped"] { background-color: ${skippedChipBg} !important; color: white !important; }
+            .state-chip[data-culms-status="revision"] { background-color: ${revisionChipBg} !important; color: white !important; } 
 
             .culms-late-days-container { display: flex; align-items: center; justify-content: flex-start; }
             .culms-action-button { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; height: 24px; width: 24px; padding: 0; margin-right: 8px; opacity: 0.6; transition: opacity 0.2s; }
             .culms-action-button:hover { opacity: 1; }
             .culms-action-button svg { width: 18px; height: 18px; color: ${iconColor}; fill: currentColor; }
 
-            /* --- Стили модального окна (ОБНОВЛЕНЫ) --- */
+            /* --- Стили модального окна --- */
             .culms-modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 1050; display: flex; align-items: center; justify-content: center; }
             
             .culms-modal-content {
@@ -208,13 +200,11 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
                 text-align: center;
                 box-shadow: 0 4px 15px rgba(0,0,0,0.2);
                 max-width: 400px;
-                /* 2. Применяем семейство шрифтов ко всему модальному окну */
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Segoe UI", "Helvetica Neue", sans-serif;
             }
 
             .culms-modal-content p {
                 margin: 0 0 20px 0;
-                /* 3. Применяем точные параметры шрифта к тексту сообщения */
                 font-weight: 400;
                 font-size: 1rem;
                 line-height: 1.5rem;
@@ -227,8 +217,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
                 border-radius: 5px;
                 border: 1px solid transparent;
                 cursor: pointer;
-                font-weight: bold; /* Кнопки обычно делают жирнее для акцента */
-                font-family: inherit; /* Наследуем 'Inter' от родителя */
+                font-weight: bold;
+                font-family: inherit;
             }
             
             .culms-modal-confirm { background-color: #28a745; color: white; border-color: #28a745; }
@@ -320,12 +310,24 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
                     statusElement.textContent = SKIPPED_STATUS_TEXT;
                     statusElement.setAttribute('data-culms-status', 'skipped');
                 } else {
+                    // --- ЛОГИКА ОПРЕДЕЛЕНИЯ СТАТУСА ---
                     statusElement.textContent = statusElement.dataset.originalStatus;
+
+                    const submitTime = task.submitAt ? new Date(task.submitAt).getTime() : 0;
+                    const rejectTime = task.rejectAt ? new Date(task.rejectAt).getTime() : 0;
+                    
                     if (task.exercise?.activity?.name === 'Аудиторная работа') {
                         statusElement.textContent = 'Аудиторная';
                         statusElement.setAttribute('data-culms-status', 'seminar');
                         row.setAttribute('data-culms-row-type', 'seminar');
-                    } else if (task.submitAt !== null && (statusElement.textContent.includes('В работе') || statusElement.textContent.includes('Есть решение'))) {
+                    }
+                    // Условие для Доработки: Отклонено ПОЗЖЕ, чем отправлено, и статус все еще "inProgress"
+                    else if (rejectTime > submitTime && task.state === 'inProgress') {
+                         statusElement.textContent = REVISION_STATUS_TEXT;
+                         statusElement.setAttribute('data-culms-status', 'revision');
+                    }
+                    // Условие для Решения: Отправлено ПОЗЖЕ, чем отклонено (или не отклонялось вовсе)
+                    else if (submitTime > rejectTime && (statusElement.textContent.includes('В работе') || statusElement.textContent.includes('Есть решение'))) {
                         statusElement.textContent = 'Есть решение';
                         statusElement.setAttribute('data-culms-status', 'solved');
                     }
@@ -388,6 +390,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     function handleCancelSkipTask(task, row, statusElement, button) {
         const taskIdentifier = getTaskIdentifier(task.exercise.name, task.course.name);
         removeSkippedTask(taskIdentifier);
+        
         statusElement.textContent = statusElement.dataset.originalStatus;
         const originalCulmsStatus = statusElement.dataset.originalCulmsStatus;
         if (originalCulmsStatus) {
@@ -395,11 +398,24 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         } else {
             statusElement.removeAttribute('data-culms-status');
         }
+
+        // Повторная проверка логики статусов при отмене скипа, чтобы вернуть актуальное состояние
+        const submitTime = task.submitAt ? new Date(task.submitAt).getTime() : 0;
+        const rejectTime = task.rejectAt ? new Date(task.rejectAt).getTime() : 0;
+
         if (task.exercise?.activity?.name === 'Аудиторная работа') {
             statusElement.setAttribute('data-culms-status', 'seminar');
-        } else if (task.submitAt !== null && (statusElement.textContent.includes('В работе') || statusElement.textContent.includes('Есть решение'))) {
-            statusElement.setAttribute('data-culms-status', 'solved');
+            statusElement.textContent = 'Аудиторная';
+        } 
+        else if (rejectTime > submitTime && task.state === 'inProgress') {
+            statusElement.setAttribute('data-culms-status', 'revision');
+            statusElement.textContent = REVISION_STATUS_TEXT;
         }
+        else if (submitTime > rejectTime && (statusElement.textContent.includes('В работе') || statusElement.textContent.includes('Есть решение'))) {
+            statusElement.setAttribute('data-culms-status', 'solved');
+            statusElement.textContent = 'Есть решение';
+        }
+
         updateButtonIcon(button, false);
         applyCombinedFilter();
     }
@@ -496,7 +512,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     }
 
     // --- ЛОГИКА ФИЛЬТРОВ (С СОХРАНЕНИЕМ ПАРАМЕТРОВ) ---
-    const HARDCODED_STATUSES = ["В работе", "Есть решение", "На проверке", "Не начато", "Аудиторная", SKIPPED_STATUS_TEXT];
+    // Добавили REVISION_STATUS_TEXT ("Доработка") в фильтры
+    const HARDCODED_STATUSES = ["В работе", "Есть решение", "На проверке", "Не начато", "Аудиторная", SKIPPED_STATUS_TEXT, REVISION_STATUS_TEXT];
     const masterCourseList = new Set();
     let selectedStatuses = new Set(HARDCODED_STATUSES);
     let selectedCourses = new Set();
@@ -579,13 +596,11 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     }
 
     function setupDropdownInterceptor() {
-        // Если наблюдатель уже есть, не создаем новый
         if (dropdownObserver) return;
 
         dropdownObserver = new MutationObserver((mutationsList) => {
             for (const mutation of mutationsList) {
                 for (const node of mutation.addedNodes) {
-                    // Проверяем URL прямо здесь, чтобы не модифицировать фильтры на странице архива
                     if (isArchivedPage() || node.nodeType !== 1 || !node.matches('tui-dropdown')) continue;
 
                     const dataListWrapper = node.querySelector('tui-data-list-wrapper.multiselect__dropdown');
@@ -640,31 +655,20 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         return button;
     }
     
-    // ИСПРАВЛЕННЫЙ СЛУШАТЕЛЬ С ЗАДЕРЖКОЙ
     browser.storage.onChanged.addListener((changes) => {
         if (changes.themeEnabled) {
-            // Запускаем обновление с небольшой задержкой, чтобы избежать гонки состояний
             setTimeout(() => {
                 window.cuLmsLog('Task Status Updater: Theme changed, refreshing styles and icons...');
-                
-                // Шаг 1: Обновляем CSS-переменные
                 refreshDynamicStyles();
-                
-                // Шаг 2: Очищаем кэш SVG, чтобы они гарантированно были перерисованы без fill
                 Object.keys(svgIconCache).forEach(key => delete svgIconCache[key]);
-
-                // Шаг 3: Находим все кнопки и принудительно обновляем их иконки
                 document.querySelectorAll('.culms-action-button').forEach(button => {
                     const isSkipped = button.dataset.isSkipped === 'true';
                     updateButtonIcon(button, isSkipped); 
                 });
-            }, 100); // 100 миллисекунд — надежная задержка
+            }, 100);
         }
     });
 
-    // --- Запуск скрипта ---
-    // Главный наблюдатель, который управляет циклами запуска и очистки
     initializeObserver();
-    // Первоначальный запуск
     throttledCheckAndRun();
 }
