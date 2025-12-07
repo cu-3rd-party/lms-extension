@@ -164,7 +164,16 @@ function processLdOnTaskPage() {
             const json = await r.json();
             if (!json?.items?.length) return null;
 
-            return json.items[0];
+            const meta = json.items[0]
+            const taskId = meta.taskId
+            const anotherApiUrl = `https://my.centraluniversity.ru/api/micro-lms/tasks/${taskId}`;
+            
+            const r2 = await fetch(anotherApiUrl, { credentials: "include" });
+            if (!r2.ok) return null;
+            
+            const taskMeta = await r2.json();
+            if (!!taskMeta) return [meta, taskMeta];
+            return null
         } catch (e) {
             return null;
         }
@@ -286,12 +295,12 @@ function processLdOnTaskPage() {
         const taskTagsDiv = taskPreview.querySelector(".task-tags");
         if (!taskTagsDiv) return;
 
-        const meta = await fetchLongreadMeta(taskPreview);
+        const [meta, taskMeta] = await fetchLongreadMeta(taskPreview);
         let allowLateDays =
-            meta &&
+            meta && taskMeta &&
             meta?.estimation?.activity?.isLateDaysEnabled === true &&
-            meta?.task?.state !== "evaluated" &&
-            meta?.task?.state !== "review";
+            taskMeta?.task?.state !== "evaluated" &&
+            taskMeta?.task?.state !== "review";
 
         let alreadyExists =
           taskTagsDiv.querySelector('button[tuiiconbutton]') ||
@@ -334,12 +343,12 @@ function processLdOnTaskPage() {
             button.addEventListener('click', e => {
                 e.preventDefault();
                 e.stopPropagation();
-                showDeadlineModal(lateDaysBalance, meta?.task?.id);
+                showDeadlineModal(lateDaysBalance, taskMeta?.id);
             });
 
             taskTagsDiv.appendChild(button);
 
-            if (meta?.task?.lateDays != null) {
+            if (taskMeta?.lateDays != null) {
                 const cancelBtn = document.createElement("button");
                 cancelBtn.setAttribute('tuiappearance', '');
                 cancelBtn.setAttribute('tuiicons', '');
@@ -356,7 +365,7 @@ function processLdOnTaskPage() {
                     e.preventDefault();
                     e.stopPropagation();
 
-                    const taskId = meta?.task?.id;
+                    const taskId = taskMeta?.id;
                     if (!taskId) return;
 
                     try {
