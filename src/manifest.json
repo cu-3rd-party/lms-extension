@@ -39,6 +39,17 @@
                 "fix_email_autocomplete.js"
             ],
             "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://my.centraluniversity.ru/*",
+                "https://id.centraluniversity.ru/*",
+                "https://gist.github.com/*"
+            ],
+            "js": [
+                "rgb_outline_effect.js"
+            ],
+            "run_at": "document_start"
         }
     ],
     "web_accessible_resources": [
@@ -69,7 +80,8 @@
                 "version_check.js",
                 "advanced_statements.js",
                 "snow.js",
-                "course_card_image_replacer.js"
+                "course_card_image_replacer.js",
+                "rgb_outline_effect.js"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"

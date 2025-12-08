@@ -36,6 +36,7 @@ const toggles = {
     courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
     advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
     endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'),
+    rgbOutlineEnabled: document.getElementById('rgb-outline-toggle'),
 };
 
 // Элементы UI для зависимых настроек
