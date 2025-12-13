@@ -1,44 +1,47 @@
 /**
  * rgb_outline_effect.js
- * Динамическая RGB обводка активного элемента под курсором
- * Управляется через настройки плагина
  */
-
 'use strict';
 
 class RGBOutlineEffect {
     constructor() {
         this.isEnabled = false;
-        this.outlineWidth = 2; // px
-        this.outlineColor = { r: 255, g: 0, b: 0 }; // По умолчанию красный
-        this.animationSpeed = 50; // мс между обновлениями
+        this.outlineWidth = 2;
+        this.animationSpeed = 16; // ~60 FPS (было 50мс, лучше использовать requestAnimationFrame)
         this.currentElement = null;
         this.styleElement = null;
         this.hueShift = 0;
         this.animationFrameId = null;
         
+        // Кроссбраузерная поддержка API
+        this.browserApi = window.chrome || window.browser; 
+
         this.init();
     }
 
-    /**
-     * Инициализация - загрузка настроек и установка слушателей
-     */
     async init() {
-        // Загружаем состояние из хранилища
-        const data = await browser.storage.sync.get(['rgbOutlineEnabled']);
-        this.isEnabled = !!data.rgbOutlineEnabled;
-
-        // Создаем стиль для outline
-        this.createStyleElement();
-
-        // Если включено, начинаем слушать события
-        if (this.isEnabled) {
-            this.setupListeners();
-            this.startAnimation();
+        // Проверка наличия API (на случай запуска вне расширения)
+        if (!this.browserApi || !this.browserApi.storage) {
+            console.warn('RGB Outline: Storage API not found.');
+            return;
         }
 
+        // Загружаем настройки. По умолчанию считаем включенным, если настройки нет (для теста)
+        // Либо добавьте дефолтное значение {rgbOutlineEnabled: true}
+        this.browserApi.storage.sync.get(['rgbOutlineEnabled'], (data) => {
+            // Если undefined, ставим true для теста, иначе берем значение
+            this.isEnabled = data.rgbOutlineEnabled === undefined ? true : !!data.rgbOutlineEnabled;
+            
+            this.createStyleElement();
+            
+            if (this.isEnabled) {
+                this.setupListeners();
+                this.startAnimation(); // Запускаем цикл сразу
+            }
+        });
+
         // Слушаем изменения настроек
-        browser.storage.onChanged.addListener((changes, area) => {
+        this.browserApi.storage.onChanged.addListener((changes, area) => {
             if (area === 'sync' && changes.rgbOutlineEnabled) {
                 this.isEnabled = changes.rgbOutlineEnabled.newValue;
                 if (this.isEnabled) {
@@ -46,225 +49,136 @@ class RGBOutlineEffect {
                     this.startAnimation();
                 } else {
                     this.removeListeners();
-                    this.stopAnimation();
                     this.removeOutline();
+                    // Анимацию не останавливаем полностью, она просто будет крутиться вхолостую 
+                    // или можно поставить флаг паузы внутри animate
                 }
             }
         });
     }
 
-    /**
-     * Создание элемента стиля для обводки
-     */
     createStyleElement() {
         if (this.styleElement) return;
 
         this.styleElement = document.createElement('style');
         this.styleElement.id = 'rgb-outline-effect-style';
+        // Убрали !important у цвета, чтобы JS мог его менять
+        // Убрали transition, чтобы смена цвета была мгновенной и плавной через JS
         this.styleElement.textContent = `
             .rgb-outline-active {
-                outline: 2px solid rgb(255, 0, 0) !important;
-                outline-offset: 2px !important;
-                transition: outline-color 0.05s ease !important;
+                outline-width: 2px !important;
+                outline-style: solid !important;
+                outline-offset: -2px !important; /* Внутрь, чтобы не дергать разметку */
+                z-index: 2147483647 !important;
             }
 
-            /* Исключаем элементы, которые не должны иметь обводку */
-            html,
-            body,
-            head,
-            script,
-            style,
-            meta,
-            link,
-            noscript {
-                outline: none !important;
-            }
-
-            /* Исключаем скрытые элементы */
-            [style*="display: none"],
-            [hidden] {
+            /* Исключения */
+            html, body, iframe, video {
                 outline: none !important;
             }
         `;
 
-        if (document.head) {
-            document.head.appendChild(this.styleElement);
+        (document.head || document.documentElement).appendChild(this.styleElement);
+    }
+
+    setupListeners() {
+        // Bind контекста, чтобы не терять this при удалении слушателя
+        this.boundMouseMove = this.handleMouseMove.bind(this);
+        this.boundMouseLeave = this.handleMouseLeave.bind(this);
+        
+        document.addEventListener('mousemove', this.boundMouseMove, true);
+        document.addEventListener('mouseleave', this.boundMouseLeave, true);
+    }
+
+    removeListeners() {
+        if (this.boundMouseMove) {
+            document.removeEventListener('mousemove', this.boundMouseMove, true);
+            document.removeEventListener('mouseleave', this.boundMouseLeave, true);
         }
     }
 
-    /**
-     * Настройка слушателей событий
-     */
-    setupListeners() {
-        document.addEventListener('mousemove', (e) => this.handleMouseMove(e), true);
-        document.addEventListener('mouseleave', (e) => this.handleMouseLeave(e), true);
-    }
-
-    /**
-     * Удаление слушателей событий
-     */
-    removeListeners() {
-        document.removeEventListener('mousemove', (e) => this.handleMouseMove(e), true);
-        document.removeEventListener('mouseleave', (e) => this.handleMouseLeave(e), true);
-    }
-
-    /**
-     * Обработчик движения мыши
-     */
     handleMouseMove(e) {
         const element = e.target;
 
-        // Проверяем, нужно ли применять обводку
         if (!this.shouldApplyOutline(element)) {
             this.removeOutline();
             this.currentElement = null;
             return;
         }
 
-        // Если это другой элемент, обновляем
         if (this.currentElement !== element) {
             this.removeOutline();
             this.currentElement = element;
-            if (this.currentElement) {
-                this.currentElement.classList.add('rgb-outline-active');
+            this.currentElement.classList.add('rgb-outline-active');
+            
+            // Важно: убеждаемся, что анимация запущена
+            if (!this.animationFrameId) {
+                this.startAnimation();
             }
         }
     }
 
-    /**
-     * Обработчик ухода мыши
-     */
     handleMouseLeave(e) {
-        if (e.target === document) {
+        // Убираем только если ушли за пределы документа
+        if (e.relatedTarget === null || e.target === document) {
             this.removeOutline();
             this.currentElement = null;
         }
     }
 
-    /**
-     * Проверка, должна ли применяться обводка к элементу
-     */
     shouldApplyOutline(element) {
-        // Не применяем к документу, body и заблокированным элементам
-        if (!element || element === document || element === document.documentElement) {
-            return false;
-        }
-
-        // Не применяем к скрытым элементам
-        const style = window.getComputedStyle(element);
-        if (
-            style.display === 'none' ||
-            style.visibility === 'hidden' ||
-            style.opacity === '0' ||
-            element.hidden
-        ) {
-            return false;
-        }
-
-        // Не применяем к системным элементам
+        if (!element || element === document || element === document.documentElement) return false;
+        
+        // Простая проверка тегов
         const tagName = element.tagName.toLowerCase();
-        if (['html', 'head', 'body', 'script', 'style', 'meta', 'link', 'noscript'].includes(tagName)) {
-            return false;
-        }
+        const ignoreTags = ['html', 'head', 'script', 'style', 'meta', 'link', 'noscript', 'iframe'];
+        if (ignoreTags.includes(tagName)) return false;
 
         return true;
     }
 
-    /**
-     * Удаление обводки с текущего элемента
-     */
     removeOutline() {
         if (this.currentElement) {
             this.currentElement.classList.remove('rgb-outline-active');
+            this.currentElement.style.outlineColor = ''; // Чистим инлайн стиль
         }
     }
 
-    /**
-     * Начало анимации RGB обводки
-     */
     startAnimation() {
-        if (this.animationFrameId) return;
-
+        // Используем requestAnimationFrame для плавности
         const animate = () => {
-            if (!this.isEnabled || !this.currentElement) {
+            if (!this.isEnabled) {
                 this.animationFrameId = null;
                 return;
             }
 
-            // Обновляем цвет обводки на основе hueShift
-            const rgb = this.hsvToRgb(this.hueShift % 360, 100, 100);
+            this.hueShift = (this.hueShift + 2) % 360; // Скорость смены цвета
+
             if (this.currentElement) {
-                this.currentElement.style.outlineColor = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+                // HSL проще для радуги, чем конвертация HSV->RGB вручную
+                this.currentElement.style.outlineColor = `hsl(${this.hueShift}, 100%, 50%)`;
             }
 
-            // Увеличиваем hueShift для следующего кадра
-            this.hueShift = (this.hueShift + 3) % 360;
-
-            this.animationFrameId = setTimeout(animate, this.animationSpeed);
+            this.animationFrameId = requestAnimationFrame(animate);
         };
 
-        animate();
+        // Запускаем, только если еще не запущено
+        if (!this.animationFrameId) {
+            this.animationFrameId = requestAnimationFrame(animate);
+        }
     }
 
-    /**
-     * Остановка анимации
-     */
     stopAnimation() {
         if (this.animationFrameId) {
-            clearTimeout(this.animationFrameId);
+            cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
     }
-
-    /**
-     * Преобразование HSV в RGB
-     */
-    hsvToRgb(h, s, v) {
-        const c = v * s / 100;
-        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-        const m = v / 100 - c;
-
-        let r = 0, g = 0, b = 0;
-
-        if (h >= 0 && h < 60) {
-            r = c;
-            g = x;
-            b = 0;
-        } else if (h >= 60 && h < 120) {
-            r = x;
-            g = c;
-            b = 0;
-        } else if (h >= 120 && h < 180) {
-            r = 0;
-            g = c;
-            b = x;
-        } else if (h >= 180 && h < 240) {
-            r = 0;
-            g = x;
-            b = c;
-        } else if (h >= 240 && h < 300) {
-            r = x;
-            g = 0;
-            b = c;
-        } else if (h >= 300 && h < 360) {
-            r = c;
-            g = 0;
-            b = x;
-        }
-
-        return {
-            r: Math.round((r + m) * 255),
-            g: Math.round((g + m) * 255),
-            b: Math.round((b + m) * 255)
-        };
-    }
 }
 
-// Инициализация эффекта при загрузке документа
+// Запуск
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        new RGBOutlineEffect();
-    });
+    document.addEventListener('DOMContentLoaded', () => new RGBOutlineEffect());
 } else {
     new RGBOutlineEffect();
 }
