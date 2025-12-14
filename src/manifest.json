@@ -1,82 +1,106 @@
 {
-    "manifest_version": 3,
-    "name": "CU LMS Enhancer",
-    "version": "1.6",
-    "description": "Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий",
-    "permissions": [
-        "storage",
-        "scripting",
-        "webNavigation"
-    ],
-    "host_permissions": [
+  "manifest_version": 3,
+  "name": "CU LMS Enhancer",
+  "version": "1.6",
+  "description": "Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://my.centraluniversity.ru/*",
+    "https://id.centraluniversity.ru/*",
+    "https://gist.github.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
         "https://my.centraluniversity.ru/*",
         "https://id.centraluniversity.ru/*",
         "https://gist.github.com/*"
-    ],
-    "background": {
-        "service_worker": "background.js"
+      ],
+      "js": [
+        "debug_utils.js"
+      ],
+      "run_at": "document_start"
     },
-    "action": {
-        "default_popup": "popup.html"
+    {
+      "matches": [
+        "https://id.centraluniversity.ru/*"
+      ],
+      "js": [
+        "fix_email_autocomplete.js"
+      ],
+      "run_at": "document_idle"
     },
-    "content_scripts": [
-        {
-            "matches": [
-                "https://my.centraluniversity.ru/*",
-                "https://id.centraluniversity.ru/*",
-                "https://gist.github.com/*"
-            ],
-            "js": [
-                "debug_utils.js"
-            ],
-            "run_at": "document_start"
-        },
-        {
-            "matches": [
-                "https://id.centraluniversity.ru/*"
-            ],
-            "js": [
-                "fix_email_autocomplete.js"
-            ],
-            "run_at": "document_idle"
-        }
-    ],
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "browser-polyfill.js",
-                "icons/*.svg",
-                "icons/*.png",
-                "course_card_simplifier.js",
-                "future_exams_view.js",
-                "course_overview_task_status.js",
-                "tasks_fix.js",
-                "courses_fix.js",
-                "debug_utils.js",
-                "instant_doc_view_fix.js",
-                "emoji_swap.js",
-                "style.css",
-                "style_oled.css",
-                "dark_theme.js",
-                "archive-statements.js",
-                "plugin_page_loader.js",
-                "metrics_statements.js",
-                "popup.html",
-                "popup.js",
-                "gist_dark.css",
-                "popup_dark.css",
-                "rename_hw.js",
-                "version_check.js",
-                "advanced_statements.js",
-                "snow.js",
-                "course_card_image_replacer.js"
-            ],
-            "matches": [
-                "https://my.centraluniversity.ru/*"
-            ]
-        }
-    ],
-    "icons": {
-        "128": "icon128.png"
+    {
+      "matches": [
+        "https://my.centraluniversity.ru/*"
+      ],
+      "js": [
+        "browser-polyfill.js",
+        "dark_theme.js",
+        "snow.js",
+        "emoji_swap.js",
+        "course_card_simplifier.js",
+        "future_exams_view.js",
+        "course_overview_task_status.js",
+        "tasks_fix.js",
+        "courses_fix.js",
+        "instant_doc_view_fix.js",
+        "homework_weight_fix.js",
+        "task_status_adaptation.js",
+        "course_overview_autoscroll.js",
+        "course_exporter.js",
+        "archive-statements.js",
+        "metrics_statements.js",
+        "advanced_statements.js",
+        "plugin_page_loader.js",
+        "course_card_image_replacer.js",
+        "rename_hw.js",
+        "version_check.js"
+      ],
+      "run_at": "document_idle"
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "browser-polyfill.js",
+        "icons/*.svg",
+        "icons/*.png",
+        "course_card_simplifier.js",
+        "future_exams_view.js",
+        "course_overview_task_status.js",
+        "tasks_fix.js",
+        "courses_fix.js",
+        "debug_utils.js",
+        "instant_doc_view_fix.js",
+        "emoji_swap.js",
+        "style.css",
+        "style_oled.css",
+        "dark_theme.js",
+        "archive-statements.js",
+        "plugin_page_loader.js",
+        "metrics_statements.js",
+        "popup.html",
+        "popup.js",
+        "gist_dark.css",
+        "popup_dark.css",
+        "rename_hw.js",
+        "version_check.js",
+        "advanced_statements.js",
+        "snow.js",
+        "course_card_image_replacer.js"
+      ],
+      "matches": [
+        "https://my.centraluniversity.ru/*"
+      ]
+    }
+  ],
+  "icons": {
+    "128": "icon128.png"
+  }
 }

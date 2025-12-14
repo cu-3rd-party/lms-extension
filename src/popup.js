@@ -43,6 +43,10 @@ const endOfCourseCalcLabel = document.getElementById('end-of-course-calc-label')
 const futureExamsDisplayContainer = document.getElementById('future-exams-display-container');
 const futureExamsDisplayFormat = document.getElementById('future-exams-display-format');
 
+// --- НОВОЕ: элементы UI для авто-переименования ДЗ ---
+const autoRenameFormatContainer = document.getElementById('auto-rename-format-container');
+const renameTemplateSelect = document.getElementById('rename-template-select');
+
 // Элементы UI для стикеров
 const stickerUploadContainer = document.getElementById('sticker-upload-container');
 const stickerFileInput = document.getElementById('sticker-file-input');
@@ -88,13 +92,22 @@ function loadStickerImage() {
     });
 }
 
+// --- НОВОЕ: UI для авто-переименования ДЗ ---
+function updateAutoRenameUI(isEnabled) {
+    if (autoRenameFormatContainer) {
+        autoRenameFormatContainer.style.display = isEnabled ? 'block' : 'none';
+    }
+}
+
+
 // --- ОСНОВНАЯ ЛОГИКА ОБНОВЛЕНИЯ СОСТОЯНИЙ ---
 
 /**
  * Обновляет состояние всех переключателей на основе данных из хранилища.
  */
 function refreshToggleStates() {
-    browser.storage.sync.get(allKeys).then((data) => {
+    // НОВОЕ: дополнительно читаем autoRenameTemplate
+    browser.storage.sync.get([...allKeys, 'autoRenameTemplate']).then((data) => {
         allKeys.forEach(key => {
             if (toggles[key]) {
                 toggles[key].checked = !!data[key];
@@ -104,6 +117,7 @@ function refreshToggleStates() {
         // Особая логика для зависимых переключателей
         const isThemeEnabled = !!data.themeEnabled;
         const isAdvancedStatementsEnabled = !!data.advancedStatementsEnabled;
+        const isAutoRenameEnabled = !!data.autoRenameEnabled; // НОВОЕ
 
         // OLED зависит от Темной темы
         if (toggles.oledEnabled) {
@@ -122,6 +136,12 @@ function refreshToggleStates() {
             loadStickerImage();
         } else {
             updateStickerUI(false);
+        }
+
+        // НОВОЕ: логика UI авто-переименования
+        updateAutoRenameUI(isAutoRenameEnabled);
+        if (renameTemplateSelect && data.autoRenameTemplate) {
+            renameTemplateSelect.value = data.autoRenameTemplate;
         }
 
         // Применяем тему к самому popup
@@ -173,7 +193,7 @@ allKeys.forEach(key => {
                         else browser.storage.sync.set(oledChange);
                     }
                 }
-            } 
+            }
             // Зависимость Калькулятора от Ведомости
             else if (key === 'advancedStatementsEnabled') {
                 if (toggles.endOfCourseCalcEnabled) {
@@ -186,7 +206,7 @@ allKeys.forEach(key => {
                         else browser.storage.sync.set(endOfCourseChange);
                     }
                 }
-            } 
+            }
             // Видимость настроек экзаменов
             else if (key === 'futureExamsViewToggle') {
                 updateFormatDisplayVisibility();
@@ -195,6 +215,10 @@ allKeys.forEach(key => {
             else if (key === 'stickerEnabled') {
                 updateStickerUI(isEnabled);
                 if (isEnabled) loadStickerImage();
+            }
+            // НОВОЕ: видимость выбора шаблона авто-переименования
+            else if (key === 'autoRenameEnabled') {
+                updateAutoRenameUI(isEnabled);
             }
         });
     }
@@ -213,7 +237,22 @@ if (futureExamsDisplayFormat) {
     });
 }
 
-// 3. Обработчик ЗАГРУЗКИ ФАЙЛА (Стикеры)
+// 3. НОВОЕ: обработчик выбора шаблона авто-переименования ДЗ
+if (renameTemplateSelect) {
+    renameTemplateSelect.addEventListener('change', () => {
+        const template = renameTemplateSelect.value;
+        if (isInsideIframe) {
+            if (reloadNotice) reloadNotice.style.display = 'block';
+            pendingChanges['autoRenameTemplate'] = template;
+        } else {
+            browser.storage.sync.set({ autoRenameTemplate: template });
+        }
+        // Тут мы только сохраняем шаблон.
+        // Контент-скрипт должен сам подхватить это через storage.onChanged и дернуть rename_hw.
+    });
+}
+
+// 4. Обработчик ЗАГРУЗКИ ФАЙЛА (Стикеры)
 if (stickerFileInput) {
     stickerFileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
@@ -232,7 +271,7 @@ if (stickerFileInput) {
             // Сохраняем в LOCAL storage (большие данные)
             browser.storage.local.set({ customStickerData: base64String }).then(() => {
                 loadStickerImage();
-                // Если мы не в iframe, можно уведомить background или content script, 
+                // Если мы не в iframe, можно уведомить background или content script,
                 // но storage listener там сработает сам.
             });
         };
@@ -240,7 +279,7 @@ if (stickerFileInput) {
     });
 }
 
-// 4. Обработчик УДАЛЕНИЯ КАРТИНКИ (Стикеры)
+// 5. Обработчик УДАЛЕНИЯ КАРТИНКИ (Стикеры)
 if (stickerResetBtn) {
     stickerResetBtn.addEventListener('click', () => {
         browser.storage.local.remove('customStickerData').then(() => {
