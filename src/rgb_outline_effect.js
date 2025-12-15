@@ -1,5 +1,6 @@
 /**
  * rgb_outline_effect.js
+ * Исправленная версия для Cross-browser (Chrome + Firefox)
  */
 'use strict';
 
@@ -7,52 +8,84 @@ class RGBOutlineEffect {
     constructor() {
         this.isEnabled = false;
         this.outlineWidth = 2;
-        this.animationSpeed = 16; // ~60 FPS (было 50мс, лучше использовать requestAnimationFrame)
+        this.animationSpeed = 16; 
         this.currentElement = null;
         this.styleElement = null;
         this.hueShift = 0;
         this.animationFrameId = null;
         
-        // Кроссбраузерная поддержка API
-        this.browserApi = window.chrome || window.browser; 
+        // Пытаемся получить доступ к API:
+        // 1. window.browser (Firefox или Chrome с полифилом)
+        // 2. window.chrome (Чистый Chrome)
+        this.browserApi = window.browser || window.chrome;
 
         this.init();
     }
 
     async init() {
-        // Проверка наличия API (на случай запуска вне расширения)
+        // Проверка наличия API
         if (!this.browserApi || !this.browserApi.storage) {
-            console.warn('RGB Outline: Storage API not found.');
+            console.warn('RGB Outline: Storage API not found. Check permissions in manifest.json.');
+            // Можно включить по умолчанию, если API недоступно, чтобы фича работала хотя бы локально
+            this.isEnabled = true; 
+            this.createStyleElement();
+            this.setupListeners();
+            this.startAnimation();
             return;
         }
 
-        // Загружаем настройки. По умолчанию считаем включенным, если настройки нет (для теста)
-        // Либо добавьте дефолтное значение {rgbOutlineEnabled: true}
-        this.browserApi.storage.sync.get(['rgbOutlineEnabled'], (data) => {
-            // Если undefined, ставим true для теста, иначе берем значение
+        try {
+            // Чтение настроек. Используем унификацию Promise/Callback
+            const data = await this.getStorageData(['rgbOutlineEnabled']);
+            
+            // По умолчанию включено (true), если ключа нет
             this.isEnabled = data.rgbOutlineEnabled === undefined ? true : !!data.rgbOutlineEnabled;
             
             this.createStyleElement();
             
             if (this.isEnabled) {
                 this.setupListeners();
-                this.startAnimation(); // Запускаем цикл сразу
+                this.startAnimation();
             }
-        });
 
-        // Слушаем изменения настроек
-        this.browserApi.storage.onChanged.addListener((changes, area) => {
-            if (area === 'sync' && changes.rgbOutlineEnabled) {
-                this.isEnabled = changes.rgbOutlineEnabled.newValue;
-                if (this.isEnabled) {
-                    this.setupListeners();
-                    this.startAnimation();
-                } else {
-                    this.removeListeners();
-                    this.removeOutline();
-                    // Анимацию не останавливаем полностью, она просто будет крутиться вхолостую 
-                    // или можно поставить флаг паузы внутри animate
+            // Слушаем изменения настроек
+            this.browserApi.storage.onChanged.addListener((changes, area) => {
+                if (area === 'sync' && changes.rgbOutlineEnabled) {
+                    this.isEnabled = changes.rgbOutlineEnabled.newValue;
+                    if (this.isEnabled) {
+                        this.setupListeners();
+                        this.startAnimation();
+                    } else {
+                        this.removeListeners();
+                        this.removeOutline();
+                        this.stopAnimation();
+                    }
                 }
+            });
+
+        } catch (error) {
+            console.error('RGB Outline: Error initializing settings', error);
+        }
+    }
+
+    /**
+     * Обертка для поддержки и Chrome (callback), и Firefox/Polyfill (Promise)
+     */
+    getStorageData(keys) {
+        return new Promise((resolve, reject) => {
+            // Если есть полифил (возвращает Promise)
+            const result = this.browserApi.storage.sync.get(keys);
+            if (result && typeof result.then === 'function') {
+                result.then(resolve).catch(reject);
+            } else {
+                // Чистый Chrome (Callback)
+                this.browserApi.storage.sync.get(keys, (data) => {
+                    if (this.browserApi.runtime.lastError) {
+                        reject(this.browserApi.runtime.lastError);
+                    } else {
+                        resolve(data);
+                    }
+                });
             }
         });
     }
@@ -62,17 +95,13 @@ class RGBOutlineEffect {
 
         this.styleElement = document.createElement('style');
         this.styleElement.id = 'rgb-outline-effect-style';
-        // Убрали !important у цвета, чтобы JS мог его менять
-        // Убрали transition, чтобы смена цвета была мгновенной и плавной через JS
         this.styleElement.textContent = `
             .rgb-outline-active {
                 outline-width: 2px !important;
                 outline-style: solid !important;
-                outline-offset: -2px !important; /* Внутрь, чтобы не дергать разметку */
+                outline-offset: -2px !important;
                 z-index: 2147483647 !important;
             }
-
-            /* Исключения */
             html, body, iframe, video {
                 outline: none !important;
             }
@@ -82,12 +111,14 @@ class RGBOutlineEffect {
     }
 
     setupListeners() {
-        // Bind контекста, чтобы не терять this при удалении слушателя
+        if (this.listenersActive) return; // Защита от дублирования
+        
         this.boundMouseMove = this.handleMouseMove.bind(this);
         this.boundMouseLeave = this.handleMouseLeave.bind(this);
         
         document.addEventListener('mousemove', this.boundMouseMove, true);
         document.addEventListener('mouseleave', this.boundMouseLeave, true);
+        this.listenersActive = true;
     }
 
     removeListeners() {
@@ -95,9 +126,12 @@ class RGBOutlineEffect {
             document.removeEventListener('mousemove', this.boundMouseMove, true);
             document.removeEventListener('mouseleave', this.boundMouseLeave, true);
         }
+        this.listenersActive = false;
     }
 
     handleMouseMove(e) {
+        if (!this.isEnabled) return;
+
         const element = e.target;
 
         if (!this.shouldApplyOutline(element)) {
@@ -111,7 +145,7 @@ class RGBOutlineEffect {
             this.currentElement = element;
             this.currentElement.classList.add('rgb-outline-active');
             
-            // Важно: убеждаемся, что анимация запущена
+            // Если анимация была остановлена, перезапускаем
             if (!this.animationFrameId) {
                 this.startAnimation();
             }
@@ -119,7 +153,6 @@ class RGBOutlineEffect {
     }
 
     handleMouseLeave(e) {
-        // Убираем только если ушли за пределы документа
         if (e.relatedTarget === null || e.target === document) {
             this.removeOutline();
             this.currentElement = null;
@@ -129,7 +162,6 @@ class RGBOutlineEffect {
     shouldApplyOutline(element) {
         if (!element || element === document || element === document.documentElement) return false;
         
-        // Простая проверка тегов
         const tagName = element.tagName.toLowerCase();
         const ignoreTags = ['html', 'head', 'script', 'style', 'meta', 'link', 'noscript', 'iframe'];
         if (ignoreTags.includes(tagName)) return false;
@@ -140,32 +172,29 @@ class RGBOutlineEffect {
     removeOutline() {
         if (this.currentElement) {
             this.currentElement.classList.remove('rgb-outline-active');
-            this.currentElement.style.outlineColor = ''; // Чистим инлайн стиль
+            this.currentElement.style.outlineColor = '';
         }
     }
 
     startAnimation() {
-        // Используем requestAnimationFrame для плавности
+        if (this.animationFrameId) return; // Уже запущена
+
         const animate = () => {
             if (!this.isEnabled) {
                 this.animationFrameId = null;
                 return;
             }
 
-            this.hueShift = (this.hueShift + 2) % 360; // Скорость смены цвета
+            this.hueShift = (this.hueShift + 2) % 360;
 
             if (this.currentElement) {
-                // HSL проще для радуги, чем конвертация HSV->RGB вручную
                 this.currentElement.style.outlineColor = `hsl(${this.hueShift}, 100%, 50%)`;
             }
 
             this.animationFrameId = requestAnimationFrame(animate);
         };
 
-        // Запускаем, только если еще не запущено
-        if (!this.animationFrameId) {
-            this.animationFrameId = requestAnimationFrame(animate);
-        }
+        this.animationFrameId = requestAnimationFrame(animate);
     }
 
     stopAnimation() {

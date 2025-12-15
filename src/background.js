@@ -31,7 +31,7 @@ function handleNavigation(tabId, url) {
 
     browser.scripting.executeScript({
         target: { tabId: tabId },
-        files: ["rgb_outline_effect.js"]
+        files: ["browser-polyfill.js", "rgb_outline_effect.js"]
     }).catch(err => console.error(`[BG_LOG] Error injecting rgb_outline_effect.js:`, err));
 
 
