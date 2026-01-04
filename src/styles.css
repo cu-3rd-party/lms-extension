@@ -1,0 +1,242 @@
+/* --- КНОПКА В МЕНЮ --- */
+/* Стили убраны по запросу */
+
+/* --- КОНТЕЙНЕР ДРУЗЕЙ --- */
+.friends-wrapper {
+    background: #121212;
+    color: #ffffff;
+    border-radius: 20px;
+    padding: 30px;
+    font-family: 'Suisse Intl', sans-serif;
+    min-height: 500px;
+    margin-top: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+.friends-title {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    color: #fff !important;
+}
+
+/* --- ПОИСК --- */
+.friends-search-container {
+    position: relative;
+    margin-bottom: 30px;
+    z-index: 100;
+}
+
+.friends-search-box {
+    display: flex;
+    gap: 10px;
+}
+
+.friends-input {
+    flex-grow: 1;
+    background-color: #262626;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 14px 18px;
+    border-radius: 12px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.friends-input:focus {
+    border-color: #6a4cff;
+    background-color: #2a2a2a;
+}
+
+.friends-btn {
+    padding: 0 24px;
+    background-color: #ffffff;
+    color: #000000;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 15px;
+    transition: opacity 0.2s;
+}
+
+.friends-btn:hover {
+    opacity: 0.9;
+}
+
+/* --- ВЫПАДАЮЩИЙ СПИСОК --- */
+.search-suggestions {
+    position: absolute;
+    top: 105%;
+    left: 0;
+    width: 100%;
+    background: #262626;
+    border: 1px solid #333;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+}
+
+.search-suggestions.visible {
+    display: block;
+}
+
+.suggestion-item {
+    padding: 12px 18px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #333;
+    transition: background 0.2s;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background-color: #333;
+}
+
+.s-name {
+    font-weight: 600;
+    color: #fff;
+    display: block;
+}
+
+.s-email {
+    font-size: 13px;
+    color: #888;
+}
+
+/* --- СПИСОК ДРУЗЕЙ --- */
+.friends-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); /* Чуть шире для кнопок */
+    gap: 16px;
+}
+
+.friend-item {
+    padding: 16px;
+    background: #1e1e1e;
+    border-radius: 14px;
+    border: 1px solid #333;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.friend-item:hover {
+    border-color: #555;
+    background: #252525;
+}
+
+.friend-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.friend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.friend-info {
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    flex-grow: 1;
+}
+
+.friend-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+    transition: color 0.2s;
+}
+
+.friend-item:hover .friend-name {
+    color: #6a4cff;
+    text-decoration: underline;
+}
+
+.friend-email {
+    font-size: 13px;
+    color: #888;
+}
+
+.friend-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Кнопки действий */
+.delete-btn, .subjects-btn {
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 6px 12px;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.delete-btn {
+    border: 1px solid #ff453a;
+    color: #ff453a;
+}
+.delete-btn:hover {
+    background: #ff453a;
+    color: #fff;
+}
+
+.subjects-btn {
+    border: 1px solid #0a84ff;
+    color: #0a84ff;
+}
+.subjects-btn:hover {
+    background: #0a84ff;
+    color: #fff;
+}
+.subjects-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+/* --- СПИСОК ПРЕДМЕТОВ --- */
+.subjects-container {
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid #333;
+}
+
+.subject-tag {
+    display: inline-block;
+    background: #333;
+    color: #eee;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-right: 6px;
+    margin-bottom: 6px;
+    border: 1px solid #444;
+}
+
+/* Скроллбар */
+.search-suggestions::-webkit-scrollbar {
+    width: 8px;
+}
+.search-suggestions::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 4px;
+}
