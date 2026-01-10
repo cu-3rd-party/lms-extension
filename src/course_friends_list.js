@@ -230,6 +230,7 @@
     }
 
     function isValidCoursePage() {
+        // Проверка подходит и для главной курса, и для вложенных (themes, longreads)
         return /\/learn\/courses\/view\/(actual|archive)\/\d+/.test(location.href);
     }
 
@@ -240,12 +241,45 @@
             return;
         }
 
-        const breadcrumbSelector = '.breadcrumbs__item.breadcrumbs__item_last'; 
-        const breadcrumb = await waitForElement(breadcrumbSelector);
-        
-        if (!breadcrumb) return;
+        // 1. Извлекаем ID курса из URL текущей страницы
+        // URL вида: .../view/actual/587/themes/... -> id = 587
+        const urlMatch = location.href.match(/\/courses\/view\/(?:actual|archive)\/(\d+)/);
+        const courseId = urlMatch ? urlMatch[1] : null;
 
-        const courseName = breadcrumb.innerText.trim();
+        if (!courseId) return;
+
+        // 2. Ждем появления хлебных крошек (хотя бы одной)
+        await waitForElement('.breadcrumbs__item');
+        
+        // 3. Ищем нужную крошку
+        const allBreadcrumbs = document.querySelectorAll('.breadcrumbs__item');
+        let courseName = '';
+
+        for (const item of allBreadcrumbs) {
+            const href = item.getAttribute('href');
+            // Логика: ссылка курса должна заканчиваться на ID курса.
+            // Пример: /learn/courses/view/actual/587
+            // Ссылки на темы будут длиннее: .../587/themes/2774
+            if (href && new RegExp(`/${courseId}$`).test(href)) {
+                courseName = item.innerText.trim();
+                break;
+            }
+        }
+
+        // Если не нашли по ID (например, структура URL изменилась), 
+        // проверяем, не находимся ли мы на главной странице курса.
+        // Если да, то берем последний элемент (как было раньше).
+        if (!courseName) {
+            // Если URL заканчивается на ID курса, то берем последнюю крошку
+            const isMainCoursePage = new RegExp(`/${courseId}$`).test(location.pathname);
+            if (isMainCoursePage) {
+                const lastBreadcrumb = document.querySelector('.breadcrumbs__item.breadcrumbs__item_last');
+                if (lastBreadcrumb) {
+                    courseName = lastBreadcrumb.innerText.trim();
+                }
+            }
+        }
+
         if (!courseName) return;
         
         let widget = document.getElementById(WIDGET_ID);
@@ -260,6 +294,7 @@
 
         widget.style.display = 'block';
     }
+
 
     // --- ЗАПУСК ---
 
