@@ -6,12 +6,15 @@
     "permissions": [
         "storage",
         "scripting",
-        "webNavigation"
+        "webNavigation",
+        "cookies"
     ],
     "host_permissions": [
         "https://my.centraluniversity.ru/*",
         "https://id.centraluniversity.ru/*",
-        "https://gist.github.com/*"
+        "https://gist.github.com/*",
+        "https://mail.yandex.ru/*",
+        "https://calendar.yandex.ru/*"
     ],
     "background": {
         "service_worker": "background.js"
@@ -69,7 +72,10 @@
                 "version_check.js",
                 "advanced_statements.js",
                 "snow.js",
-                "course_card_image_replacer.js"
+                "course_card_image_replacer.js",
+                "styles.css",
+                "friends_tab.js",
+                "course_friends_list.js"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"
