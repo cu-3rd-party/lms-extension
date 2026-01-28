@@ -418,6 +418,6 @@ function processLdOnTaskPage() {
 persistentIconReplacer();
 const navigationObserver = new MutationObserver(() => {
     processWeightInfo();
-    processLdOnTaskPage(); // Эта строка запускает логику Late Days
+    // processLdOnTaskPage(); ЗААРХИВИРОВАНО, реализовано командой ЦУ
 });
 navigationObserver.observe(document.body, { childList: true, subtree: true });
