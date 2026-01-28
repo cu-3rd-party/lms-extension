@@ -491,6 +491,7 @@ function renderFriendsPage() {
     overlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
+    // Добавлен блок с предупреждением (disclaimer) внизу header
     const contentHtml = `
         <div class="cu-ext-window">
             <button class="cu-ext-close" id="modalCloseBtn" title="Закрыть">×</button>
@@ -511,6 +512,16 @@ function renderFriendsPage() {
                     <div id="suggestionsList" class="cu-ext-suggestions"></div>
                 </div>
                 <div id="statusMsg" style="margin-top: 10px;"></div>
+
+                <!-- БЛОК С ПРЕДУПРЕЖДЕНИЕМ -->
+                <div style="margin-top: 15px; padding: 12px; background-color: var(--fr-card-bg); border: 1px solid var(--fr-border); border-radius: 8px; font-size: 13px; line-height: 1.5; color: var(--fr-text-sec);">
+                    <strong style="color: var(--fr-text);">⚠️ Ранний доступ:</strong> 
+                    На данный момент есть проблемы с получением пар из Яндекс.Календаря вследствие того, как они заданы университетом. 
+                    Поэтому сейчас предметы отображаются с конца прошлого семестра, а не актуальные. 
+                    <span style="color: var(--fr-text); font-weight: 500;">Занятость же считается на текущую неделю.</span>
+                </div>
+                <!-- КОНЕЦ БЛОКА -->
+
             </div>
 
             <div class="cu-ext-list-container">
@@ -559,6 +570,15 @@ function bindFriendsLogic() {
             list.style.display = 'grid'; 
         }
 
+        // Хелпер для генерации сообщения об ошибке авторизации
+        const getAuthErrorHtml = () => `
+            <div style="padding: 8px 0; color: var(--fr-danger); font-size: 12px; line-height: 1.4;">
+                Не удалось получить данные.<br>
+                Пожалуйста, <a href="https://calendar.yandex.ru/" target="_blank" style="color: var(--fr-accent); text-decoration: underline; font-weight: 600;">войдите в Яндекс.Календарь</a><br>
+                (в студенческий аккаунт) и/или попробуйте снова.
+            </div>
+        `;
+
         friends.forEach((friend, index) => {
             const li = document.createElement('li');
             li.className = 'cu-ext-item';
@@ -574,7 +594,7 @@ function bindFriendsLogic() {
 
             li.innerHTML = `
                 <div class="cu-ext-info">
-                    <div class="cu-ext-names" title="Открыть календарь">
+                    <div class="cu-ext-names" title="Нажмите, чтобы открыть календарь">
                         <div class="cu-ext-name">${displayName}</div>
                         <div class="cu-ext-email">${friend.email}</div>
                     </div>
@@ -594,40 +614,48 @@ function bindFriendsLogic() {
                 <!-- Блок предметов -->
                 <div class="cu-ext-subjects" style="display: none;">${subjectsHtml}</div>
                 
-                <!-- Блок расписания (Добавлено) -->
+                <!-- Блок расписания / Сообщений -->
                 <div class="cu-ext-schedule-box" style="display: none;"></div>
             `;
 
-            // Клик по имени -> открыть ссылку
+            // Находим элементы внутри карточки
             const nameBlock = li.querySelector('.cu-ext-names');
+            const busyBtn = li.querySelector('.busy-btn');
+            const subjBtn = li.querySelector('.subjects-btn');
+            const schedBox = li.querySelector('.cu-ext-schedule-box');
+            const subjContainer = li.querySelector('.cu-ext-subjects');
+
+            // --- КЛИК ПО ИМЕНИ (Открыть календарь) ---
             nameBlock.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                
                 const email = friend.email;
                 if (!email) return;
 
-                const yandexCalendarUrl = `https://calendar.yandex.ru/week?layers=${encodeURIComponent(email)}`;
                 nameBlock.style.opacity = '0.5';
 
                 try {
                     const response = await chrome.runtime.sendMessage({ action: "GET_CALENDAR_LINK", email: email });
+                    
                     if (response && response.success && response.link) {
+                        // УСПЕХ: Открываем полученную ссылку
                         window.open(response.link, '_blank');
                     } else {
-                        window.open(yandexCalendarUrl, '_blank');
+                        // ОШИБКА: Ссылка не получена -> показываем сообщение вместо открытия useless ссылки
+                        subjContainer.style.display = 'none';
+                        schedBox.style.display = 'flex';
+                        schedBox.innerHTML = getAuthErrorHtml();
                     }
                 } catch (err) {
-                    window.open(yandexCalendarUrl, '_blank');
+                    // ОШИБКА СЕТИ/РАСШИРЕНИЯ
+                    subjContainer.style.display = 'none';
+                    schedBox.style.display = 'flex';
+                    schedBox.innerHTML = getAuthErrorHtml();
                 } finally {
                     nameBlock.style.opacity = '1';
                 }
             });
             
-            // --- ЛОГИКА КНОПКИ "ЗАНЯТОСТЬ" (ОБНОВЛЕНА) ---
-            const busyBtn = li.querySelector('.busy-btn');
-            const schedBox = li.querySelector('.cu-ext-schedule-box');
-            const subjContainer = li.querySelector('.cu-ext-subjects');
-            
+            // --- ЛОГИКА КНОПКИ "ЗАНЯТОСТЬ" ---
             busyBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 
@@ -639,13 +667,16 @@ function bindFriendsLogic() {
                 subjContainer.style.display = 'none';
 
                 schedBox.style.display = 'flex';
-                schedBox.innerHTML = '<span style="color: var(--fr-text-sec);">Анализ (месяц назад)...</span>';
+                // ИЗМЕНЕНИЕ 1: Поменяли текст с "месяц назад" на "текущая неделя"
+                schedBox.innerHTML = '<span style="color: var(--fr-text-sec);">Анализ (текущая неделя)...</span>';
                 busyBtn.disabled = true;
 
                 try {
+                    // ИЗМЕНЕНИЕ 2: Передаем параметр date с текущим временем
                     const response = await chrome.runtime.sendMessage({ 
                         action: "GET_WEEKLY_SCHEDULE", 
-                        email: friend.email 
+                        email: friend.email,
+                        date: new Date().toISOString() // Явно указываем "сегодня"
                     });
 
                     if (response && response.success && response.schedule) {
@@ -665,18 +696,16 @@ function bindFriendsLogic() {
                         });
                         schedBox.innerHTML = html;
                     } else {
-                        schedBox.innerHTML = '<span style="color: var(--fr-danger);">Нет доступа или данных</span>';
+                        schedBox.innerHTML = getAuthErrorHtml();
                     }
                 } catch (err) {
-                    schedBox.innerHTML = '<span style="color: var(--fr-danger);">Ошибка связи</span>';
+                    schedBox.innerHTML = getAuthErrorHtml();
                 } finally {
                     busyBtn.disabled = false;
                 }
             });
 
             // --- ЛОГИКА КНОПКИ "ПРЕДМЕТЫ" ---
-            const subjBtn = li.querySelector('.subjects-btn');
-            
             subjBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 
@@ -706,10 +735,10 @@ function bindFriendsLogic() {
                             subjContainer.innerHTML = '<span style="color: var(--fr-text-sec); font-size: 12px; font-style: italic;">Нет предметов</span>';
                         }
                     } else {
-                        subjContainer.innerHTML = '<span style="color: var(--fr-danger);">Ошибка</span>';
+                        subjContainer.innerHTML = getAuthErrorHtml();
                     }
                 } catch(err) {
-                    subjContainer.innerHTML = '<span style="color: var(--fr-danger);">Ошибка</span>';
+                    subjContainer.innerHTML = getAuthErrorHtml();
                 } finally {
                     subjBtn.disabled = false;
                     subjBtn.innerText = 'Предметы';
@@ -719,6 +748,7 @@ function bindFriendsLogic() {
             list.appendChild(li);
         });
 
+        // Обработчик удаления
         document.querySelectorAll('.delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation(); 

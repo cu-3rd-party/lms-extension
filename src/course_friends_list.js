@@ -110,22 +110,47 @@
     function createWidget() {
         const widget = document.createElement('div');
         widget.id = WIDGET_ID;
+        // Изменено transition: теперь анимируем opacity
         widget.style.cssText = `
             position: fixed;
             top: 110px;
-            right: 70px; /* <--- ИЗМЕНИЛ ЗДЕСЬ: было 20px, стало 70px (сдвиг влево) */
+            right: 70px;
             width: 260px;
             max-height: calc(100vh - 130px);
             overflow-y: auto;
             border-radius: 12px;
             border: 1px solid #ccc;
-            z-index: 9999;
+            z-index: 1;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s, opacity 0.2s ease-in-out;
             display: none;
+            opacity: 1;
         `;
         document.body.appendChild(widget);
         return widget;
+    }
+
+    // НОВАЯ ФУНКЦИЯ: Проверка перекрывающих элементов (Сайдбар или Меню профиля)
+    function checkOverlays() {
+        const widget = document.getElementById(WIDGET_ID);
+        // Если виджет не создан или закрыт пользователем (крестиком), ничего не делаем
+        if (!widget || widget.style.display === 'none') return;
+
+        // 1. Проверка сайдбара уведомлений
+        const isNotifOpen = document.querySelector('cu-notification-sidebar-header');
+        
+        // 2. Проверка меню профиля (класс из вашего примера)
+        const isProfileOpen = document.querySelector('.user-profile-menu__content');
+
+        if (isNotifOpen || isProfileOpen) {
+            // Скрываем виджет
+            widget.style.opacity = '0';
+            widget.style.pointerEvents = 'none'; // Чтобы сквозь него можно было кликать
+        } else {
+            // Показываем виджет
+            widget.style.opacity = '1';
+            widget.style.pointerEvents = 'auto';
+        }
     }
     
     function renderFriendsList(widget, courseName) {
@@ -143,7 +168,7 @@
         const header = document.createElement('div');
         header.className = 'cw-header';
         header.innerHTML = `
-            <span style="font-weight: 600; font-size: 14px;">Друзья на курсе</span>
+            <span style="font-weight: 600; font-size: 14px;">Друзья на курсе (прошлый семестр)</span>
             <span style="font-size: 18px; line-height: 1; opacity: 0.7; cursor: pointer;" id="cw-close">×</span>
         `;
         header.style.cssText = `
@@ -177,7 +202,7 @@
             classmates.forEach(friend => {
                 const item = document.createElement('div');
                 item.className = 'cw-item';
-                item.title = "Открыть календарь"; // Подсказка при наведении
+                item.title = "Открыть календарь";
                 item.style.cssText = `
                     padding: 10px 16px;
                     border-bottom: 1px solid transparent;
@@ -198,10 +223,7 @@
                     const yandexCalendarUrl = `https://calendar.yandex.ru/week?layers=${encodeURIComponent(email)}`;
                     
                     try {
-                        // Используем доступный API (browser или chrome)
                         const api = (typeof browser !== 'undefined' ? browser : chrome);
-                        
-                        // Пытаемся получить ссылку через Background (если там есть спец. логика)
                         const response = await api.runtime.sendMessage({ action: "GET_CALENDAR_LINK", email: email });
                         
                         if (response && response.success && response.link) {
@@ -210,7 +232,6 @@
                             window.open(yandexCalendarUrl, '_blank');
                         }
                     } catch (err) {
-                        // Если ошибка связи или API, просто открываем дефолтную ссылку
                         window.open(yandexCalendarUrl, '_blank');
                     }
                 };
@@ -227,11 +248,13 @@
             content.appendChild(list);
         }
         widget.appendChild(content);
+        
+        // Проверяем перекрытия сразу после рендера
+        checkOverlays();
     }
 
     function isValidCoursePage() {
-        // Проверка подходит и для главной курса, и для вложенных (themes, longreads)
-        return /\/learn\/courses\/view\/(actual|archive)\/\d+/.test(location.href);
+        return /\/learn\/courses\/view\/(actual|archived)\/\d+/.test(location.href);
     }
 
     async function initCourseFriends() {
@@ -241,36 +264,25 @@
             return;
         }
 
-        // 1. Извлекаем ID курса из URL текущей страницы
-        // URL вида: .../view/actual/587/themes/... -> id = 587
-        const urlMatch = location.href.match(/\/courses\/view\/(?:actual|archive)\/(\d+)/);
+        const urlMatch = location.href.match(/\/courses\/view\/(?:actual|archived)\/(\d+)/);
         const courseId = urlMatch ? urlMatch[1] : null;
 
         if (!courseId) return;
 
-        // 2. Ждем появления хлебных крошек (хотя бы одной)
         await waitForElement('.breadcrumbs__item');
         
-        // 3. Ищем нужную крошку
         const allBreadcrumbs = document.querySelectorAll('.breadcrumbs__item');
         let courseName = '';
 
         for (const item of allBreadcrumbs) {
             const href = item.getAttribute('href');
-            // Логика: ссылка курса должна заканчиваться на ID курса.
-            // Пример: /learn/courses/view/actual/587
-            // Ссылки на темы будут длиннее: .../587/themes/2774
             if (href && new RegExp(`/${courseId}$`).test(href)) {
                 courseName = item.innerText.trim();
                 break;
             }
         }
 
-        // Если не нашли по ID (например, структура URL изменилась), 
-        // проверяем, не находимся ли мы на главной странице курса.
-        // Если да, то берем последний элемент (как было раньше).
         if (!courseName) {
-            // Если URL заканчивается на ID курса, то берем последнюю крошку
             const isMainCoursePage = new RegExp(`/${courseId}$`).test(location.pathname);
             if (isMainCoursePage) {
                 const lastBreadcrumb = document.querySelector('.breadcrumbs__item.breadcrumbs__item_last');
@@ -303,8 +315,8 @@
 
     let lastUrl = location.href;
     const observer = new MutationObserver(() => {
+        // 1. Проверяем смену URL
         const url = location.href;
-        
         if (url !== lastUrl) {
             lastUrl = url;
             if (isValidCoursePage()) {
@@ -318,10 +330,13 @@
                  const breadcrumb = document.querySelector('.breadcrumbs__item.breadcrumbs__item_last');
                  const w = document.getElementById(WIDGET_ID);
                  if (breadcrumb && (!w || w.style.display === 'none')) {
-                     // Можно добавить логику повторной инициализации, если нужно
+                     // Можно добавить логику повторной инициализации
                  }
             }
         }
+
+        // 2. Проверяем перекрытия (уведомления или профиль) при любом изменении DOM
+        checkOverlays();
     });
     
     observer.observe(document.body, { childList: true, subtree: true });
