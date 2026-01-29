@@ -269,13 +269,15 @@ tui-avatar[data-type='text'] {
 }
 
 .cu-table thead th {
-    background-color: var(--culms-dark-bg-secondary) !important;
+    /*background-color: var(--culms-dark-bg-secondary) !important;*/
+    background-color: var(--culms-dark-bg-primary) !important;
     color: var(--culms-dark-text-tertiary) !important;
     border-bottom: 1px solid var(--culms-dark-border-primary) !important;
 }
 
 .cu-table thead th .t-icon {
-    filter: invert(1) brightness(0.8) !important;
+    /* Ставим invert(0), но сохраняем brightness(0.8) */
+    filter: invert(0) brightness(0.8) !important;
 }
 
 .cu-table tbody td,
@@ -5900,11 +5902,12 @@ svg use {
     --accent-on-light: #1f1f1f;
     --accent-on-light-hover: #3d3d3d;
     --accent-on-light-pressed: #141414;
-    --neutral: rgb(32, 33, 36);
+    /*--neutral: rgb(32, 33, 36);*/
+    --neutral: var(--culms-dark-bg-secondary);
     /*BTDEV: Late Days background color*/
     --neutral-no-opaque: #eff1f5;
     --neutral-hover: #244a7f14;
-    --neutral-hover-no-opaque: #ebeef3;
+    --neutral-hover-no-opaque: #ebeef300 !important;
     --neutral-pressed: #244a7f0a;
     --negative: #e63f07;
     --negative-pale: #e63f071f;
@@ -8799,9 +8802,9 @@ tui-input-phone-international[data-size=s] .t-country-select.t-country-select {
 }
 
 :root {
-    --cu-table-head-background-color: #f7f7f8;
+    --cu-table-head-background-color: #f7f7f800;
     --cu-table-body-heading-background-color: var(--cu-table-head-background-color);
-    --cu-table-foot-background-color: #f7f7f8;
+    --cu-table-foot-background-color: #f7f7f800;
     --cu-table-head-top-radius: .5rem;
     --cu-table-foot-bottom-radius: .5rem;
     --cu-table-head-height: 5.75rem;
@@ -8813,7 +8816,8 @@ tui-input-phone-international[data-size=s] .t-country-select.t-country-select {
     --cu-table-row-hover-offset: .25rem;
     --cu-table-row-hover-radius: .5rem;
     --cu-table-row-hover-color: var(--cu-table-head-background-color);
-    --cu-table-content-backgound-color: #2ad2c7;
+    /*--cu-table-content-backgound-color: #2ad2c7;*/
+    --cu-table-content-background-color: var(--culms-dark-bg-primary) !important;
     --cu-table-content-color: var(--text-primary);
     --cu-table-content-font: var(--font-text-s);
     --cu-table-head-font: var(--font-text-s)
@@ -11791,4 +11795,23 @@ body .course-card .skill-level {
 
 body {
     --informer-tui-elevation-02: rgb(32,33,36) !important; /* Ваш новый цвет */
+    --base-positive-pale: #1f1f1f !important; /* fix for Сдано in achivements*/
+}
+#cu-app-preloader .font-service-heading-3 {
+    color: var(--culms-dark-text-primary);
+}
+#cu-app-preloader .text-secondary {
+    color: var(--culms-dark-text-secondary);
+}
+
+#cu-app-preloader .cu-app-preloader-spinner {
+    border-top-color: #ffffff !important;
+    border-left-color: #ffffff !important;
+    /* Иногда цвет берется из свойства color, добавим и его на всякий случай */
+    color: #ffffff !important; 
+}
+
+.t-close::before,
+.t-close::after {
+    color: #ffffff !important;
 }

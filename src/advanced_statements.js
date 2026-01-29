@@ -8,7 +8,7 @@
     window.isAdvancedStatementsRunning = true;
 
     // --- КОНФИГУРАЦИЯ ---
-    const TARGET_PATH_REGEX = /^\/learn\/reports\/student-performance\/\d+\/activity$/;
+    const TARGET_PATH_REGEX = /^\/learn\/reports\/student-performance\/.*\d+\/activity$/;
     const API_URL_TEMPLATE = "https://my.centraluniversity.ru/api/micro-lms/courses/{courseId}/student-performance";
     const COURSE_INFO_URL_TEMPLATE = "https://my.centraluniversity.ru/api/micro-lms/courses/{courseId}/exercises";
 
@@ -525,7 +525,10 @@
 
     // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
-    function getCourseId() { const match = window.location.pathname.match(/student-performance\/(\d+)/); return match ? match[1] : null; }
+    function getCourseId() { 
+        const match = window.location.pathname.match(/\/(\d+)\/activity/); 
+        return match ? match[1] : null; 
+    }
     
     async function fetchCourseName(courseId) {
         if (!courseId) return null;

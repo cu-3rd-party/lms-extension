@@ -20,9 +20,31 @@
             border: 'rgb(55, 56, 60)', 
             shadow: '0 4px 20px rgba(0,0,0,0.5)',
             hover: 'rgb(55, 56, 60)'
+        },
+        oled: {
+            bg: '#000000',
+            text: '#ffffff',
+            textSec: '#b0b0b0',
+            border: '#333333',
+            shadow: 'none',
+            hover: '#111111'
         }
     };
     let currentTheme = 'light';
+
+    // Определение API (browser для Firefox/Polyfill, chrome для Chromium)
+    const api = (typeof browser !== 'undefined' ? browser : chrome);
+
+    // Хелпер для получения настроек (устраняет ошибку "Expected at most 1 argument")
+    function getStorageData(keys, callback) {
+        if (typeof browser !== 'undefined') {
+            // Для Firefox / Polyfill используем Promise
+            api.storage.sync.get(keys).then(callback, (err) => console.error(err));
+        } else {
+            // Для чистого Chrome используем Callback
+            api.storage.sync.get(keys, callback);
+        }
+    }
 
     // --- УТИЛИТЫ ---
 
@@ -64,21 +86,32 @@
     // --- ЛОГИКА ТЕМЫ ---
     async function initTheme() {
         try {
-            const data = await browser.storage.sync.get(['themeEnabled']);
-            updateWidgetTheme(!!data.themeEnabled);
-            
-            browser.storage.onChanged.addListener((changes) => {
-                if ('themeEnabled' in changes) {
-                    updateWidgetTheme(changes.themeEnabled.newValue);
-                }
-            });
+            if (api && api.storage) {
+                // Используем наш безопасный хелпер
+                getStorageData(['themeEnabled', 'oledEnabled'], (data) => {
+                    updateWidgetTheme(!!data.themeEnabled, !!data.oledEnabled);
+                });
+                
+                api.storage.onChanged.addListener((changes, area) => {
+                    if (area === 'sync' && ('themeEnabled' in changes || 'oledEnabled' in changes)) {
+                        getStorageData(['themeEnabled', 'oledEnabled'], (data) => {
+                            updateWidgetTheme(!!data.themeEnabled, !!data.oledEnabled);
+                        });
+                    }
+                });
+            }
         } catch (e) {
             console.error('Theme init error:', e);
         }
     }
 
-    function updateWidgetTheme(isDark) {
-        currentTheme = isDark ? 'dark' : 'light';
+    function updateWidgetTheme(isDark, isOled) {
+        if (isDark) {
+            currentTheme = isOled ? 'oled' : 'dark';
+        } else {
+            currentTheme = 'light';
+        }
+
         const widget = document.getElementById(WIDGET_ID);
         if (!widget) return;
 
@@ -94,8 +127,10 @@
         const items = widget.querySelectorAll('.cw-item');
         items.forEach(item => {
             item.style.borderBottomColor = colors.border;
+            // Сбрасываем и переназначаем обработчики
             item.onmouseenter = () => item.style.backgroundColor = colors.hover;
             item.onmouseleave = () => item.style.backgroundColor = 'transparent';
+            item.style.backgroundColor = 'transparent'; // Сброс текущего цвета при смене темы
             
             const email = item.querySelector('.cw-email');
             if (email) email.style.color = colors.textSec;
@@ -110,7 +145,6 @@
     function createWidget() {
         const widget = document.createElement('div');
         widget.id = WIDGET_ID;
-        // Изменено transition: теперь анимируем opacity
         widget.style.cssText = `
             position: fixed;
             top: 110px;
@@ -130,24 +164,17 @@
         return widget;
     }
 
-    // НОВАЯ ФУНКЦИЯ: Проверка перекрывающих элементов (Сайдбар или Меню профиля)
     function checkOverlays() {
         const widget = document.getElementById(WIDGET_ID);
-        // Если виджет не создан или закрыт пользователем (крестиком), ничего не делаем
         if (!widget || widget.style.display === 'none') return;
 
-        // 1. Проверка сайдбара уведомлений
         const isNotifOpen = document.querySelector('cu-notification-sidebar-header');
-        
-        // 2. Проверка меню профиля (класс из вашего примера)
         const isProfileOpen = document.querySelector('.user-profile-menu__content');
 
         if (isNotifOpen || isProfileOpen) {
-            // Скрываем виджет
             widget.style.opacity = '0';
-            widget.style.pointerEvents = 'none'; // Чтобы сквозь него можно было кликать
+            widget.style.pointerEvents = 'none';
         } else {
-            // Показываем виджет
             widget.style.opacity = '1';
             widget.style.pointerEvents = 'auto';
         }
@@ -214,7 +241,6 @@
                 item.onmouseenter = () => item.style.backgroundColor = colors.hover;
                 item.onmouseleave = () => item.style.backgroundColor = 'transparent';
                 
-                // === ЛОГИКА ОТКРЫТИЯ КАЛЕНДАРЯ ===
                 item.onclick = async (e) => {
                     e.stopPropagation();
                     const email = friend.email;
@@ -223,7 +249,6 @@
                     const yandexCalendarUrl = `https://calendar.yandex.ru/week?layers=${encodeURIComponent(email)}`;
                     
                     try {
-                        const api = (typeof browser !== 'undefined' ? browser : chrome);
                         const response = await api.runtime.sendMessage({ action: "GET_CALENDAR_LINK", email: email });
                         
                         if (response && response.success && response.link) {
@@ -235,7 +260,6 @@
                         window.open(yandexCalendarUrl, '_blank');
                     }
                 };
-                // ==================================
 
                 const displayName = friend.name || friend.email.split('@')[0];
                 
@@ -249,7 +273,6 @@
         }
         widget.appendChild(content);
         
-        // Проверяем перекрытия сразу после рендера
         checkOverlays();
     }
 
@@ -301,8 +324,10 @@
 
         renderFriendsList(widget, courseName);
         
-        const data = await browser.storage.sync.get(['themeEnabled']);
-        updateWidgetTheme(!!data.themeEnabled);
+        // Применяем тему через хелпер
+        getStorageData(['themeEnabled', 'oledEnabled'], (data) => {
+            updateWidgetTheme(!!data.themeEnabled, !!data.oledEnabled);
+        });
 
         widget.style.display = 'block';
     }
@@ -315,7 +340,6 @@
 
     let lastUrl = location.href;
     const observer = new MutationObserver(() => {
-        // 1. Проверяем смену URL
         const url = location.href;
         if (url !== lastUrl) {
             lastUrl = url;
@@ -330,12 +354,11 @@
                  const breadcrumb = document.querySelector('.breadcrumbs__item.breadcrumbs__item_last');
                  const w = document.getElementById(WIDGET_ID);
                  if (breadcrumb && (!w || w.style.display === 'none')) {
-                     // Можно добавить логику повторной инициализации
+                     // Можно добавить логику повторной инициализации при необходимости
                  }
             }
         }
 
-        // 2. Проверяем перекрытия (уведомления или профиль) при любом изменении DOM
         checkOverlays();
     });
     

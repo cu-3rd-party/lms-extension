@@ -39,7 +39,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
     // --- КОНСТАНТЫ СТАТУСОВ ---
     const SKIPPED_STATUS_TEXT = "Метод скипа";
-    const REVISION_STATUS_TEXT = "Доработка"; // Новый текст статуса
+    const REVISION_STATUS_TEXT = "Доработка";
 
     // --- КЭШ ДЛЯ ЗАГРУЖЕННЫХ ИКОНОК ---
     const svgIconCache = {};
@@ -161,7 +161,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         const seminarChipBg = '#000000';
         const solvedChipBg = '#28a745';
         const skippedChipBg = '#b516d7';
-        const revisionChipBg = '#FE456A'; // Цвет для статуса "Доработка" (Оранжевый)
+        const revisionChipBg = '#FE456A';
         const modalBgColor = `var(--tui-base-01, ${isDarkTheme ? '#2d2d2d' : 'white'})`;
         const modalTextColor = `var(--tui-text-01, ${isDarkTheme ? '#e0e0e0' : '#333'})`;
         const iconColor = isDarkTheme ? '#FFFFFF' : 'var(--tui-status-attention, #000000)';
@@ -170,6 +170,9 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             ? `
             input[tuicheckbox][data-appearance="primary"]:checked {
                 filter: brightness(0) invert(1) !important;
+            }
+            input[tuicheckbox][data-appearance="outline-grayscale"]:checked {
+                 filter: brightness(0) invert(1) !important;
             }
         `
             : '';
@@ -224,6 +227,20 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             .culms-modal-confirm { background-color: #28a745; color: white; border-color: #28a745; }
             .culms-modal-cancel { background-color: #dc3545; color: white; border-color: #dc3545; }
             
+            /* --- Фикс для нового выпадающего списка курсов --- */
+            cu-multiselect-searchable-list cdk-virtual-scroll-viewport {
+                height: auto !important;
+                max-height: 400px !important;
+                contain: none !important; /* Отключаем оптимизацию отрисовки */
+            }
+            cu-multiselect-searchable-list .cdk-virtual-scroll-content-wrapper {
+                 transform: none !important; /* Убираем сдвиги виртуального скролла */
+                 position: relative !important;
+            }
+            cu-multiselect-searchable-list .cdk-virtual-scroll-spacer {
+                display: none !important; /* Убираем пустой спейсер */
+            }
+
             ${checkboxThemeStyle}
         `;
         const styleElement = document.createElement('style');
@@ -310,7 +327,6 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
                     statusElement.textContent = SKIPPED_STATUS_TEXT;
                     statusElement.setAttribute('data-culms-status', 'skipped');
                 } else {
-                    // --- ЛОГИКА ОПРЕДЕЛЕНИЯ СТАТУСА ---
                     statusElement.textContent = statusElement.dataset.originalStatus;
 
                     const submitTime = task.submitAt ? new Date(task.submitAt).getTime() : 0;
@@ -321,12 +337,10 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
                         statusElement.setAttribute('data-culms-status', 'seminar');
                         row.setAttribute('data-culms-row-type', 'seminar');
                     }
-                    // Условие для Доработки: Отклонено ПОЗЖЕ, чем отправлено, и статус все еще "inProgress"
                     else if (rejectTime > submitTime && task.state === 'inProgress') {
                          statusElement.textContent = REVISION_STATUS_TEXT;
                          statusElement.setAttribute('data-culms-status', 'revision');
                     }
-                    // Условие для Решения: Отправлено ПОЗЖЕ, чем отклонено (или не отклонялось вовсе)
                     else if (submitTime > rejectTime && (statusElement.textContent.includes('В работе') || statusElement.textContent.includes('Есть решение'))) {
                         statusElement.textContent = 'Есть решение';
                         statusElement.setAttribute('data-culms-status', 'solved');
@@ -399,7 +413,6 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             statusElement.removeAttribute('data-culms-status');
         }
 
-        // Повторная проверка логики статусов при отмене скипа, чтобы вернуть актуальное состояние
         const submitTime = task.submitAt ? new Date(task.submitAt).getTime() : 0;
         const rejectTime = task.rejectAt ? new Date(task.rejectAt).getTime() : 0;
 
@@ -440,7 +453,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(false); };
     }
 
-    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ПРОПУСКА ЗАДАЧ ---
+    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
     function getTaskIdentifier(taskName, courseName) {
         if (!taskName || !courseName) return null;
         return `${stripEmojis(courseName.toLowerCase())}::${stripEmojis(taskName.toLowerCase())}`;
@@ -467,7 +480,6 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         saveSkippedTasks(skipped);
     }
 
-    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
     function findMatchingTask(htmlNames, tasksData) {
         if (!htmlNames?.taskName || !htmlNames?.courseName) return null;
         const cleanHtmlTaskName = stripEmojis(htmlNames.taskName.toLowerCase());
@@ -512,7 +524,6 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     }
 
     // --- ЛОГИКА ФИЛЬТРОВ (С СОХРАНЕНИЕМ ПАРАМЕТРОВ) ---
-    // Добавили REVISION_STATUS_TEXT ("Доработка") в фильтры
     const HARDCODED_STATUSES = ["В работе", "Есть решение", "На проверке", "Не начато", "Аудиторная", SKIPPED_STATUS_TEXT, REVISION_STATUS_TEXT];
     const masterCourseList = new Set();
     let selectedStatuses = new Set(HARDCODED_STATUSES);
@@ -580,7 +591,11 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     function handleCourseFilterClick(event) {
         const optionButton = event.target.closest('button[tuioption]');
         if (!optionButton) return;
-        updateSelection(selectedCourses, optionButton.textContent.trim(), optionButton);
+        // Для курсов ищем текст внутри span, так как структура сложнее
+        const textSpan = optionButton.querySelector('tui-multi-select-option span');
+        const courseName = textSpan ? textSpan.textContent.trim() : optionButton.textContent.trim();
+        
+        updateSelection(selectedCourses, courseName, optionButton);
         applyCombinedFilter();
         saveFilterSettings();
     }
@@ -589,8 +604,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         if (selectionSet.has(text)) selectionSet.delete(text);
         else selectionSet.add(text);
         const isSelected = selectionSet.has(text);
+        
+        // Для старых кнопок статусов (прямая смена класса)
         button.classList.toggle('t-option_selected', isSelected);
         button.setAttribute('aria-selected', isSelected.toString());
+        
+        // Для новых и старых чекбоксов
         const checkbox = button.querySelector('input[tuicheckbox]');
         if (checkbox) checkbox.checked = isSelected;
     }
@@ -601,14 +620,33 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         dropdownObserver = new MutationObserver((mutationsList) => {
             for (const mutation of mutationsList) {
                 for (const node of mutation.addedNodes) {
-                    if (isArchivedPage() || node.nodeType !== 1 || !node.matches('tui-dropdown')) continue;
+                    if (isArchivedPage() || node.nodeType !== 1) continue;
 
-                    const dataListWrapper = node.querySelector('tui-data-list-wrapper.multiselect__dropdown');
-                    if (!dataListWrapper) continue;
-                    const statusFilterContainer = document.querySelector('cu-multiselect-filter[controlname="state"]');
-                    const courseFilterContainer = document.querySelector('cu-multiselect-filter[controlname="course"]');
-                    if (!dataListWrapper.dataset.culmsRebuilt && statusFilterContainer?.contains(document.activeElement)) buildDropdown(dataListWrapper, 'state');
-                    else if (!dataListWrapper.dataset.culmsRebuilt && courseFilterContainer?.contains(document.activeElement)) buildDropdown(dataListWrapper, 'course');
+                    // 1. Старый перехватчик для статусов (tui-data-list-wrapper)
+                    if (node.matches('tui-dropdown')) {
+                        const dataListWrapper = node.querySelector('tui-data-list-wrapper.multiselect__dropdown');
+                        const statusFilterContainer = document.querySelector('cu-multiselect-filter[controlname="state"]');
+                        
+                        if (dataListWrapper && !dataListWrapper.dataset.culmsRebuilt && statusFilterContainer?.contains(document.activeElement)) {
+                            buildStatusDropdown(dataListWrapper);
+                        }
+                    }
+
+                    // 2. Новый перехватчик для курсов (cu-multiselect-searchable-list)
+                    if (node.tagName && (node.tagName.toLowerCase() === 'tui-dropdown' || node.querySelector('cu-multiselect-searchable-list'))) {
+                         const searchableList = node.tagName.toLowerCase() === 'cu-multiselect-searchable-list' 
+                            ? node 
+                            : node.querySelector('cu-multiselect-searchable-list');
+                         
+                         if (searchableList && !searchableList.dataset.culmsRebuilt) {
+                             // Убедимся, что это фильтр курсов (можно по controlname="course" у родителя, но тут searchableList уже специфичен)
+                             const courseFilterContainer = document.querySelector('cu-multiselect-filter[controlname="course"]');
+                             // Проверяем, что dropdown открылся именно от фильтра курсов (активный элемент или структура)
+                             if (courseFilterContainer) {
+                                  buildSearchableCourseDropdown(searchableList);
+                             }
+                         }
+                    }
                 }
             }
         });
@@ -616,28 +654,75 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         window.cuLmsLog('Task Status Updater: Dropdown observer initialized.');
     }
 
-    function buildDropdown(dataListWrapper, type) {
+    function buildStatusDropdown(dataListWrapper) {
         dataListWrapper.dataset.culmsRebuilt = 'true';
         const dataList = dataListWrapper.querySelector('tui-data-list');
         if (!dataList) return;
         dataList.innerHTML = '';
-        if (type === 'state') {
-            HARDCODED_STATUSES.forEach(text => {
-                const isSelected = selectedStatuses.has(text);
-                dataList.appendChild(createFilterOption(text, isSelected));
+        
+        HARDCODED_STATUSES.forEach(text => {
+            const isSelected = selectedStatuses.has(text);
+            dataList.appendChild(createStatusOption(text, isSelected));
+        });
+        dataListWrapper.addEventListener('click', handleStatusFilterClick);
+    }
+    
+    function buildSearchableCourseDropdown(searchableListElement) {
+        searchableListElement.dataset.culmsRebuilt = 'true';
+        
+        // Находим контейнер списка
+        const dataList = searchableListElement.querySelector('tui-data-list');
+        if (!dataList) return;
+
+        // 1. Отрубаем бэкенд-поиск: клонируем инпут, чтобы убить Angular-биндинги
+        const searchWrapper = searchableListElement.querySelector('tui-textfield');
+        const oldInput = searchWrapper?.querySelector('input');
+        if (oldInput) {
+            const newInput = oldInput.cloneNode(true);
+            oldInput.replaceWith(newInput);
+            
+            // Локальный поиск
+            newInput.addEventListener('input', (e) => {
+                const val = e.target.value.toLowerCase();
+                const buttons = dataList.querySelectorAll('button[tuioption]');
+                buttons.forEach(btn => {
+                    const span = btn.querySelector('span');
+                    const text = span ? span.textContent.toLowerCase() : '';
+                    const wrapperDiv = btn.closest('div'); 
+                    if (wrapperDiv) {
+                        wrapperDiv.style.display = text.includes(val) ? '' : 'none';
+                    }
+                });
             });
-            dataListWrapper.addEventListener('click', handleStatusFilterClick);
-        } else if (type === 'course') {
-            const sortedCourses = [...masterCourseList].sort();
-            sortedCourses.forEach(text => {
-                const isSelected = selectedCourses.has(text);
-                dataList.appendChild(createFilterOption(text, isSelected));
-            });
-            dataListWrapper.addEventListener('click', handleCourseFilterClick);
+
+             // Обработка кнопки очистки (крестик)
+            const clearBtn = searchWrapper.querySelector('.t-clear');
+            if (clearBtn) {
+                // Клонируем кнопку, чтобы убить старые обработчики
+                const newClearBtn = clearBtn.cloneNode(true);
+                clearBtn.replaceWith(newClearBtn);
+                newClearBtn.addEventListener('click', () => {
+                    newInput.value = '';
+                    newInput.dispatchEvent(new Event('input'));
+                });
+            }
         }
+
+        // 2. Очищаем список от того, что прислал сервер
+        dataList.innerHTML = '';
+
+        // 3. Генерируем полный список курсов из masterCourseList
+        const sortedCourses = [...masterCourseList].sort();
+        sortedCourses.forEach(text => {
+            const isSelected = selectedCourses.has(text);
+            dataList.appendChild(createCourseOption(text, isSelected));
+        });
+
+        // 4. Вешаем обработчик клика на весь список
+        searchableListElement.addEventListener('click', handleCourseFilterClick);
     }
 
-    function createFilterOption(text, isSelected) {
+    function createStatusOption(text, isSelected) {
         const button = document.createElement('button');
         button.className = 'ng-star-inserted';
         if (isSelected) button.classList.add('t-option_selected');
@@ -653,6 +738,34 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         const checkbox = button.querySelector('input[tuicheckbox]');
         if (checkbox) checkbox.checked = isSelected;
         return button;
+    }
+
+    function createCourseOption(text, isSelected) {
+        // Оборачиваем в div, как в новом интерфейсе
+        const wrapper = document.createElement('div');
+        
+        const button = document.createElement('button');
+        button.setAttribute('tuiicons', '');
+        button.setAttribute('type', 'button');
+        button.setAttribute('role', 'option');
+        button.setAttribute('tuioption', '');
+        
+        // Стили чекбокса для курсов (outline-grayscale)
+        const finalStyle = `pointer-events: none; --t-checked-icon: url(assets/cu/icons/cuIconCheck.svg); --t-indeterminate-icon: url(assets/cu/icons/cuIconMinus.svg);`;
+        
+        button.innerHTML = `
+        <tui-multi-select-option>
+            <input tuiappearance tuicheckbox type="checkbox" 
+                   data-appearance="outline-grayscale" disabled data-size="s" class="_readonly" 
+                   style="${finalStyle}">
+            <span>${text}</span>
+        </tui-multi-select-option>`;
+        
+        const checkbox = button.querySelector('input[tuicheckbox]');
+        if (checkbox) checkbox.checked = isSelected;
+        
+        wrapper.appendChild(button);
+        return wrapper;
     }
     
     browser.storage.onChanged.addListener((changes) => {

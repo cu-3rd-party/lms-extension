@@ -179,7 +179,7 @@ const YandexServices = {
                 
                 // 3. ФИЛЬТРАЦИЯ И ПАРСИНГ
                 const events = (eventsRaw || []).filter(e => 
-                    !e.hidden && 
+                    //!e.hidden && // ну типа скрытые меро. но политика вуза пока непонятна, оставим так
                     e.decision !== 'no' && 
                     e.availability !== 'free'
                 );
@@ -573,10 +573,12 @@ function handleNavigation(tabId, url) {
     // --- ОБНОВЛЕННЫЙ БЛОК ДЛЯ СТРАНИЦЫ УСПЕВАЕМОСТИ ---
     if (url.includes("/learn/reports/student-performance")) {
          // Внедряем скрипты для общей страницы успеваемости (архив и GPA калькулятор)
-         browser.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ["archive-statements.js", "metrics_statements.js"]
-        }).catch(err => console.error(`[BG_LOG] Error injecting reports scripts:`, err));
+         
+        // CURRENTLY DISABLED!
+        // browser.scripting.executeScript({
+        //     target: { tabId: tabId },
+        //     files: ["archive-statements.js", "metrics_statements.js"]
+        // }).catch(err => console.error(`[BG_LOG] Error injecting reports scripts:`, err));
         
         // --- НОВАЯ ЛОГИКА ДЛЯ СТАНДАРТИЗИРОВАННОЙ ВЕДОМОСТИ ---
         // Проверяем, что мы находимся на конкретной странице успеваемости по активностям

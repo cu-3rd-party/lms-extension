@@ -31,13 +31,14 @@ async function init() {
 
     injectModalStyles();
 
+    // Слушатель изменений настроек (тема/OLED) в реальном времени
     if (chrome && chrome.storage) {
         chrome.storage.onChanged.addListener((changes, area) => {
             if (area === 'sync' && (changes.themeEnabled || changes.oledEnabled)) {
                 const overlay = document.getElementById('friends-overlay');
                 if (overlay) {
                     chrome.storage.sync.get(['themeEnabled', 'oledEnabled'], (data) => {
-                        applyThemeClasses(overlay, data.themeEnabled, data.oledEnabled);
+                        applyThemeClasses(overlay, !!data.themeEnabled, !!data.oledEnabled);
                     });
                 }
             }
@@ -133,6 +134,7 @@ function closeFriendsPage() {
 function applyThemeClasses(element, isDark, isOled) {
     if (!element) return;
     element.classList.remove('theme-dark', 'theme-oled', 'theme-light');
+    
     if (isDark) {
         if (isOled) {
             element.classList.add('theme-oled');
@@ -152,6 +154,7 @@ function injectModalStyles() {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
         :root {
+            /* --- LIGHT THEME (DEFAULT) --- */
             --fr-bg: #ffffff;
             --fr-card-bg: #f5f7fa; 
             --fr-text: #333333;
@@ -165,6 +168,7 @@ function injectModalStyles() {
             --fr-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
+        /* --- DARK THEME --- */
         #friends-overlay.theme-dark {
             --fr-bg: #202124;
             --fr-card-bg: #2c2d31;
@@ -177,15 +181,17 @@ function injectModalStyles() {
             --fr-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
 
+        /* --- OLED THEME (PURE BLACK) --- */
         #friends-overlay.theme-oled {
             --fr-bg: #000000;
-            --fr-card-bg: #121212;
+            --fr-card-bg: #0b0b0b; /* Совпадает с .tui-island в dark_theme.js */
             --fr-text: #ffffff;
             --fr-text-sec: #b0b0b0;
             --fr-border: #333333;
             --fr-input-bg: #000000;
             --fr-input-border: #333333;
-            --fr-overlay: rgba(0, 0, 0, 0.9);
+            --fr-overlay: rgba(0, 0, 0, 1); /* Непрозрачный черный или очень темный для OLED эффекта */
+            --fr-shadow: none; /* Убираем тени в OLED для плоскости и чистоты */
         }
 
         #friends-overlay * {
@@ -292,7 +298,7 @@ function injectModalStyles() {
             list-style: none;
             padding: 0;
             margin: 0;
-            align-items: start; /* Карточки не тянутся */
+            align-items: start;
         }
 
         .cu-ext-item {
@@ -403,7 +409,6 @@ function injectModalStyles() {
             border: 1px solid var(--fr-border) !important;
         }
 
-        /* --- НОВЫЕ СТИЛИ ДЛЯ РАСПИСАНИЯ --- */
         .cu-ext-schedule-box {
             margin-top: 10px;
             background-color: var(--fr-input-bg) !important;
@@ -475,6 +480,7 @@ function renderFriendsPage() {
         overlay = document.createElement('div');
         overlay.id = 'friends-overlay';
         
+        // Получаем настройки при создании (для всех тем: Dark + OLED)
         if (chrome && chrome.storage) {
             chrome.storage.sync.get(['themeEnabled', 'oledEnabled'], (data) => {
                 applyThemeClasses(overlay, !!data.themeEnabled, !!data.oledEnabled);
@@ -491,7 +497,6 @@ function renderFriendsPage() {
     overlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
-    // Добавлен блок с предупреждением (disclaimer) внизу header
     const contentHtml = `
         <div class="cu-ext-window">
             <button class="cu-ext-close" id="modalCloseBtn" title="Закрыть">×</button>
@@ -513,14 +518,12 @@ function renderFriendsPage() {
                 </div>
                 <div id="statusMsg" style="margin-top: 10px;"></div>
 
-                <!-- БЛОК С ПРЕДУПРЕЖДЕНИЕМ -->
                 <div style="margin-top: 15px; padding: 12px; background-color: var(--fr-card-bg); border: 1px solid var(--fr-border); border-radius: 8px; font-size: 13px; line-height: 1.5; color: var(--fr-text-sec);">
                     <strong style="color: var(--fr-text);">⚠️ Ранний доступ:</strong> 
                     На данный момент есть проблемы с получением пар из Яндекс.Календаря вследствие того, как они заданы университетом. 
                     Поэтому сейчас предметы отображаются с конца прошлого семестра, а не актуальные. 
                     <span style="color: var(--fr-text); font-weight: 500;">Занятость же считается на текущую неделю.</span>
                 </div>
-                <!-- КОНЕЦ БЛОКА -->
 
             </div>
 
@@ -570,7 +573,6 @@ function bindFriendsLogic() {
             list.style.display = 'grid'; 
         }
 
-        // Хелпер для генерации сообщения об ошибке авторизации
         const getAuthErrorHtml = () => `
             <div style="padding: 8px 0; color: var(--fr-danger); font-size: 12px; line-height: 1.4;">
                 Не удалось получить данные.<br>
@@ -611,21 +613,16 @@ function bindFriendsLogic() {
                     </div>
                 </div>
                 
-                <!-- Блок предметов -->
                 <div class="cu-ext-subjects" style="display: none;">${subjectsHtml}</div>
-                
-                <!-- Блок расписания / Сообщений -->
                 <div class="cu-ext-schedule-box" style="display: none;"></div>
             `;
 
-            // Находим элементы внутри карточки
             const nameBlock = li.querySelector('.cu-ext-names');
             const busyBtn = li.querySelector('.busy-btn');
             const subjBtn = li.querySelector('.subjects-btn');
             const schedBox = li.querySelector('.cu-ext-schedule-box');
             const subjContainer = li.querySelector('.cu-ext-subjects');
 
-            // --- КЛИК ПО ИМЕНИ (Открыть календарь) ---
             nameBlock.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const email = friend.email;
@@ -637,16 +634,13 @@ function bindFriendsLogic() {
                     const response = await chrome.runtime.sendMessage({ action: "GET_CALENDAR_LINK", email: email });
                     
                     if (response && response.success && response.link) {
-                        // УСПЕХ: Открываем полученную ссылку
                         window.open(response.link, '_blank');
                     } else {
-                        // ОШИБКА: Ссылка не получена -> показываем сообщение вместо открытия useless ссылки
                         subjContainer.style.display = 'none';
                         schedBox.style.display = 'flex';
                         schedBox.innerHTML = getAuthErrorHtml();
                     }
                 } catch (err) {
-                    // ОШИБКА СЕТИ/РАСШИРЕНИЯ
                     subjContainer.style.display = 'none';
                     schedBox.style.display = 'flex';
                     schedBox.innerHTML = getAuthErrorHtml();
@@ -655,7 +649,6 @@ function bindFriendsLogic() {
                 }
             });
             
-            // --- ЛОГИКА КНОПКИ "ЗАНЯТОСТЬ" ---
             busyBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 
@@ -667,16 +660,14 @@ function bindFriendsLogic() {
                 subjContainer.style.display = 'none';
 
                 schedBox.style.display = 'flex';
-                // ИЗМЕНЕНИЕ 1: Поменяли текст с "месяц назад" на "текущая неделя"
                 schedBox.innerHTML = '<span style="color: var(--fr-text-sec);">Анализ (текущая неделя)...</span>';
                 busyBtn.disabled = true;
 
                 try {
-                    // ИЗМЕНЕНИЕ 2: Передаем параметр date с текущим временем
                     const response = await chrome.runtime.sendMessage({ 
                         action: "GET_WEEKLY_SCHEDULE", 
                         email: friend.email,
-                        date: new Date().toISOString() // Явно указываем "сегодня"
+                        date: new Date().toISOString()
                     });
 
                     if (response && response.success && response.schedule) {
@@ -705,7 +696,6 @@ function bindFriendsLogic() {
                 }
             });
 
-            // --- ЛОГИКА КНОПКИ "ПРЕДМЕТЫ" ---
             subjBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 
@@ -748,7 +738,6 @@ function bindFriendsLogic() {
             list.appendChild(li);
         });
 
-        // Обработчик удаления
         document.querySelectorAll('.delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation(); 
