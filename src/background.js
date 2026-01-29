@@ -179,7 +179,7 @@ const YandexServices = {
                 
                 // 3. ФИЛЬТРАЦИЯ И ПАРСИНГ
                 const events = (eventsRaw || []).filter(e => 
-                    !e.hidden && 
+                    //!e.hidden && // ну типа скрытые меро. но политика вуза пока непонятна, оставим так
                     e.decision !== 'no' && 
                     e.availability !== 'free'
                 );
