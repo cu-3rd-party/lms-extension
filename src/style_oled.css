@@ -108,7 +108,7 @@ a:hover .tui-island::before {
 }
 
 .cu-table thead th {
-	background-color: var(--culms-dark-bg-secondary) !important;
+	background-color: var(--culms-dark-bg-primary) !important;
 	color: var(--culms-dark-text-tertiary) !important;
 	border-bottom: 1px solid var(--culms-dark-border-primary) !important;
 }
@@ -172,4 +172,9 @@ tui-input .t-textfield {
 .tiptap.ProseMirror * {
 	color: var(--culms-dark-text-secondary) !important;
 	background-color: transparent !important;
+}
+
+.t-close::before,
+.t-close::after {
+    color: #ffffff !important;
 }
