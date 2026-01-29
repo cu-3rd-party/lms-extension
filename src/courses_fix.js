@@ -1,4 +1,4 @@
-// courses_fix.js (финальная версия с полной идентичностью строк и кросс-браузерной совместимостью)
+// courses_fix.js (финальная версия с поддержкой actual и archived страниц)
 
 // Polyfill to handle browser namespace differences (Chrome uses 'chrome', Firefox uses 'browser')
 if (typeof browser === 'undefined') {
@@ -79,7 +79,8 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                 processCourses();
 
                 const currentPath = window.location.pathname;
-                const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
+                // ИЗМЕНЕНИЕ 1: Добавлена поддержка (?:actual|archived)
+                const isOnIndividualCoursePage = /\/view\/(?:actual|archived)\/\d+/.test(currentPath);
                 if (isOnIndividualCoursePage) {
                    processInvidualCoursePage();
                 }
@@ -90,7 +91,8 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         processCourses();
 
         const currentPath = window.location.pathname;
-        const isOnIndividualCoursePage = /\/view\/actual\/\d+/.test(currentPath);
+        // ИЗМЕНЕНИЕ 2: Добавлена поддержка (?:actual|archived) при инициализации
+        const isOnIndividualCoursePage = /\/view\/(?:actual|archived)\/\d+/.test(currentPath);
         if (isOnIndividualCoursePage) {
           processInvidualCoursePage();
         }
@@ -379,7 +381,8 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
           await processFutureExams();
           await processCourseOverviewTaskStatus();
           
-          const activeCoursesPathRegex = /^\/learn\/courses\/view\/actual$/;
+          // ИЗМЕНЕНИЕ 3: Теперь скролл работает, даже если пришли из списка архива
+          const activeCoursesPathRegex = /^\/learn\/courses\/view\/(?:actual|archived)$/;
           if (previousUrl) {
             const previousPath = new URL(previousUrl).pathname;
             if (activeCoursesPathRegex.test(previousPath)) {

@@ -19,7 +19,8 @@ function getSkippedTasks() {
 }
 
 async function activateCourseOverviewTaskStatus() {
-  const match = window.location.pathname.match(/actual\/(\d+)/);
+  // ИЗМЕНЕНИЕ: Добавлена поддержка (?:actual|archived)
+  const match = window.location.pathname.match(/(?:actual|archived)\/(\d+)/);
   if (!match) return;
   
   const courseId = parseInt(match[1]); // Важно привести к числу для сравнения
