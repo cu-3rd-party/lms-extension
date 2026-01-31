@@ -8,7 +8,7 @@
     const CURRENT_PLUGIN_VERSION = api.runtime.getManifest().version; // Версия плагина из manifest.json
     const GIST_URL = 'https://api.github.com/gists/f108f457039a5b11154dcb8e79f1b0da';
     const RELEASES_PAGE_URL = 'https://github.com/cu-3rd-party/lms-extension/releases/';
-    const CHECK_INTERVAL_MS = 0.5 * 60 * 1000; // 5 минут
+    const CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 минут
 
     // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
