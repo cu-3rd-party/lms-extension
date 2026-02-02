@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "CU LMS Enhancer",
-    "version": "1.6",
+    "version": "1.7",
     "description": "Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий",
     "permissions": [
         "storage",
@@ -11,9 +11,7 @@
     "host_permissions": [
         "https://my.centraluniversity.ru/*",
         "https://id.centraluniversity.ru/*",
-        "https://gist.github.com/*",
-        "https://mail.yandex.ru/*",
-        "https://calendar.yandex.ru/*"
+        "https://gist.github.com/*"
     ],
     "background": {
         "scripts": [
