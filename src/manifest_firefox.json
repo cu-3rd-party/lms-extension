@@ -6,8 +6,7 @@
     "permissions": [
         "storage",
         "scripting",
-        "webNavigation",
-        "cookies"
+        "webNavigation"
     ],
     "host_permissions": [
         "https://my.centraluniversity.ru/*",
