@@ -240,11 +240,13 @@ a:hover .tui-island::before {
     /*BTDEV: color change when hover on theme card*/
 }
 
-.tiptap.ProseMirror * {
+/*.tiptap.ProseMirror * {
     color: var(--culms-dark-text-secondary) !important;
     /*BTDEV: longread & homework text color*/
-    background-color: var(--culms-dark-bg-transparent) !important;
-}
+    /*background-color: var(--culms-dark-bg-transparent) !important;
+}*/
+
+
 
 .text-tertiary,
 /*BTDEV: homework points total color*/
@@ -11557,7 +11559,7 @@ body {
     counter-reset: katexEqnNo mmlEqnNo
 }
 
-code[class*=language-],
+/*code[class*=language-],
 pre[class*=language-] {
     color: #000;
     background: 0 0;
@@ -11691,7 +11693,194 @@ pre[class*=language-] {
 
 .token.entity {
     cursor: help
+}*/
+
+/* --- Основной блок и фон --- */
+code[class*="language-"],
+pre[class*="language-"] {
+    color: #abb2bf !important;           /* Светло-серый текст */
+    background: var(--culms-dark-bg-secondary) !important;      /* Мягкий темно-серый фон */
+    text-shadow: none !important;        /* Убираем тени, они мылят на темном */
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+    font-size: 1em;
+    text-align: left;
+    white-space: pre;
+    word-spacing: normal;
+    word-break: normal;
+    line-height: 1.5;
+    
+    /* Стилизация скроллбара (опционально) */
+    scrollbar-width: thin;
+    scrollbar-color: #5c6370 #282c34;
 }
+
+/* Цвет выделения текста */
+code[class*="language-"] ::selection,
+pre[class*="language-"] ::selection {
+    text-shadow: none;
+    background: #3e4451 !important; /* Чуть светлее фона */
+}
+
+
+/* --- Подсветка синтаксиса --- */
+
+/* Комментарии (серый, не отвлекающий) */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+    color: #5c6370 !important;
+    font-style: italic !important;
+}
+
+/* Пунктуация (скобки, запятые - приглушенный белый) */
+.token.punctuation {
+    color: #abb2bf !important; 
+}
+
+/* Удаленные участки */
+.token.deleted {
+    color: #e06c75 !important;
+}
+
+/* Числа, Булевы значения, Константы (Оранжевый/Персиковый) */
+.token.number,
+.token.boolean,
+.token.constant,
+.token.symbol,
+.token.property {
+    color: #d19a66 !important;
+}
+
+/* Теги (HTML), Ключевые слова (Красноватый/Розовый) */
+.token.tag,
+.token.selector,
+.token.important,
+.token.atrule,
+.token.keyword,
+.token.builtin {
+    color: #c678dd !important; /* Фиолетовый (как def, return, import) */
+}
+
+/* Строки, Символы, Атрибуты (Зеленый) */
+.token.string,
+.token.char,
+.token.attr-value,
+.token.regex,
+.token.variable {
+    color: #98c379 !important;
+}
+
+/* Имена атрибутов (HTML), Переменные в некоторых языках (Желтоватый) */
+.token.attr-name,
+.token.namespace,
+.token.class-name {
+    color: #e5c07b !important;
+}
+
+/* Функции и Методы (Голубой) */
+.token.function {
+    color: #61afef !important;
+}
+
+/* Операторы (=, +, -, :) */
+.token.operator,
+.token.entity,
+.token.url {
+    color: #56b6c2 !important; /* Бирюзовый */
+}
+
+/* Жирный и курсив */
+.token.bold {
+    font-weight: bold !important;
+}
+.token.italic {
+    font-style: italic !important;
+}
+
+/* 1. ФОН И БАЗОВЫЙ ЦВЕТ ТЕКСТА
+   Используем .tiptap.ProseMirror в начале, чтобы вес селектора был (0,3,1) против (0,2,0) у сайта
+*/
+.tiptap.ProseMirror pre,
+.tiptap.ProseMirror pre[class*="language-"] {
+    background-color: var(--culms-dark-bg-secondary) !important; /* Темный фон One Dark */
+    background: var(--culms-dark-bg-secondary) !important;
+    color: #abb2bf !important;            /* Светлый текст */
+    border-radius: 8px !important;        /* Возвращаем скругление, если пропало */
+    border: 1px solid #3b4048 !important; /* Тонкая рамка для красоты */
+}
+
+/* 2. СБРОС ФОНА У ВНУТРЕННЕГО CODE
+   Это критически важно, чтобы не вылезал серый rgb(32,33,36) поверх нашего фона
+*/
+.tiptap.ProseMirror pre code,
+.tiptap.ProseMirror pre[class*="language-"] code,
+.tiptap.ProseMirror pre[class*="language-"] code[class*="language-"] {
+    background-color: transparent !important;
+    background: transparent !important;
+    color: inherit !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+}
+
+/* 3. ПОДСВЕТКА СИНТАКСИСА (ONE DARK)
+   Везде добавляем .tiptap.ProseMirror перед токеном
+*/
+
+/* Комментарии */
+.tiptap.ProseMirror .token.comment,
+.tiptap.ProseMirror .token.prolog,
+.tiptap.ProseMirror .token.doctype,
+.tiptap.ProseMirror .token.cdata {
+    color: #5c6370 !important;
+    font-style: italic !important;
+}
+
+/* Пунктуация */
+.tiptap.ProseMirror .token.punctuation {
+    color: #abb2bf !important;
+}
+
+/* Числа и константы (Оранжевый) */
+.tiptap.ProseMirror .token.number,
+.tiptap.ProseMirror .token.boolean,
+.tiptap.ProseMirror .token.constant,
+.tiptap.ProseMirror .token.symbol {
+    color: #d19a66 !important;
+}
+
+/* Строки (Зеленый) */
+.tiptap.ProseMirror .token.string,
+.tiptap.ProseMirror .token.char {
+    color: #98c379 !important;
+}
+
+/* Операторы и ключевые слова (Фиолетовый/Синий) */
+.tiptap.ProseMirror .token.operator,
+.tiptap.ProseMirror .token.keyword {
+    color: #c678dd !important;
+}
+
+/* Функции (Синий) */
+.tiptap.ProseMirror .token.function {
+    color: #61afef !important;
+}
+
+/* Имена классов и переменных (Желтый/Красный) */
+.tiptap.ProseMirror .token.class-name,
+.tiptap.ProseMirror .token.variable {
+    color: #e5c07b !important;
+}
+
+/* Теги HTML (Красный) */
+.tiptap.ProseMirror .token.tag,
+.tiptap.ProseMirror .token.deleted {
+    color: #e06c75 !important;
+}
+
+
+
+
 
 /* --- Стили для статусов и строк из tasks_fix.js --- */
 /*BTDEV: don't give a fuck why gemini suggested to add in end of file*/
