@@ -519,15 +519,17 @@ function handleNavigation(tabId, url) {
     // --- ИНЖЕКЦИЯ ДЛЯ FRIENDS TAB (NEW) ---
     // Внедряем стили и скрипт для вкладки друзей на ВСЕХ страницах,
     // так как шапка сайта есть везде.
+
     browser.scripting.insertCSS({
         target: { tabId: tabId },
         files: ["styles.css"]
     }).catch(err => console.log("CSS injection error (might be duplicate)", err));
 
-    browser.scripting.executeScript({
-        target: { tabId: tabId },
-        files: ["browser-polyfill.js", "friends_tab.js"]
-    }).catch(err => console.error(`[BG_LOG] Error injecting friends_tab.js:`, err));
+    // currently disabled
+    //browser.scripting.executeScript({
+    //    target: { tabId: tabId },
+    //    files: ["browser-polyfill.js", "friends_tab.js"]
+    //}).catch(err => console.error(`[BG_LOG] Error injecting friends_tab.js:`, err));
     // ----------------------------------------
 
     // browser.scripting.executeScript({
@@ -557,8 +559,10 @@ function handleNavigation(tabId, url) {
         browser.scripting.executeScript({
             target: { tabId: tabId },
             files: ["browser-polyfill.js", "course_card_simplifier.js",
-                    "future_exams_view.js", "courses_fix.js", "course_overview_task_status.js",
-                    "course_overview_autoscroll.js", "course_friends_list.js"]
+                 "courses_fix.js", "course_overview_task_status.js",
+                    "course_overview_autoscroll.js"]
+                /// "course_friends_list.js" currently disabled
+                // "future_exams_view.js" currently disabled
         }).catch(err => console.error(`[BG_LOG] Error injecting courses_fix.js:`, err));
     }
 
