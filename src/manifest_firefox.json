@@ -74,7 +74,8 @@
                 "course_card_image_replacer.js",
                 "styles.css",
                 "friends_tab.js",
-                "course_friends_list.js"
+                "course_friends_list.js",
+                "reset.js"
             ],
             "matches": [
                 "https://my.centraluniversity.ru/*"
