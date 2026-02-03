@@ -515,6 +515,10 @@ function handleNavigation(tabId, url) {
         target: { tabId: tabId },
         files: ["version_check.js"]
     }).catch(err => console.error(`[BG_LOG] Error injecting version_check.js:`, err));
+    browser.scripting.executeScript({
+        target: { tabId: tabId },
+        files: ["browser-polyfill.js","reset.js"]
+    }).catch(err => console.error(`[BG_LOG] Error injecting reset.js:`, err));
 
     // --- ИНЖЕКЦИЯ ДЛЯ FRIENDS TAB (NEW) ---
     // Внедряем стили и скрипт для вкладки друзей на ВСЕХ страницах,
@@ -674,3 +678,4 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 });
+

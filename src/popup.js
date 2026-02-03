@@ -317,25 +317,47 @@ browser.storage.onChanged.addListener((changes, area) => {
 // Первоначальная инициализация
 refreshToggleStates();
 
-// --- ЛОГИКА СБРОСА ВСЕХ НАСТРОЕК (ФИНАЛЬНАЯ ВЕРСИЯ С ДРУЗЬЯМИ) ---
-
 const resetBtn = document.getElementById('reset-all-settings-btn');
 
 if (resetBtn) {
     resetBtn.addEventListener('click', () => {
-        // 1. Запрашиваем подтверждение
         const confirmed = confirm('Это действие сбросит все настройки:\n- Удалит скрытые курсы и друзей\n- Сбросит порядок курсов\n- Удалит стикер\n- Вернет стандартные настройки\n\nПродолжить?');
         if (!confirmed) return;
 
-        // 2. Дефолтные настройки (переключатели)
+        // 1. Очистка хранилища РАСШИРЕНИЯ (это попап делает сам)
+        browser.storage.local.clear().then(() => {
+            console.log('Extension Local Storage cleared');
+            if (stickerFileInput) stickerFileInput.value = '';
+            loadStickerImage(); 
+        });
+
+        // 2. Очистка хранилища САЙТА (LMS)
+        if (isInsideIframe) {
+            // Вариант А: Мы внутри Iframe -> шлем postMessage родителю
+            // (Родитель - это content.js, который мы обновили в Шаге 1)
+            window.parent.postMessage({ action: 'RESET_LMS_LOCAL_STORAGE_IFRAME' }, '*');
+        } else {
+            // Вариант Б: Мы в обычном меню -> шлем сообщение во вкладку
+            browser.tabs.query({active: true, currentWindow: true}).then(tabs => {
+                if (tabs.length > 0) {
+                    browser.tabs.sendMessage(tabs[0].id, { 
+                        action: 'RESET_LMS_LOCAL_STORAGE_FROM_POPUP' 
+                    }).catch(err => {
+                        console.log("Контент-скрипт не ответил (возможно, страница не загружена полностью):", err);
+                    });
+                }
+            });
+        }
+
+        // 3. Сброс настроек UI и Sync
         const defaultSettings = {
             themeEnabled: false,
             oledEnabled: false,
             autoRenameEnabled: false,
             autoRenameTemplate: 'dz_fi',
             courseOverviewTaskStatusToggle: false,
-            advancedStatementsEnabled: false,      // checked в HTML
-            endOfCourseCalcEnabled: false,         // checked в HTML
+            advancedStatementsEnabled: true,
+            endOfCourseCalcEnabled: true,
             emojiHeartsEnabled: false,
             snowEnabled: false,
             oldCoursesDesignToggle: false,
@@ -345,53 +367,13 @@ if (resetBtn) {
             courseOverviewAutoscrollToggle: false
         };
 
-        // 3. Код для очистки LocalStorage САЙТА (фильтры, скрытые задания, ДРУЗЬЯ)
-        const clearLmsStorageCode = `
-            const keysToRemove = [
-                'cu.lms.actual-student-tasks-custom-filter',
-                'cu.lms.actual-student-tasks-filter',
-                'cu.lms.skipped-tasks',
-                'cu_friends_list'
-            ];
-            keysToRemove.forEach(key => localStorage.removeItem(key));
-            console.log('LMS Storage cleared (Filters & Friends)');
-        `;
-
-        // 4. Очистка хранилища РАСШИРЕНИЯ (Архив, порядок, стикеры, кэш)
-        // browser.storage.local.clear() удаляет всё из раздела Local
-        browser.storage.local.clear().then(() => {
-            console.log('Extension Local Storage cleared');
-            
-            // Сбрасываем инпут и превью картинки, если они есть в DOM
-            if (stickerFileInput) stickerFileInput.value = '';
-            loadStickerImage(); 
-        });
-
-        // 5. Применение сброса в зависимости от контекста (Iframe или Popup)
         if (isInsideIframe) {
-            // --- ВНУТРИ IFRAME ---
-            
-            // А. Пытаемся очистить localStorage родителя (сайта)
-            try {
-                const keysToRemove = [
-                    'cu.lms.actual-student-tasks-custom-filter',
-                    'cu.lms.actual-student-tasks-filter',
-                    'cu.lms.skipped-tasks',
-                    'cu_friends_list'
-                ];
-                keysToRemove.forEach(key => window.parent.localStorage.removeItem(key));
-            } catch (e) {
-                console.error('Ошибка доступа к localStorage родителя:', e);
-            }
-
-            // Б. Отправляем дефолтные настройки в очередь
+            // UI обновление для iframe
             pendingChanges = { ...pendingChanges, ...defaultSettings };
             
-            // В. Обновляем UI
             Object.keys(defaultSettings).forEach(key => {
                 if (toggles[key]) {
                     toggles[key].checked = defaultSettings[key];
-                    // Обновляем доступность зависимых элементов
                     if (key === 'themeEnabled' && toggles.oledEnabled) toggles.oledEnabled.disabled = !defaultSettings[key];
                     if (key === 'advancedStatementsEnabled' && toggles.endOfCourseCalcEnabled) toggles.endOfCourseCalcEnabled.disabled = !defaultSettings[key];
                 }
@@ -400,7 +382,6 @@ if (resetBtn) {
             if (renameTemplateSelect) renameTemplateSelect.value = defaultSettings.autoRenameTemplate;
             if (futureExamsDisplayFormat) futureExamsDisplayFormat.value = defaultSettings.futureExamsDisplayFormat;
             
-            // Скрываем выпадающие блоки
             if (stickerUploadContainer) stickerUploadContainer.style.display = 'none';
             if (autoRenameFormatContainer) autoRenameFormatContainer.style.display = 'none';
             if (futureExamsDisplayContainer) futureExamsDisplayContainer.style.display = 'none';
@@ -408,19 +389,8 @@ if (resetBtn) {
             if (reloadNotice) reloadNotice.style.display = 'block';
 
         } else {
-            // --- ОБЫЧНЫЙ POPUP ---
-
-            // А. Инъекция кода для очистки localStorage сайта
-            browser.tabs.query({active: true, currentWindow: true}).then(tabs => {
-                if (tabs.length > 0) {
-                    browser.tabs.executeScript(tabs[0].id, {
-                        code: clearLmsStorageCode
-                    }).catch(err => console.log("Не удалось очистить localStorage сайта (возможно, открыта не вкладка LMS)", err));
-                }
-            });
-
-            // Б. Сохраняем дефолтные настройки в SYNC (переключатели)
+            // Для обычного popup
             browser.storage.sync.set(defaultSettings);
         }
     });
-}   
+}
