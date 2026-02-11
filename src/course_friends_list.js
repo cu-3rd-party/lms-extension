@@ -72,12 +72,50 @@
             .trim();
     }
 
-    function areCoursesSimilar(pageTitle, subject) {
-        const p = normalize(pageTitle);
-        const s = normalize(subject);
+    function normalizeSubjectName(str) {
+        if (!str) return "";
+        let s = str.toLowerCase();
 
+        // 1. Унификация C++ (превращаем c++, с++, cpp, c ++ в единый токен "cpp")
+        // Это важно сделать ДО разбиения на слова
+        s = s.replace(/[cс]\s*\+\+/g, ' cpp '); 
+
+        // 2. Замена всей пунктуации на пробелы
+        s = s.replace(/[.,:;()[\]]/g, ' '); 
+        s = s.replace(/[—–−-]/g, ' '); 
+
+        // 3. Разбиваем строку на массив слов по любым пробелам
+        const words = s.split(/\s+/);
+
+        // 4. Список слов-паразитов, которые нужно игнорировать при сравнении
+        const stopWords = new Set([
+            'на', 'in', 'of', 'for',                // Предлоги
+            'языке', 'программирования',            // Контекст
+            'часть', 'part', 'level', 'уровень',    // Структура
+            'module', 'модуль', 'course', 'курс'
+        ]);
+
+        // 5. Фильтруем: оставляем слово, только если это не мусор
+        const meaningfulWords = words.filter(w => {
+            const clean = w.trim();
+            return clean.length > 0 && !stopWords.has(clean);
+        });
+
+        // 6. Склеиваем значимые слова обратно
+        return meaningfulWords.join(' ');
+    }
+
+    
+    function areCoursesSimilar(pageTitle, subject) {
+
+        const p = normalizeSubjectName(pageTitle);
+        const s = normalizeSubjectName(subject);
+        console.log(p,s)
         if (!p || !s) return false;
+        // Полное совпадение после очистки
         if (p === s) return true;
+
+        // Вхождение одной строки в другую
         if (p.includes(s) || s.includes(p)) return true;
 
         return false;
@@ -195,7 +233,7 @@
         const header = document.createElement('div');
         header.className = 'cw-header';
         header.innerHTML = `
-            <span style="font-weight: 600; font-size: 14px;">Друзья на курсе (прошлый семестр)</span>
+            <span style="font-weight: 600; font-size: 14px;">Друзья на курсе</span>
             <span style="font-size: 18px; line-height: 1; opacity: 0.7; cursor: pointer;" id="cw-close">×</span>
         `;
         header.style.cssText = `
