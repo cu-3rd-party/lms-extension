@@ -520,9 +520,9 @@ function renderFriendsPage() {
 
                 <div style="margin-top: 15px; padding: 12px; background-color: var(--fr-card-bg); border: 1px solid var(--fr-border); border-radius: 8px; font-size: 13px; line-height: 1.5; color: var(--fr-text-sec);">
                     <strong style="color: var(--fr-text);">⚠️ Ранний доступ:</strong> 
-                    На данный момент есть проблемы с получением пар из Яндекс.Календаря вследствие того, как они заданы университетом. 
-                    Поэтому сейчас предметы отображаются с конца прошлого семестра, а не актуальные. 
-                    <span style="color: var(--fr-text); font-weight: 500;">Занятость же считается на текущую неделю.</span>
+                    На данный момент есть проблемы с получением пар из Яндекс.Календаря вследствие того, как они заданы университетом.
+                    Могут отображаться не все предметы, на которые, на самом деле, записан человек. 
+                    <span style="color: var(--fr-text); font-weight: 500;">По любым багам открывайте issue.</span>
                 </div>
 
             </div>
