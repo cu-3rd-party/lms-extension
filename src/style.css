@@ -11801,6 +11801,38 @@ pre[class*="language-"] ::selection {
 /* 1. ФОН И БАЗОВЫЙ ЦВЕТ ТЕКСТА
    Используем .tiptap.ProseMirror в начале, чтобы вес селектора был (0,3,1) против (0,2,0) у сайта
 */
+
+
+/* --- 0. ГЛОБАЛЬНЫЙ СБРОС ДЛЯ ТЕКСТА ВНУТРИ РЕДАКТОРА --- */
+
+/* Сбрасываем цвета у блочных элементов (P, H1-H6, LI) */
+.tiptap.ProseMirror,
+.tiptap.ProseMirror p,
+.tiptap.ProseMirror h1, .tiptap.ProseMirror h2, .tiptap.ProseMirror h3,
+.tiptap.ProseMirror ul, .tiptap.ProseMirror ol, .tiptap.ProseMirror li,
+.tiptap.ProseMirror blockquote {
+    color: var(--culms-dark-text-primary) !important;
+    background-color: transparent !important; /* На случай если фон задан параграфу */
+}
+
+/* 
+   САМОЕ ВАЖНОЕ: СБРОС ЦВЕТА И ФОНА У SPAN
+   Мы используем :not(), чтобы не сломать подсветку синтаксиса (классы token/language).
+   Добавлено background-color: transparent, чтобы убрать белые полосы.
+*/
+.tiptap.ProseMirror span:not([class*="token"]):not([class*="language"]):not(code) {
+    color: var(--culms-dark-text-primary) !important;
+    background-color: transparent !important; /* Убиваем белый фон из word/google docs */
+    font-family: inherit !important;          /* Убираем "левые" шрифты, если надо */
+}
+
+/* Ссылки (если есть) делаем читаемыми */
+.tiptap.ProseMirror a {
+    color: #61afef !important; /* Или ваш акцентный цвет */
+}
+
+
+
 .tiptap.ProseMirror pre,
 .tiptap.ProseMirror pre[class*="language-"] {
     background-color: var(--culms-dark-bg-secondary) !important; /* Темный фон One Dark */
