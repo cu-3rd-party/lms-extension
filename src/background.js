@@ -133,7 +133,10 @@ const YandexServices = {
             };
             
             const response = await fetch(url, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload),
+                credentials: 'include' // <--- ДОБАВИТЬ ЭТУ СТРОКУ
             });
             const json = await response.json();
             const data = json.models?.[0]?.data;
@@ -348,7 +351,9 @@ const YandexServices = {
             const uid = await YandexServices._getCookie('yandexuid', "https://calendar.yandex.ru");
             if (!uid) throw new Error("Нет авторизации в Яндекс Календаре");
             
-            const response = await fetch(`https://calendar.yandex.ru/?uid=${uid}`);
+            const response = await fetch(`https://calendar.yandex.ru/?uid=${uid}`, {
+                credentials: 'include' // <--- ДОБАВИТЬ ЭТУ СТРОКУ
+            });
             const text = await response.text();
             
             const matchCkey = text.match(/"ckey"\s*:\s*"([^"]+)"/);
@@ -390,7 +395,8 @@ const YandexServices = {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                credentials: 'include' // <--- ДОБАВИТЬ ЭТУ СТРОКУ
             });
             
             if (!response.ok) throw new Error(`Network error: ${response.status}`);
@@ -465,7 +471,10 @@ const YandexServices = {
             };
 
             const response = await fetch(url, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload),
+                credentials: 'include' // <--- ДОБАВИТЬ ЭТУ СТРОКУ
             });
 
             if (!response.ok) throw new Error(`Network error: ${response.status}`);
