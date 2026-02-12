@@ -6,17 +6,12 @@
     "permissions": [
         "storage",
         "scripting",
-        "webNavigation",
-        "cookies"
+        "webNavigation"
     ],
     "host_permissions": [
         "https://my.centraluniversity.ru/*",
         "https://id.centraluniversity.ru/*",
-        "https://gist.github.com/*",
-        "https://mail.yandex.ru/*",
-        "https://calendar.yandex.ru/*",
-        "https://passport.yandex.ru/*" 
-
+        "https://gist.github.com/*"
     ],
     "background": {
         "service_worker": "background.js"
