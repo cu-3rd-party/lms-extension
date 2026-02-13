@@ -19,7 +19,10 @@
 
     ],
     "background": {
-        "service_worker": "background.js"
+        "scripts": [
+            "browser-polyfill.js",
+            "background.js"
+        ]
     },
     "action": {
         "default_popup": "popup.html"
@@ -87,5 +90,13 @@
     ],
     "icons": {
         "128": "icon128.png"
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "cu-lms-enhancer@centraluniversity.ru"
+        },
+        "data_collection_permissions": {
+        "required": ["none"]
+        }
     }
 }
