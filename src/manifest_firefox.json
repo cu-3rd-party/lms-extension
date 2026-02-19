@@ -1,102 +1,90 @@
 {
-    "manifest_version": 3,
-    "name": "CU LMS Enhancer",
-    "version": "1.8",
-    "description": "Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий",
-    "permissions": [
-        "storage",
-        "scripting",
-        "webNavigation",
-        "cookies"
-    ],
-    "host_permissions": [
+  "manifest_version": 3,
+  "name": "CU LMS Enhancer",
+  "version": "1.8",
+  "description": "Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий",
+  "permissions": ["storage", "scripting", "webNavigation", "cookies"],
+  "host_permissions": [
+    "https://my.centraluniversity.ru/*",
+    "https://id.centraluniversity.ru/*",
+    "https://gist.github.com/*",
+    "https://mail.yandex.ru/*",
+    "https://calendar.yandex.ru/*",
+    "https://passport.yandex.ru/*"
+  ],
+  "background": {
+    "scripts": ["browser-polyfill.js", "background.js"]
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://my.centraluniversity.ru/learn/courses/view/*"],
+      "css": ["preload.css"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
         "https://my.centraluniversity.ru/*",
         "https://id.centraluniversity.ru/*",
-        "https://gist.github.com/*",
-        "https://mail.yandex.ru/*",
-        "https://calendar.yandex.ru/*",
-        "https://passport.yandex.ru/*" 
-
-    ],
-    "background": {
-        "scripts": [
-            "browser-polyfill.js",
-            "background.js"
-        ]
+        "https://gist.github.com/*"
+      ],
+      "js": ["debug_utils.js"],
+      "run_at": "document_start"
     },
-    "action": {
-        "default_popup": "popup.html"
-    },
-    "content_scripts": [
-        {
-            "matches": [
-                "https://my.centraluniversity.ru/*",
-                "https://id.centraluniversity.ru/*",
-                "https://gist.github.com/*"
-            ],
-            "js": [
-                "debug_utils.js"
-            ],
-            "run_at": "document_start"
-        },
-        {
-            "matches": [
-                "https://id.centraluniversity.ru/*"
-            ],
-            "js": [
-                "fix_email_autocomplete.js"
-            ],
-            "run_at": "document_idle"
-        }
-    ],
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "browser-polyfill.js",
-                "icons/*.svg",
-                "icons/*.png",
-                "course_card_simplifier.js",
-                "future_exams_view.js",
-                "course_overview_task_status.js",
-                "tasks_fix.js",
-                "courses_fix.js",
-                "debug_utils.js",
-                "instant_doc_view_fix.js",
-                "emoji_swap.js",
-                "style.css",
-                "style_oled.css",
-                "dark_theme.js",
-                "archive-statements.js",
-                "plugin_page_loader.js",
-                "metrics_statements.js",
-                "popup.html",
-                "popup.js",
-                "gist_dark.css",
-                "popup_dark.css",
-                "rename_hw.js",
-                "version_check.js",
-                "advanced_statements.js",
-                "snow.js",
-                "course_card_image_replacer.js",
-                "styles.css",
-                "friends_tab.js",
-                "course_friends_list.js",
-                "reset.js"
-            ],
-            "matches": [
-                "https://my.centraluniversity.ru/*"
-            ]
-        }
-    ],
-    "icons": {
-        "128": "icon128.png"
-    },
-    "browser_specific_settings": {
-        "gecko": {
-            "id": "cu-lms-enhancer@centraluniversity.ru"
-        },
-        "data_collection_permissions": {
-        "required": ["none"]
-        }
+    {
+      "matches": ["https://id.centraluniversity.ru/*"],
+      "js": ["fix_email_autocomplete.js"],
+      "run_at": "document_idle"
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "browser-polyfill.js",
+        "icons/*.svg",
+        "icons/*.png",
+        "course_card_simplifier.js",
+        "future_exams_view.js",
+        "course_overview_task_status.js",
+        "tasks_fix.js",
+        "courses_fix.js",
+        "debug_utils.js",
+        "instant_doc_view_fix.js",
+        "emoji_swap.js",
+        "style.css",
+        "style_oled.css",
+        "dark_theme.js",
+        "archive-statements.js",
+        "plugin_page_loader.js",
+        "metrics_statements.js",
+        "popup.html",
+        "popup.js",
+        "gist_dark.css",
+        "popup_dark.css",
+        "rename_hw.js",
+        "version_check.js",
+        "advanced_statements.js",
+        "snow.js",
+        "course_card_image_replacer.js",
+        "styles.css",
+        "friends_tab.js",
+        "course_friends_list.js",
+        "reset.js"
+      ],
+      "matches": ["https://my.centraluniversity.ru/*"]
+    }
+  ],
+  "icons": {
+    "128": "icon128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "cu-lms-enhancer@centraluniversity.ru"
+    },
+    "data_collection_permissions": {
+      "required": ["none"]
+    }
+  }
 }
