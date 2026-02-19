@@ -1,33 +1,27 @@
 // courses_fix.js (финальная версия с поддержкой actual и archived страниц)
 
 // Polyfill to handle browser namespace differences (Chrome uses 'chrome', Firefox uses 'browser')
-if (typeof browser === 'undefined') {
+if (typeof browser === "undefined") {
     var browser = chrome;
 }
 
-if (typeof window.culmsCourseFixInitialized === 'undefined') {
+if (typeof window.culmsCourseFixInitialized === "undefined") {
     window.culmsCourseFixInitialized = true;
 
-    'use strict';
+    ("use strict");
     let currentUrl = location.href;
     let previousUrl = null;
 
     (async function () {
-        const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
+        const designData = await browser.storage.sync.get(
+            "oldCoursesDesignToggle",
+        );
         const useOldDesign = !!designData.oldCoursesDesignToggle;
 
         if (useOldDesign) {
-            const style = document.createElement('style');
-            style.id = 'course-archiver-preload-style';
+            const style = document.createElement("style");
+            style.id = "course-archiver-preload-style";
             style.textContent = `
-              ul.course-list {
-                  opacity: 0 !important;
-                  visibility: hidden !important;
-              }
-              ul.course-list.course-archiver-ready {
-                  opacity: 1 !important;
-                  visibility: visible !important
-              }
               li.course-list__item {
                   cursor: grab;
                   user-select: none;
@@ -41,32 +35,36 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         }
     })();
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', main);
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", main);
     } else {
         main();
     }
 
     function main() {
         const reloadKeys = [
-          'oldCoursesDesignToggle',
-          'futureExamsViewToggle',
-          'courseOverviewTaskStatusToggle',
-          'futureExamsDisplayFormat'
+            "oldCoursesDesignToggle",
+            "futureExamsViewToggle",
+            "courseOverviewTaskStatusToggle",
+            "futureExamsDisplayFormat",
         ];
         browser.storage.onChanged.addListener((changes) => {
-            if (reloadKeys.some(key => key in changes)) {
+            if (reloadKeys.some((key) => key in changes)) {
                 window.location.reload();
             }
 
             if (changes.archivedCourseIds) {
-                window.cuLmsLog('Course Archiver: archivedCourseIds changed, re-rendering.');
+                window.cuLmsLog(
+                    "Course Archiver: archivedCourseIds changed, re-rendering.",
+                );
                 processCourses();
             }
 
             if (changes.themeEnabled) {
                 const isDark = changes.themeEnabled.newValue;
-                window.cuLmsLog('Course Archiver: theme changed -> updating icon colors');
+                window.cuLmsLog(
+                    "Course Archiver: theme changed -> updating icon colors",
+                );
                 updateArchiveButtonColors(isDark);
             }
         });
@@ -75,14 +73,15 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             if (location.href !== currentUrl) {
                 previousUrl = currentUrl;
                 currentUrl = location.href;
-                console.log('Course Archiver: URL changed, re-running logic.');
+                console.log("Course Archiver: URL changed, re-running logic.");
                 processCourses();
 
                 const currentPath = window.location.pathname;
                 // ИЗМЕНЕНИЕ 1: Добавлена поддержка (?:actual|archived)
-                const isOnIndividualCoursePage = /\/view\/(?:actual|archived)\/\d+/.test(currentPath);
+                const isOnIndividualCoursePage =
+                    /\/view\/(?:actual|archived)\/\d+/.test(currentPath);
                 if (isOnIndividualCoursePage) {
-                   processInvidualCoursePage();
+                    processInvidualCoursePage();
                 }
             }
         });
@@ -92,79 +91,131 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
 
         const currentPath = window.location.pathname;
         // ИЗМЕНЕНИЕ 2: Добавлена поддержка (?:actual|archived) при инициализации
-        const isOnIndividualCoursePage = /\/view\/(?:actual|archived)\/\d+/.test(currentPath);
+        const isOnIndividualCoursePage =
+            /\/view\/(?:actual|archived)\/\d+/.test(currentPath);
         if (isOnIndividualCoursePage) {
-          processInvidualCoursePage();
+            processInvidualCoursePage();
         }
     }
 
     function updateArchiveButtonColors(isDark) {
-        const color = isDark ? '#FFFFFF' : '#181a1c';
-        document.querySelectorAll('.archive-button-container span, .unarchive-button span').forEach(span => {
-            span.style.setProperty('background-color', color, 'important');
-        });
+        document
+            .querySelectorAll(".archive-action-button, .unarchive-button")
+            .forEach((button) => {
+                applyArchiveButtonStyles(button, isDark);
+            });
+    }
+
+    function getArchiveButtonBackground(isDarkTheme) {
+        return isDarkTheme
+            ? "var(--culms-dark-bg-secondary, #3a3d42)"
+            : "var(--neutral-no-opaque, #e6e9ef)";
+    }
+
+    function applyArchiveButtonStyles(button, isDarkTheme) {
+        const buttonBackground = getArchiveButtonBackground(isDarkTheme);
+        button.style.setProperty("background", buttonBackground, "important");
+        button.style.setProperty(
+            "background-color",
+            buttonBackground,
+            "important",
+        );
+        button.style.setProperty(
+            "border",
+            `1px solid ${buttonBackground}`,
+            "important",
+        );
+        button.style.setProperty("border-color", buttonBackground, "important");
+        button.style.setProperty("opacity", "1", "important");
+
+        const icon = button.querySelector("img");
+        if (icon) {
+            icon.style.setProperty(
+                "filter",
+                isDarkTheme ? "brightness(0) invert(1)" : "none",
+                "important",
+            );
+        }
     }
 
     async function processCourses() {
         try {
             const currentPath = window.location.pathname;
-            const isOnArchivedPage = currentPath.includes('/courses/view/archived');
+            const isOnArchivedPage = currentPath.includes(
+                "/courses/view/archived",
+            );
 
             if (isOnArchivedPage) {
                 await processArchivedCoursesTable();
             } else {
-                const courseList = await waitForElement('ul.course-list', 15000);
+                const courseList = await waitForElement(
+                    "ul.course-list",
+                    15000,
+                );
                 await updateExistingActiveCourses(courseList);
                 await applyCustomOrder(courseList);
                 setupDragAndDrop(courseList);
+                courseList.classList.add("course-archiver-ready");
             }
         } catch (e) {
-            window.cuLmsLog("Course Archiver: Not a course page, or content failed to load in time.", e);
+            window.cuLmsLog(
+                "Course Archiver: Not a course page, or content failed to load in time.",
+                e,
+            );
+            const courseList = document.querySelector("ul.course-list");
+            if (courseList) {
+                courseList.classList.add("course-archiver-ready");
+            }
         }
     }
 
     async function processArchivedCoursesTable() {
-        const tbody = await waitForElement('table.cu-table tbody', 15000);
+        const tbody = await waitForElement("table.cu-table tbody", 15000);
         if (tbody.dataset.processed) return;
-        tbody.dataset.processed = 'true';
+        tbody.dataset.processed = "true";
 
         const allApiCourses = await fetchAllCoursesData();
         const storedArchivedCourseIds = await getArchivedCoursesFromStorage();
-        const { themeEnabled: isDarkTheme } = await browser.storage.sync.get('themeEnabled');
+        const { themeEnabled: isDarkTheme } =
+            await browser.storage.sync.get("themeEnabled");
 
-        const courseNameMap = new Map(allApiCourses.map(course => [course.name.trim(), course]));
+        const courseNameMap = new Map(
+            allApiCourses.map((course) => [course.name.trim(), course]),
+        );
         const displayedCourseNames = new Set();
-        
-        tbody.querySelectorAll('tr.course-row').forEach(row => {
-            const nameElement = row.querySelector('.name-cell span');
+
+        tbody.querySelectorAll("tr.course-row").forEach((row) => {
+            const nameElement = row.querySelector(".name-cell span");
             if (!nameElement) return;
             const courseName = nameElement.textContent.trim();
             displayedCourseNames.add(courseName);
             const courseData = courseNameMap.get(courseName);
             if (courseData) {
-                row.setAttribute('data-course-id', courseData.id);
+                row.setAttribute("data-course-id", courseData.id);
                 addUnarchiveButtonToRow(row, courseData.id, !!isDarkTheme);
             }
         });
 
-        const coursesToAdd = allApiCourses.filter(course =>
-            storedArchivedCourseIds.has(course.id) && !displayedCourseNames.has(course.name.trim())
+        const coursesToAdd = allApiCourses.filter(
+            (course) =>
+                storedArchivedCourseIds.has(course.id) &&
+                !displayedCourseNames.has(course.name.trim()),
         );
 
-        coursesToAdd.forEach(courseData => {
+        coursesToAdd.forEach((courseData) => {
             const newRow = createArchivedCourseRow(courseData);
             tbody.appendChild(newRow);
             addUnarchiveButtonToRow(newRow, courseData.id, !!isDarkTheme);
         });
     }
-    
+
     function createArchivedCourseRow(courseData) {
-        const tr = document.createElement('tr');
-        tr.className = 'course-row ng-star-inserted';
-        tr.setAttribute('tuitr', '');
-        tr.setAttribute('data-course-id', courseData.id);
-        tr.setAttribute('tabindex', '0');
-        tr.style.setProperty('--t-row-height', '48px');
+        const tr = document.createElement("tr");
+        tr.className = "course-row ng-star-inserted";
+        tr.setAttribute("tuitr", "");
+        tr.setAttribute("data-course-id", courseData.id);
+        tr.setAttribute("tabindex", "0");
+        tr.style.setProperty("--t-row-height", "48px");
 
         // Добавляем _nghost атрибут для точного соответствия стилям
         tr.innerHTML = `
@@ -178,118 +229,136 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                 </div>
             </td>
         `;
-        tr.addEventListener('click', (e) => {
-            if (e.target.closest('.unarchive-button')) return;
+        tr.addEventListener("click", (e) => {
+            if (e.target.closest(".unarchive-button")) return;
             window.location.href = `/learn/courses/view/actual/${courseData.id}`;
         });
-        tr.style.cursor = 'pointer';
+        tr.style.cursor = "pointer";
         return tr;
     }
 
     function addUnarchiveButtonToRow(row, courseId, isDarkTheme) {
-        const nameCell = row.querySelector('.name-cell');
-        if (!nameCell || nameCell.querySelector('.unarchive-button')) return;
+        const nameCell = row.querySelector(".name-cell");
+        if (!nameCell || nameCell.querySelector(".unarchive-button")) return;
 
-        nameCell.style.display = 'flex';
-        nameCell.style.justifyContent = 'flex-start';
-        nameCell.style.alignItems = 'center';
-        
-        const button = document.createElement('button');
-        button.className = 'unarchive-button';
-        button.style.cssText = 'background: none; border: none; padding: 0; cursor: pointer; line-height: 0; margin-right: 16px; flex-shrink: 0;';
+        nameCell.style.display = "flex";
+        nameCell.style.justifyContent = "flex-start";
+        nameCell.style.alignItems = "center";
 
-        const iconUrl = browser.runtime.getURL('icons/unarchive.svg');
-        const iconColor = isDarkTheme ? '#FFFFFF' : '#181a1c';
+        const button = document.createElement("button");
+        button.className = "unarchive-button";
+        button.style.cssText =
+            "border-radius: 10px; padding: 6px; cursor: pointer; line-height: 0; margin-right: 16px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;";
+        applyArchiveButtonStyles(button, isDarkTheme);
+
+        const iconUrl = "/learn/assets/cu/icons/cuIconArchive.svg";
 
         button.innerHTML = `
-          <span style="display: inline-block; width: 24px; height: 24px; mask-image: url(${iconUrl}); -webkit-mask-image: url(${iconUrl}); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; background-color: ${iconColor} !important;"></span>
+                    <img src="${iconUrl}" alt="unarchive" width="22" height="22" style="display: block;"/>
         `;
 
-        button.addEventListener('click', async (event) => {
+        button.addEventListener("click", async (event) => {
             event.preventDefault();
             event.stopPropagation();
-            
-            const currentArchivedCourseIds = await getArchivedCoursesFromStorage();
+
+            const currentArchivedCourseIds =
+                await getArchivedCoursesFromStorage();
             if (currentArchivedCourseIds.has(courseId)) {
                 currentArchivedCourseIds.delete(courseId);
                 await setArchivedCoursesInStorage(currentArchivedCourseIds);
-                row.style.display = 'none';
+                row.style.display = "none";
             }
         });
-        
-        const spanElement = nameCell.querySelector('span');
+
+        const spanElement = nameCell.querySelector("span");
         if (spanElement) {
             nameCell.insertBefore(button, spanElement);
         } else {
             nameCell.prepend(button);
         }
     }
-    
+
     async function updateExistingActiveCourses(courseList) {
         const allApiCourses = await fetchAllCoursesData();
         const storedArchivedCourseIds = await getArchivedCoursesFromStorage();
-        const { themeEnabled: isDarkTheme } = await browser.storage.sync.get('themeEnabled');
+        const { themeEnabled: isDarkTheme } =
+            await browser.storage.sync.get("themeEnabled");
 
-        const courseNameMap = new Map(allApiCourses.map(course => [course.name.trim(), course]));
-        const normalizeEmoji = str => str.replace(/💙/g, '🔵').replace(/❤️/g, '🔴').replace(/🖤/g, '⚫️');
+        const courseNameMap = new Map(
+            allApiCourses.map((course) => [course.name.trim(), course]),
+        );
+        const normalizeEmoji = (str) =>
+            str.replace(/💙/g, "🔵").replace(/❤️/g, "🔴").replace(/🖤/g, "⚫️");
 
-        for (const card of courseList.querySelectorAll('li.course-list__item')) {
-            const nameElement = card.querySelector('.course-name.font-text-s-bold');
+        for (const card of courseList.querySelectorAll(
+            "li.course-list__item",
+        )) {
+            const nameElement = card.querySelector(
+                ".course-name.font-text-s-bold",
+            );
             if (!nameElement) continue;
-            const courseData = courseNameMap.get(normalizeEmoji(nameElement.textContent.trim()));
+            const courseData = courseNameMap.get(
+                normalizeEmoji(nameElement.textContent.trim()),
+            );
             if (!courseData) continue;
-            
+
             const courseId = courseData.id;
-            card.setAttribute('data-course-id', courseId);
-            
+            card.setAttribute("data-course-id", courseId);
+
             const isLocallyArchived = storedArchivedCourseIds.has(courseId);
-            card.style.display = isLocallyArchived ? 'none' : '';
+            card.style.display = isLocallyArchived ? "none" : "";
             if (!isLocallyArchived) {
-                addOrUpdateButton(card, courseId, isLocallyArchived, !!isDarkTheme);
+                addOrUpdateButton(
+                    card,
+                    courseId,
+                    isLocallyArchived,
+                    !!isDarkTheme,
+                );
             }
         }
     }
-    
+
     function addOrUpdateButton(li, courseId, isLocallyArchived, isDarkTheme) {
-        const imageAreaContainer = li.querySelector('div.course-card');
+        const imageAreaContainer = li.querySelector("div.course-card");
         if (!imageAreaContainer) return;
 
-        imageAreaContainer.style.position = 'relative';
-        let buttonContainer = li.querySelector('.archive-button-container');
+        imageAreaContainer.style.position = "relative";
+        let buttonContainer = li.querySelector(".archive-button-container");
         if (!buttonContainer) {
-            buttonContainer = document.createElement('div');
-            buttonContainer.className = 'archive-button-container';
+            buttonContainer = document.createElement("div");
+            buttonContainer.className = "archive-button-container";
             imageAreaContainer.appendChild(buttonContainer);
         }
         buttonContainer.style.cssText = `position: absolute; right: 8px; bottom: 4px; z-index: 2;`;
-        
-        const iconUrl = isLocallyArchived
-            ? browser.runtime.getURL('icons/unarchive.svg')
-            : browser.runtime.getURL('icons/archive.svg');
-        const iconColor = isDarkTheme ? '#FFFFFF' : '#181a1c';
-        
+
+        const iconUrl = "/learn/assets/cu/icons/cuIconArchive.svg";
+
         buttonContainer.innerHTML = `
-            <button style="background: none; border: none; padding: 0; cursor: pointer; line-height: 0;">
-              <span style="display: inline-block; width: 24px; height: 24px; mask-image: url(${iconUrl}); -webkit-mask-image: url(${iconUrl}); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; background-color: ${iconColor} !important;"></span>
+                        <button class="archive-action-button" style="border-radius: 10px; padding: 6px; cursor: pointer; line-height: 0; display: inline-flex; align-items: center; justify-content: center;">
+                            <img src="${iconUrl}" alt="archive" width="22" height="22" style="display: block;"/>
             </button>
         `;
 
-        buttonContainer.querySelector('button').addEventListener('click', async (event) => {
+        const archiveButton = buttonContainer.querySelector("button");
+        applyArchiveButtonStyles(archiveButton, isDarkTheme);
+
+        archiveButton.addEventListener("click", async (event) => {
             event.preventDefault();
             event.stopPropagation();
-            const currentArchivedCourseIds = await getArchivedCoursesFromStorage();
+            const currentArchivedCourseIds =
+                await getArchivedCoursesFromStorage();
             if (currentArchivedCourseIds.has(courseId)) {
                 currentArchivedCourseIds.delete(courseId);
             } else {
                 currentArchivedCourseIds.add(courseId);
             }
             await setArchivedCoursesInStorage(currentArchivedCourseIds);
-            li.style.display = 'none';
+            li.style.display = "none";
         });
     }
 
     async function getCustomOrder() {
-        const { courseOrder } = await browser.storage.local.get('courseOrder');
+        const { courseOrder } = await browser.storage.local.get("courseOrder");
         return courseOrder || [];
     }
 
@@ -302,21 +371,23 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         const customOrder = await getCustomOrder();
         const courses = Array.from(courseList.children);
         const courseMap = new Map();
-        courses.forEach(course => {
-            const id = course.getAttribute('data-course-id');
+        courses.forEach((course) => {
+            const id = course.getAttribute("data-course-id");
             if (id) courseMap.set(id, course);
         });
 
         if (customOrder.length === 0) {
-            const initialOrder = courses.map(course => course.getAttribute('data-course-id')).filter(Boolean);
+            const initialOrder = courses
+                .map((course) => course.getAttribute("data-course-id"))
+                .filter(Boolean);
             if (initialOrder.length > 0) await saveCustomOrder(initialOrder);
             return;
         }
-        
+
         const finalOrder = [];
         const fragment = document.createDocumentFragment();
 
-        customOrder.forEach(courseId => {
+        customOrder.forEach((courseId) => {
             if (courseMap.has(courseId)) {
                 fragment.appendChild(courseMap.get(courseId));
                 finalOrder.push(courseId);
@@ -329,7 +400,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             finalOrder.push(id);
         });
 
-        courseList.innerHTML = '';
+        courseList.innerHTML = "";
         courseList.appendChild(fragment);
         await saveCustomOrder(finalOrder);
     }
@@ -338,21 +409,24 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
         if (!courseList) return;
         let draggedElement = null;
 
-        const handleDragStart = function(e) {
+        const handleDragStart = function (e) {
             draggedElement = this;
-            this.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', this.getAttribute('data-course-id'));
+            this.classList.add("dragging");
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData(
+                "text/plain",
+                this.getAttribute("data-course-id"),
+            );
         };
-        const handleDragEnd = function() {
-            this.classList.remove('dragging');
+        const handleDragEnd = function () {
+            this.classList.remove("dragging");
             draggedElement = null;
             const newOrder = Array.from(courseList.children)
-                .map(item => item.getAttribute('data-course-id'))
+                .map((item) => item.getAttribute("data-course-id"))
                 .filter(Boolean);
             saveCustomOrder(newOrder);
         };
-        const handleDragOver = function(e) {
+        const handleDragOver = function (e) {
             e.preventDefault();
             if (!draggedElement || this === draggedElement) return;
             const rect = this.getBoundingClientRect();
@@ -364,45 +438,53 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
             }
         };
 
-        const cards = courseList.querySelectorAll('li.course-list__item');
-        cards.forEach(card => {
+        const cards = courseList.querySelectorAll("li.course-list__item");
+        cards.forEach((card) => {
             card.draggable = true;
-            card.removeEventListener('dragstart', handleDragStart);
-            card.addEventListener('dragstart', handleDragStart);
-            card.removeEventListener('dragend', handleDragEnd);
-            card.addEventListener('dragend', handleDragEnd);
-            card.removeEventListener('dragover', handleDragOver);
-            card.addEventListener('dragover', handleDragOver);
+            card.removeEventListener("dragstart", handleDragStart);
+            card.addEventListener("dragstart", handleDragStart);
+            card.removeEventListener("dragend", handleDragEnd);
+            card.addEventListener("dragend", handleDragEnd);
+            card.removeEventListener("dragover", handleDragOver);
+            card.addEventListener("dragover", handleDragOver);
         });
     }
 
     async function processInvidualCoursePage() {
-      try {
-          await processFutureExams();
-          await processCourseOverviewTaskStatus();
-          
-          // ИЗМЕНЕНИЕ 3: Теперь скролл работает, даже если пришли из списка архива
-          const activeCoursesPathRegex = /^\/learn\/courses\/view\/(?:actual|archived)$/;
-          if (previousUrl) {
-            const previousPath = new URL(previousUrl).pathname;
-            if (activeCoursesPathRegex.test(previousPath)) {
+        try {
+            await processFutureExams();
+            await processCourseOverviewTaskStatus();
+
+            // ИЗМЕНЕНИЕ 3: Теперь скролл работает, даже если пришли из списка архива
+            const activeCoursesPathRegex =
+                /^\/learn\/courses\/view\/(?:actual|archived)$/;
+            if (previousUrl) {
+                const previousPath = new URL(previousUrl).pathname;
+                if (activeCoursesPathRegex.test(previousPath)) {
+                    await processCourseOverviewAutoscroll();
+                }
+            } else {
                 await processCourseOverviewAutoscroll();
             }
-          } else {
-            await processCourseOverviewAutoscroll();
-          }
-      } catch (e) {
-          window.cuLmsLog("Error processing individual course page", e);
-      }
+        } catch (e) {
+            window.cuLmsLog("Error processing individual course page", e);
+        }
     }
 
     async function processFutureExams() {
         try {
-            const { futureExamsViewToggle } = await browser.storage.sync.get('futureExamsViewToggle');
-            const { futureExamsDisplayFormat } = await browser.storage.sync.get('futureExamsDisplayFormat');
+            const { futureExamsViewToggle } = await browser.storage.sync.get(
+                "futureExamsViewToggle",
+            );
+            const { futureExamsDisplayFormat } = await browser.storage.sync.get(
+                "futureExamsDisplayFormat",
+            );
 
-            if (!!futureExamsViewToggle && typeof viewFutureExams === 'function') {
-                await viewFutureExams(futureExamsDisplayFormat || 'date');
+            if (
+                !!futureExamsViewToggle &&
+                typeof viewFutureExams === "function"
+            ) {
+                await viewFutureExams(futureExamsDisplayFormat || "date");
             }
         } catch (e) {
             console.log("Something went wrong with future exams", e);
@@ -411,60 +493,94 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
 
     async function processCourseOverviewTaskStatus() {
         try {
-            const { courseOverviewTaskStatusToggle } = await browser.storage.sync.get('courseOverviewTaskStatusToggle');
-            if (!!courseOverviewTaskStatusToggle && typeof activateCourseOverviewTaskStatus === 'function') {
+            const { courseOverviewTaskStatusToggle } =
+                await browser.storage.sync.get(
+                    "courseOverviewTaskStatusToggle",
+                );
+            if (
+                !!courseOverviewTaskStatusToggle &&
+                typeof activateCourseOverviewTaskStatus === "function"
+            ) {
                 await activateCourseOverviewTaskStatus();
             }
         } catch (e) {
-            console.log("Something went wrong with course overview task status", e);
+            console.log(
+                "Something went wrong with course overview task status",
+                e,
+            );
         }
     }
 
     async function processCourseOverviewAutoscroll() {
         try {
-            const { courseOverviewAutoscrollToggle } = await browser.storage.sync.get('courseOverviewAutoscrollToggle');
-            if (!!courseOverviewAutoscrollToggle && typeof activateCourseOverviewAutoscroll === 'function') {
+            const { courseOverviewAutoscrollToggle } =
+                await browser.storage.sync.get(
+                    "courseOverviewAutoscrollToggle",
+                );
+            if (
+                !!courseOverviewAutoscrollToggle &&
+                typeof activateCourseOverviewAutoscroll === "function"
+            ) {
                 await activateCourseOverviewAutoscroll();
             }
         } catch (e) {
-            console.log("Something went wrong with course overview task status", e);
+            console.log(
+                "Something went wrong with course overview task status",
+                e,
+            );
         }
     }
 
     async function fetchAllCoursesData() {
         try {
-            const API_BASE_URL = 'https://my.centraluniversity.ru/api/micro-lms';
+            const API_BASE_URL =
+                "https://my.centraluniversity.ru/api/micro-lms";
             const [activeResponse, archivedResponse] = await Promise.all([
-                fetch(`${API_BASE_URL}/courses/student?limit=10000&state=published`),
-                fetch(`${API_BASE_URL}/courses/student?limit=10000&state=archived`)
+                fetch(
+                    `${API_BASE_URL}/courses/student?limit=10000&state=published`,
+                ),
+                fetch(
+                    `${API_BASE_URL}/courses/student?limit=10000&state=archived`,
+                ),
             ]);
-            if (!activeResponse.ok || !archivedResponse.ok) throw new Error('HTTP error!');
+            if (!activeResponse.ok || !archivedResponse.ok)
+                throw new Error("HTTP error!");
             const activeData = await activeResponse.json();
             const archivedData = await archivedResponse.json();
             const allCoursesMap = new Map();
-            (activeData.items || []).forEach(c => allCoursesMap.set(c.id, { ...c, isArchived: false }));
-            (archivedData.items || []).forEach(c => allCoursesMap.set(c.id, { ...c, isArchived: true }));
+            (activeData.items || []).forEach((c) =>
+                allCoursesMap.set(c.id, { ...c, isArchived: false }),
+            );
+            (archivedData.items || []).forEach((c) =>
+                allCoursesMap.set(c.id, { ...c, isArchived: true }),
+            );
             return Array.from(allCoursesMap.values());
         } catch (error) {
-            window.cuLmsLog(`Course Archiver: Failed to fetch all courses:`, error);
+            window.cuLmsLog(
+                `Course Archiver: Failed to fetch all courses:`,
+                error,
+            );
             return [];
         }
     }
 
     async function getArchivedCoursesFromStorage() {
-        const { archivedCourseIds } = await browser.storage.local.get('archivedCourseIds');
+        const { archivedCourseIds } =
+            await browser.storage.local.get("archivedCourseIds");
         return new Set(archivedCourseIds || []);
     }
 
     async function setArchivedCoursesInStorage(archivedCourseIds) {
-        await browser.storage.local.set({ archivedCourseIds: Array.from(archivedCourseIds) });
+        await browser.storage.local.set({
+            archivedCourseIds: Array.from(archivedCourseIds),
+        });
     }
 
     function waitForElement(selector, timeout = 10000) {
         return new Promise((resolve, reject) => {
             let element = document.querySelector(selector);
             if (element) return resolve(element);
-            
+
             const observer = new MutationObserver(() => {
                 element = document.querySelector(selector);
                 if (element) {
@@ -472,21 +588,32 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
                     resolve(element);
                 }
             });
-            
+
             observer.observe(document.body, { childList: true, subtree: true });
-            
+
             setTimeout(() => {
                 observer.disconnect();
                 element = document.querySelector(selector);
                 if (element) resolve(element);
-                else reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+                else
+                    reject(
+                        new Error(
+                            `Element ${selector} not found within ${timeout}ms`,
+                        ),
+                    );
             }, timeout);
         });
     }
 
     function escapeHtml(text) {
-        if (text === null || text === undefined) return '';
-        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-        return String(text).replace(/[&<>"']/g, m => map[m]);
+        if (text === null || text === undefined) return "";
+        const map = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;",
+        };
+        return String(text).replace(/[&<>"']/g, (m) => map[m]);
     }
 }
