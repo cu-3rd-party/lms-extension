@@ -3,7 +3,12 @@
   "name": "CU LMS Enhancer",
   "version": "1.8.4",
   "description": "Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий",
-  "permissions": ["storage", "scripting", "webNavigation", "cookies"],
+  "permissions": [
+    "storage",
+    "scripting",
+    "webNavigation",
+    "cookies"
+  ],
   "host_permissions": [
     "https://my.centraluniversity.ru/*",
     "https://id.centraluniversity.ru/*",
@@ -13,15 +18,22 @@
     "https://passport.yandex.ru/*"
   ],
   "background": {
-    "scripts": ["browser-polyfill.js", "background.js"]
+    "scripts": [
+      "browser-polyfill.js",
+      "background.js"
+    ]
   },
   "action": {
     "default_popup": "popup.html"
   },
   "content_scripts": [
     {
-      "matches": ["https://my.centraluniversity.ru/learn/courses/view/*"],
-      "css": ["preload.css"],
+      "matches": [
+        "https://my.centraluniversity.ru/learn/courses/view/*"
+      ],
+      "css": [
+        "preload.css"
+      ],
       "run_at": "document_start"
     },
     {
@@ -30,12 +42,18 @@
         "https://id.centraluniversity.ru/*",
         "https://gist.github.com/*"
       ],
-      "js": ["debug_utils.js"],
+      "js": [
+        "debug_utils.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://id.centraluniversity.ru/*"],
-      "js": ["fix_email_autocomplete.js"],
+      "matches": [
+        "https://id.centraluniversity.ru/*"
+      ],
+      "js": [
+        "fix_email_autocomplete.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -73,7 +91,9 @@
         "course_friends_list.js",
         "reset.js"
       ],
-      "matches": ["https://my.centraluniversity.ru/*"]
+      "matches": [
+        "https://my.centraluniversity.ru/*"
+      ]
     }
   ],
   "icons": {
@@ -84,7 +104,9 @@
       "id": "cu-lms-enhancer@centraluniversity.ru"
     },
     "data_collection_permissions": {
-      "required": ["none"]
+      "required": [
+        "none"
+      ]
     }
   }
 }

@@ -626,19 +626,24 @@ function handleNavigation(tabId, url) {
 
 // --- СЛУШАТЕЛИ НАВИГАЦИИ ---
 // Отслеживаем переходы внутри SPA (Single Page Application)
+const navFilter = {
+    url: [{ hostSuffix: "centraluniversity.ru" }]
+};
+
+// Отслеживаем переходы внутри SPA (Single Page Application)
 browser.webNavigation.onHistoryStateUpdated.addListener(details => {
     // frameId === 0 означает, что событие произошло в основном окне, а не в iframe
     if (details.frameId === 0) {
         handleNavigation(details.tabId, details.url);
     }
-});
+}, navFilter); // <--- ДОБАВЛЕН ФИЛЬТР
 
 // Отслеживаем полную загрузку страницы (например, после F5 или прямого перехода)
 browser.webNavigation.onCompleted.addListener(details => {
     if (details.frameId === 0) {
         handleNavigation(details.tabId, details.url);
     }
-});
+}, navFilter); // <--- ДОБАВЛЕН ФИЛЬТР
 
 
 // --- ОБРАБОТЧИК СООБЩЕНИЙ (ЕДИНЫЙ ДЛЯ ВСЕГО) ---

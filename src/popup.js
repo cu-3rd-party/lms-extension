@@ -131,12 +131,17 @@ function refreshToggleStates() {
             endOfCourseCalcLabel.classList.toggle('disabled-label', !isAdvancedStatementsEnabled);
         }
 
-        // Логика UI стикеров
         if (data.stickerEnabled) {
             updateStickerUI(true);
+            // Показываем кнопку редактора
+            const editorContainer = document.getElementById('sticker-editor-container');
+            if (editorContainer) editorContainer.style.display = 'block';
+            
             loadStickerImage();
         } else {
             updateStickerUI(false);
+            const editorContainer = document.getElementById('sticker-editor-container');
+            if (editorContainer) editorContainer.style.display = 'none';
         }
 
          // НОВОЕ: логика UI авто-переименования
@@ -214,7 +219,15 @@ allKeys.forEach(key => {
             }
             // Видимость настроек стикеров
             else if (key === 'stickerEnabled') {
+                // Логика для старого контейнера (чтобы не ломалось)
                 updateStickerUI(isEnabled);
+                
+                // --- ИСПРАВЛЕНИЕ: Логика для НОВОГО контейнера с кнопками ---
+                const editorContainer = document.getElementById('sticker-editor-container');
+                if (editorContainer) {
+                    editorContainer.style.display = isEnabled ? 'block' : 'none';
+                }
+
                 if (isEnabled) loadStickerImage();
             }
             // НОВОЕ: видимость выбора шаблона авто-переименования
@@ -224,6 +237,56 @@ allKeys.forEach(key => {
         });
     }
 });
+
+const openEditorBtn = document.getElementById('open-editor-btn');
+if (openEditorBtn) {
+    openEditorBtn.addEventListener('click', () => {
+        const targetUrl = 'https://my.centraluniversity.ru/learn/courses/view/actual?customIconEditor=true';
+        
+        // 1. Принудительно ставим галочку "Включено", если пользователь нажал кнопку редактора,
+        // но забыл включить сам переключатель.
+        if (toggles.stickerEnabled && !toggles.stickerEnabled.checked) {
+            toggles.stickerEnabled.checked = true;
+            // Обновляем pendingChanges вручную, так как событие change может не успеть отработать
+            if (isInsideIframe) {
+                pendingChanges['stickerEnabled'] = true;
+            }
+        }
+
+        // 2. Логика перехода с гарантированным сохранением
+        if (isInsideIframe) {
+            // Если мы внутри Iframe, изменения лежат в pendingChanges.
+            // Нужно СРОЧНО отправить их родителю перед тем, как страница перезагрузится.
+            
+            // Убедимся, что включение стикеров попало в изменения
+            pendingChanges['stickerEnabled'] = true;
+
+            window.parent.postMessage({
+                action: 'receivePendingChanges',
+                payload: pendingChanges,
+                shouldReload: false // Ставим false, так как мы всё равно уходим со страницы
+            }, '*');
+
+            // Даем крошечную задержку (50мс), чтобы сообщение успело дойти до родителя,
+            // и только потом меняем URL
+            setTimeout(() => {
+                window.parent.location.href = targetUrl;
+            }, 50);
+
+        } else {
+            // Если открыто как отдельное окно браузера (popup)
+            // Сначала явно сохраняем в storage, и только ПОСЛЕ успешного сохранения (then) закрываем окно.
+            browser.storage.sync.set({ stickerEnabled: true }).then(() => {
+                browser.tabs.query({active: true, currentWindow: true}).then(tabs => {
+                    if (tabs.length > 0) {
+                        browser.tabs.update(tabs[0].id, { url: targetUrl });
+                        window.close();
+                    }
+                });
+            });
+        }
+    });
+}
 
 // 2. Обработчик для выпадающего списка формата экзаменов
 if (futureExamsDisplayFormat) {
@@ -295,12 +358,24 @@ if (stickerResetBtn) {
 // Слушатели сообщений из iframe (если popup открыт внутри страницы)
 if (isInsideIframe) {
     window.addEventListener('message', (event) => {
+        // Проверяем, что сообщение от родителя
         if (event.source !== window.parent) return;
+        
+        // Родитель просит изменения перед закрытием
         if (event.data && event.data.action === 'getPendingChanges') {
+            
+            // Проверяем, нужно ли перезагружать страницу
+            // Если меняли стикеры, тему или снег — нужна перезагрузка
+            const needsReload = 'stickerEnabled' in pendingChanges || 
+                                'themeEnabled' in pendingChanges ||
+                                'snowEnabled' in pendingChanges;
+
             window.parent.postMessage({
                 action: 'receivePendingChanges',
-                payload: pendingChanges
+                payload: pendingChanges,
+                shouldReload: needsReload // <-- Важный флаг, если ваш контент-скрипт его поддерживает
             }, '*');
+            
             pendingChanges = {};
             if (reloadNotice) reloadNotice.style.display = 'none';
         }
@@ -393,6 +468,28 @@ if (resetBtn) {
         } else {
             // Для обычного popup
             browser.storage.sync.set(defaultSettings);
+        }
+    });
+}
+const resetCourseIconsBtn = document.getElementById('reset-course-icons-btn');
+if (resetCourseIconsBtn) {
+    resetCourseIconsBtn.addEventListener('click', () => {
+        const confirmed = confirm('Сбросить иконки для ВСЕХ курсов? Перезагрузите страницу.');
+        
+        if (confirmed) {
+            browser.storage.local.remove('courseIcons').then(() => {
+                // Принудительная перезагрузка родительской страницы
+                if (isInsideIframe) {
+                    window.parent.location.reload();
+                } else {
+                    browser.tabs.query({active: true, currentWindow: true}).then(tabs => {
+                        if (tabs.length > 0) {
+                            browser.tabs.reload(tabs[0].id);
+                            window.close();
+                        }
+                    });
+                }
+            });
         }
     });
 }

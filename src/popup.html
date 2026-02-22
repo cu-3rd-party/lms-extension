@@ -254,19 +254,21 @@
             </label>
         </div>
         
-        <!-- Контейнер для загрузки файла (показывается, если включено) -->
-        <div id="sticker-upload-container" style="display: none; margin-top: 12px; border-top: 1px solid #eee; padding-top: 10px;">
-            <label style="display: block; margin-bottom: 5px; font-size: 13px; color: #666;">Выберите GIF или картинку:</label>
-            <input type="file" id="sticker-file-input" accept="image/gif, image/png, image/jpeg, image/webp" style="font-size: 12px; width: 100%;">
+        <!-- Контейнер редактора (Показывается только если включен переключатель выше) -->
+        <div id="sticker-editor-container" style="display: none; margin-top: 10px;">
+            <button id="open-editor-btn" style="width: 100%; padding: 8px; background-color: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: background 0.3s;">
+                Открыть редактор иконок
+            </button>
             
-            <div style="margin-top: 10px; text-align: center; background: #fafafa; padding: 10px; border-radius: 6px;">
-                <img id="sticker-preview" src="" alt="Preview" style="max-width: 100%; max-height: 120px; display: none; object-fit: contain;">
-                <span id="no-sticker-text" style="font-size: 12px; color: #999;">Нет загруженного изображения</span>
-            </div>
-            
-            <button id="sticker-reset-btn" style="margin-top: 10px; width: 100%; padding: 6px; background: #ffeded; border: 1px solid #ffcccc; color: #d63031; border-radius: 4px; cursor: pointer;">Удалить картинку</button>
+            <button id="reset-course-icons-btn" style="margin-top: 8px; width: 100%; padding: 6px; background: #fff0f0; border: 1px solid #ffcccc; color: #d63031; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                Сбросить все иконки курсов
+            </button>
+
+            <p style="font-size: 11px; color: #666; margin-top: 5px; text-align: center;">
+                Нажмите редактор, чтобы настроить иконку для каждого курса отдельно.
+            </p>
         </div>
-    </div> 
+    </div>
 
     <div class="section">
       <h3>Разные мелочи</h3>
