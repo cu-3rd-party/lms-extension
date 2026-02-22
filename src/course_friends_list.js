@@ -373,33 +373,83 @@
 
     // --- ЗАПУСК ---
 
-    initTheme();
-    initCourseFriends();
-
-    let lastUrl = location.href;
-    const observer = new MutationObserver(() => {
-        const url = location.href;
-        if (url !== lastUrl) {
-            lastUrl = url;
-            if (isValidCoursePage()) {
-                setTimeout(initCourseFriends, 800);
-            } else {
-                const w = document.getElementById(WIDGET_ID);
-                if (w) w.style.display = 'none';
-            }
-        } else {
-            if (isValidCoursePage()) {
-                 const breadcrumb = document.querySelector('.breadcrumbs__item.breadcrumbs__item_last');
-                 const w = document.getElementById(WIDGET_ID);
-                 if (breadcrumb && (!w || w.style.display === 'none')) {
-                     // Можно добавить логику повторной инициализации при необходимости
-                 }
-            }
+    function startWidget() {
+        // Инициализируем тему
+        initTheme();
+        
+        // Пытаемся инициализировать список друзей
+        if (isValidCoursePage()) {
+            initCourseFriends();
         }
 
-        checkOverlays();
-    });
-    
-    observer.observe(document.body, { childList: true, subtree: true });
+        // Запускаем Observer, если он еще не запущен
+        if (!window.cuFriendsObserver) {
+            let lastUrl = location.href;
+            
+            window.cuFriendsObserver = new MutationObserver(() => {
+                // Внутри observer снова проверяем флаг через замыкание или просто полагаемся на то,
+                // что при выключении мы скроем виджет, а observer пусть крутится (он легкий)
+                // Но лучше проверять DOM
+                
+                const url = location.href;
+                if (url !== lastUrl) {
+                    lastUrl = url;
+                    if (isValidCoursePage()) {
+                        setTimeout(() => {
+                            // Проверяем наличие виджета перед ре-инитом
+                            const w = document.getElementById(WIDGET_ID);
+                            if (!w || w.style.display === 'none') {
+                                initCourseFriends(); 
+                            }
+                        }, 800);
+                    } else {
+                        const w = document.getElementById(WIDGET_ID);
+                        if (w) w.style.display = 'none';
+                    }
+                }
+                
+                checkOverlays();
+            });
+            
+            window.cuFriendsObserver.observe(document.body, { childList: true, subtree: true });
+        }
+    }
+
+    function stopWidget() {
+        const w = document.getElementById(WIDGET_ID);
+        if (w) {
+            w.style.display = 'none';
+            // Можно удалить DOM элемент, если нужно
+            // w.remove(); 
+        }
+        // Observer можно не отключать, но виджет просто не будет показываться
+    }
+
+    // --- MAIN ENTRY POINT ---
+
+    if (api && api.storage) {
+        // 1. Initial check
+        getStorageData(['friendsEnabled'], (data) => {
+            const isEnabled = data.friendsEnabled !== false; // Default true
+            if (isEnabled) {
+                startWidget();
+            }
+        });
+
+        // 2. Runtime listener
+        api.storage.onChanged.addListener((changes, area) => {
+            if (area === 'sync' && changes.friendsEnabled) {
+                if (changes.friendsEnabled.newValue) {
+                    startWidget();
+                    if (isValidCoursePage()) initCourseFriends(); // Force render immediately
+                } else {
+                    stopWidget();
+                }
+            }
+        });
+    } else {
+        // Fallback without extension API
+        startWidget();
+    }
 
 })();

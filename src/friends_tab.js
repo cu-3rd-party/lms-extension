@@ -842,4 +842,52 @@ function bindFriendsLogic() {
     renderList();
 }
 
-init();
+const api = (typeof browser !== 'undefined' ? browser : chrome);
+
+function getStorage(keys, callback) {
+    if (typeof browser !== 'undefined' && browser.storage) {
+        api.storage.sync.get(keys).then(callback);
+    } else {
+        api.storage.sync.get(keys, callback);
+    }
+}
+
+// --- Logic ---
+
+function removeFriendsTab() {
+    const link = document.getElementById('custom-friends-link');
+    const overlay = document.getElementById('friends-overlay');
+    
+    if (link) link.remove();
+    if (overlay) {
+        overlay.style.display = 'none'; // Скрываем
+        overlay.remove(); // Удаляем из DOM
+    }
+    document.body.style.overflow = ''; // Возвращаем скролл, если модалка была открыта
+}
+
+// Запускаем логику с проверкой настроек
+if (api && api.storage) {
+    // 1. Проверка при загрузке
+    getStorage(['friendsEnabled'], (data) => {
+        // Если undefined (первый запуск), считаем что включено (или false, если хотите opt-in)
+        const isEnabled = data.friendsEnabled !== false; 
+        if (isEnabled) {
+            init();
+        }
+    });
+
+    // 2. Слушатель изменений (работает и в Chrome, и в FF)
+    api.storage.onChanged.addListener((changes, area) => {
+        if (area === 'sync' && changes.friendsEnabled) {
+            if (changes.friendsEnabled.newValue) {
+                init(); // Включили - создаем
+            } else {
+                removeFriendsTab(); // Выключили - удаляем
+            }
+        }
+    });
+} else {
+    // Fallback если API недоступно
+    init();
+}
