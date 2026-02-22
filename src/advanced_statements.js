@@ -13,6 +13,7 @@
     const COURSE_INFO_URL_TEMPLATE = "https://my.centraluniversity.ru/api/micro-lms/courses/{courseId}/exercises";
 
         // ... ВАШ ОБЪЕКТ COURSE_DATA (ОСТАВЬТЕ КАК ЕСТЬ) ...
+        // ... ВАШ ОБЪЕКТ COURSE_DATA (ОСТАВЬТЕ КАК ЕСТЬ) ...
     const COURSE_DATA = {
         "алгоритмы и структуры данных 2": {
             "домашние задания": {
@@ -1483,7 +1484,7 @@
         "как понимать кино?": null
         };
 
-
+        
     // --- СЕЛЕКТОРЫ ---
     const CONTAINER_ID = "advanced-statements-container";
     const PARENT_COMPONENT_SELECTOR = "cu-student-course-performance";
