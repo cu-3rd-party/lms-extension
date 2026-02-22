@@ -36,6 +36,7 @@ const toggles = {
     courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
     advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
     endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'),
+    friendsEnabled: document.getElementById('friends-toggle'), // <-- ДОБАВИТЬ ЭТУ СТРОКУ
 };
 
 // Элементы UI для зависимых настроек
@@ -364,7 +365,8 @@ if (resetBtn) {
             futureExamsViewToggle: false,
             futureExamsDisplayFormat: 'date',
             stickerEnabled: false,
-            courseOverviewAutoscrollToggle: false
+            courseOverviewAutoscrollToggle: false,
+            friendsEnabled: true 
         };
 
         if (isInsideIframe) {
