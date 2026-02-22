@@ -1,4 +1,4 @@
-// advanced_statements.js (Версия 49 - Fix позиции таблицы)
+// advanced_statements.js (Версия 50 - Добавлен расчет накопленного балла)
 
 (async function () {
     'use strict';
@@ -12,7 +12,8 @@
     const API_URL_TEMPLATE = "https://my.centraluniversity.ru/api/micro-lms/courses/{courseId}/student-performance";
     const COURSE_INFO_URL_TEMPLATE = "https://my.centraluniversity.ru/api/micro-lms/courses/{courseId}/exercises";
 
-    // ... ВАШ ОБЪЕКТ COURSE_DATA (ОСТАВЬТЕ КАК ЕСТЬ) ...
+        // ... ВАШ ОБЪЕКТ COURSE_DATA (ОСТАВЬТЕ КАК ЕСТЬ) ...
+        // ... ВАШ ОБЪЕКТ COURSE_DATA (ОСТАВЬТЕ КАК ЕСТЬ) ...
     const COURSE_DATA = {
         "алгоритмы и структуры данных 2": {
             "домашние задания": {
@@ -1483,6 +1484,7 @@
         "как понимать кино?": null
         };
 
+        
     // --- СЕЛЕКТОРЫ ---
     const CONTAINER_ID = "advanced-statements-container";
     const PARENT_COMPONENT_SELECTOR = "cu-student-course-performance";
@@ -1615,7 +1617,9 @@
         } else { activities.forEach((value, key) => finalActivities.set(key, value)); }
 
         const calculatedActivities = [];
-        let totalWeightedScore = 0; let totalWeight = 0;
+        let totalWeightedScore = 0; 
+        let totalWeight = 0;
+        let totalMaxScoreSoFar = 0; // Для расчета "Максимума на данный момент"
 
         for (const [nameLower, data] of finalActivities.entries()) {
             let activityConfig = null;
@@ -1628,10 +1632,27 @@
             const actualCount = data.scores.length;
             let divisor; let countDisplay; let finalWeight = data.weight;
             if (activityConfig && activityConfig.weight > 0) { finalWeight = activityConfig.weight; }
+            
             if (mode === 'endOfCourse' && activityConfig && activityConfig.count > 0) {
-                divisor = activityConfig.count; countDisplay = `${actualCount} / ${activityConfig.count}`;
+                divisor = activityConfig.count; 
+                countDisplay = `${actualCount} / ${activityConfig.count}`;
+                
+                // Расчет "Накопленного"
+                // Если мы знаем общее кол-во задач (divisor), то "текущий взвешенный" = (сумма / divisor) * вес
+                // "Макс. возможный взвешенный" = (кол-во сданных * 10 / divisor) * вес
+                const maxPointsPerTask = 10; // Стандарт CU
+                const maxContributionSoFar = (actualCount * maxPointsPerTask / divisor) * finalWeight;
+                totalMaxScoreSoFar += maxContributionSoFar;
+
             } else {
-                divisor = actualCount; countDisplay = `${actualCount}`;
+                // Если режим "по факту", divisor = actualCount
+                divisor = actualCount; 
+                countDisplay = `${actualCount}`;
+                
+                // В этом режиме "Макс возможный" = вес * 10 (если считать, что все сданные были бы на 10)
+                if (actualCount > 0) {
+                    totalMaxScoreSoFar += finalWeight * 10; 
+                }
             }
             
             const avg = (divisor > 0) ? (data.sum / divisor) : 0;
@@ -1641,7 +1662,13 @@
             totalWeightedScore += weightedScore; totalWeight += finalWeight;
         }
 
-        return { activities: calculatedActivities.sort((a, b) => a.name.localeCompare(b.name)), totalWeightedScore: totalWeightedScore.toFixed(2), totalWeight: totalWeight, };
+        return { 
+            activities: calculatedActivities.sort((a, b) => a.name.localeCompare(b.name)), 
+            totalWeightedScore: totalWeightedScore.toFixed(2), 
+            totalWeight: totalWeight,
+            totalMaxScoreSoFar: totalMaxScoreSoFar.toFixed(2),
+            hasConfig: !!courseConfig
+        };
     }
 
     // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
@@ -1662,6 +1689,11 @@
         const component = document.getElementById(CONTAINER_ID);
         if (component) component.remove();
         
+        // --- ДОБАВЛЕНО: Удаляем стили, чтобы вернуть страницу в обычный вид ---
+        const styleElement = document.getElementById(STYLE_ID);
+        if (styleElement) styleElement.remove();
+        // ---------------------------------------------------------------------
+
         clearTimeout(retryTimer);
         retryTimer = null;
     }
@@ -1713,6 +1745,8 @@
         
         const footerCells = clonedTable.querySelectorAll('tfoot td');
         const footerRow = clonedTable.querySelector('tfoot tr');
+        
+        // Добавляем пустую ячейку для колонки "Количество" в футер
         if (footerRow && footerCells.length > 0) {
              const firstFooterCell = footerRow.querySelector('td');
              const emptyFooterCell = document.createElement('td');
@@ -1725,20 +1759,38 @@
             updatedFooterCells[3].textContent = `${Math.round(data.totalWeight * 100)}%`;
             updatedFooterCells[4].querySelector('span').textContent = data.totalWeightedScore;
         }
+        
+        if (data.hasConfig) {
+            const accumulationRow = document.createElement('tr');
+            
+            // Расчет процента
+            const actual = parseFloat(data.totalWeightedScore);
+            const max = parseFloat(data.totalMaxScoreSoFar);
+            let percentageStr = "0%";
+            if (max > 0) {
+                percentageStr = Math.round((actual / max) * 100) + "%";
+            }
+
+            accumulationRow.innerHTML = `
+                <td colspan="5" style="text-align: center; padding: 12px; color: #aaa; font-size: 13px; border-top: 1px solid rgba(255,255,255,0.05);">
+                    Накоплено на данный момент: <b style="color: #fff">${data.totalWeightedScore}</b> / <b style="color: #fff">${data.totalMaxScoreSoFar}</b> (${percentageStr})
+                </td>
+            `;
+            clonedTable.querySelector('tfoot').appendChild(accumulationRow);
+        }
+        // -------------------------------------
+        // -------------------------------------
 
         const container = document.createElement("div");
         container.id = CONTAINER_ID;
         
-        // --- ФИКС ПОЗИЦИОНИРОВАНИЯ (ВЕРСИЯ 49) ---
-        // Рассчитываем отступ сверху на основе положения левой таблицы
         const topOffset = tableWrapper.offsetTop || 0;
         container.style.cssText = `position: absolute; top: ${topOffset}px; right: 24px; width: 540px;`;
-        // ------------------------------------------
         
         const explanation = calculationMode === 'endOfCourse' ? 'Средний балл вычисляется по <b>всем</b> заданиям, запланированным в курсе (согласно настройкам плагина). Задания без оценки учитываются как 0.' : 'Средний балл вычисляется только по тем заданиям, где <b>уже выставлена оценка</b> (включая 0). Задания без оценки не учитываются.';
         container.innerHTML = `<fieldset class="t-content" style="border: none; padding: 0;"></fieldset><p style="font-size: 12px; color: #888; margin-top: 10px; line-height: 1.5;"><b>Принцип расчёта этой таблицы (справа):</b><br>${explanation}<br><br><b>Принцип расчёта ведомости LMS (слева):</b><br>Средний балл считается по <b>всем открытым</b> заданиям в рамках одной активности.</p>`;
         container.querySelector('fieldset').appendChild(clonedTable);
-        parentComponent.appendChild(container);
+        parentComponent.appendChild(container); 
     }
 
     // --- ОБРАБОТЧИК НАВИГАЦИИ ---
