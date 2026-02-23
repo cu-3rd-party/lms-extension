@@ -274,11 +274,35 @@ if (typeof window.__culmsInstantDocViewFixInitialized === "undefined") {
     }
 
     function processElements() {
+        // Ищем все файлы, которые еще не обрабатывали
         const fileContainers = document.querySelectorAll('a.file:not([data-cu-fix-applied])');
+
         fileContainers.forEach(container => {
-            container.dataset.cuFixApplied = 'true';
-            container.addEventListener('click', handleFileClick, {capture: true});
-            container.style.cursor = 'pointer';
+            // 1. Проверяем, находится ли файл внутри опубликованного сообщения.
+            // Тег <cu-message> оборачивает конкретный комментарий в ленте.
+            const isInsideMessage = container.closest('cu-message');
+
+            // 2. Проверяем, является ли файл статичным материалом (лонгрид).
+            // У материалов лонгрида обычно нет атрибута data-delete="true".
+            // При этом мы также проверяем, что это НЕ черновик в поле ввода (cu-type-message-bar).
+            const isDraftInput = container.closest('cu-type-message-bar');
+            const isDeletable = container.getAttribute('data-delete') === 'true';
+            
+            // Файл считается "статичным материалом", если он не удаляемый и не находится в инпуте
+            const isStaticMaterial = !isDeletable && !isDraftInput;
+
+            // ПРИМЕНЯЕМ ФИКС, ЕСЛИ:
+            // Это файл в сообщении (комментарий) ИЛИ Это материал лонгрида
+            if (isInsideMessage || isStaticMaterial) {
+                container.dataset.cuFixApplied = 'true';
+                container.addEventListener('click', handleFileClick, {capture: true});
+                container.style.cursor = 'pointer';
+                // console.log('[CU LMS Fix] Applied to:', isInsideMessage ? 'Comment Attachment' : 'Static Material');
+            } else {
+                // Если это черновик или что-то неизвестное — помечаем как ignored, 
+                // чтобы обсервер не перепроверял его постоянно.
+                container.dataset.cuFixApplied = 'ignored';
+            }
         });
     }
 
