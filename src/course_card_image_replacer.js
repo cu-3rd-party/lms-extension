@@ -17,6 +17,7 @@ let globalStickerUrl = null;
 let courseIconsMap = {}; // { "969": "base64..." }
 let observer = null;
 let isEditorMode = false;
+let globalObjectFit = 'cover'; // <--- Добавь эту строку
 
 // --- УТИЛИТЫ ---
 
@@ -151,7 +152,7 @@ function createCustomImage(originalNode, srcUrl) {
     newImage.style.setProperty('height', '100%', 'important');
     newImage.style.setProperty('min-width', '100%', 'important');
     newImage.style.setProperty('min-height', '100%', 'important');
-    newImage.style.setProperty('object-fit', 'fit', 'important'); 
+    newImage.style.setProperty('object-fit', globalObjectFit, 'important');
     newImage.style.setProperty('border-radius', 'inherit', 'important');
     newImage.style.setProperty('display', 'block', 'important');
 
@@ -199,6 +200,9 @@ function replaceIcon(iconNode) {
             iconNode.setAttribute('data-custom-sticker', 'true');
             // Применяем стили fit
             iconNode.style.setProperty('object-fit', 'cover', 'important');
+        }
+        if (iconNode.style.objectFit !== globalObjectFit) {
+            iconNode.style.setProperty('object-fit', globalObjectFit, 'important');
         }
     } 
     // Если это TUI-ICON или что-то другое
@@ -365,7 +369,8 @@ async function init() {
     isEditorMode = params.get('customIconEditor') === 'true';
 
     // 2. Настройки
-    const syncData = await safeGet('sync', ['stickerEnabled']);
+    const syncData = await safeGet('sync', ['stickerEnabled', 'stickerObjectFit']);
+    globalObjectFit = syncData.stickerObjectFit || 'cover';
     // Если включен редактор, мы работаем даже если галочка выключена (чтобы можно было настроить)
     isEnabled = !!syncData.stickerEnabled || isEditorMode; 
 
@@ -390,6 +395,14 @@ if (api && api.storage) {
             if (!isEditorMode) {
                 document.querySelectorAll(TARGET_ICON_SELECTOR).forEach(replaceIcon);
             }
+        }
+        
+        if ('stickerObjectFit' in changes) {
+            globalObjectFit = changes.stickerObjectFit.newValue || 'cover';
+            // Сразу обновляем все иконки на странице без перезагрузки
+            document.querySelectorAll(TARGET_ICON_SELECTOR).forEach(icon => {
+                icon.style.setProperty('object-fit', globalObjectFit, 'important');
+            });
         }
     });
 }
