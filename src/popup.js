@@ -61,7 +61,10 @@ const stickerResetBtn = document.getElementById('sticker-reset-btn');
 const reloadNotice = document.getElementById('reload-notice');
 
 // Объединяем все ключи настроек для удобства
-const allKeys = [...Object.keys(toggles), 'futureExamsDisplayFormat'];
+const stickerFitSelect = document.getElementById('sticker-fit-select');
+
+// Добавь 'stickerObjectFit' в массив allKeys
+const allKeys = [...Object.keys(toggles), 'futureExamsDisplayFormat', 'autoRenameTemplate', 'stickerObjectFit'];
 let pendingChanges = {};
 
 
@@ -142,6 +145,9 @@ function refreshToggleStates() {
             updateStickerUI(false);
             const editorContainer = document.getElementById('sticker-editor-container');
             if (editorContainer) editorContainer.style.display = 'none';
+        }
+        if (stickerFitSelect) {
+            stickerFitSelect.value = data.stickerObjectFit || 'cover';
         }
 
          // НОВОЕ: логика UI авто-переименования
@@ -490,6 +496,18 @@ if (resetCourseIconsBtn) {
                     });
                 }
             });
+        }
+    });
+}
+
+if (stickerFitSelect) {
+    stickerFitSelect.addEventListener('change', () => {
+        const val = stickerFitSelect.value;
+        if (isInsideIframe) {
+            if (reloadNotice) reloadNotice.style.display = 'block';
+            pendingChanges['stickerObjectFit'] = val;
+        } else {
+            browser.storage.sync.set({ stickerObjectFit: val });
         }
     });
 }
