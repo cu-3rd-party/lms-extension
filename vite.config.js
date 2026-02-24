@@ -6,8 +6,8 @@ const require = createRequire(import.meta.url);
 
 const BROWSER = process.env.BROWSER ?? 'chrome';
 
-const chromeManifest = require('./src/manifest.json');
-const firefoxManifest = require('./src/manifest_firefox.json');
+const chromeManifest = require('./src/manifests/manifest.json');
+const firefoxManifest = require('./src/manifests/manifest_firefox.json');
 
 export default defineConfig({
   // src/ is the extension root — all manifest paths resolve from here
@@ -17,6 +17,12 @@ export default defineConfig({
     outDir: `../dist/${BROWSER}`,
     emptyOutDir: true,
     rollupOptions: {
+      // Force-include preload.css so crxjs can reference it in content_scripts
+      input: { preload: 'src/preload.css' },
+      // Extension content scripts rely on cross-file globals within a shared
+      // executeScript context — disable tree-shaking so function declarations
+      // in one file remain available when called by another file.
+      treeshake: false,
       output: {
         // Preserve original filenames so background.js can reference them by
         // name via chrome.scripting.executeScript({ files: ['tasks_fix.js'] })

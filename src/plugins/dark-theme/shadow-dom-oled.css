@@ -1,0 +1,54 @@
+:host,
+:root {
+  --informer-tui-base-01: #000000 !important;
+  --informer-tui-base-02: #0b0b0b !important;
+  --informer-tui-base-03: #161616 !important;
+  --informer-tui-elevation-01: #000000 !important;
+  --informer-tui-background-base: #000000 !important;
+  --informer-tui-const-white: #000000 !important;
+  --informer-tui-text-01: #ffffff !important;
+  --informer-tui-text-02: #e6e6e6 !important;
+  --informer-tui-text-03: #b3b3b3 !important;
+  --informer-tui-text-primary: #ffffff !important;
+  --informer-tui-text-secondary: #e6e6e6 !important;
+  --informer-tui-text-tertiary: #b3b3b3 !important;
+  --informer-tui-primary: #4285f4 !important;
+  --informer-tui-primary-text: #ffffff !important;
+  --informer-tui-secondary: #0b0b0b !important;
+  --informer-tui-secondary-hover: #161616 !important;
+  --informer-tui-link: #8ab4f8 !important;
+}
+
+.tui-island,
+.onbording-popup {
+  background-color: #0b0b0b !important;
+}
+.side-buttons button .t-wrapper {
+  background: #111111 !important;
+}
+svg path[fill='currentColor'] {
+  fill: #e6e6e6 !important;
+}
+button[appearance='whiteblock'] {
+  background-color: #0b0b0b !important;
+  border-bottom-color: #161616 !important;
+}
+button[appearance='whiteblock']:hover {
+  background-color: #161616 !important;
+}
+.data-list button[appearance='whiteblock'] div.t-wrapper {
+  background-color: #0b0b0b !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid #161616 !important;
+}
+.data-list button[appearance='whiteblock']:hover div.t-wrapper {
+  background-color: #161616 !important;
+  border-bottom-color: #2e2e2e !important;
+}
+.data-list button[appearance='whiteblock'] .title__text {
+  color: #e6e6e6 !important;
+}
+.data-list button[appearance='whiteblock'] informer-copy-category-link-button svg path {
+  fill: #b3b3b3 !important;
+}

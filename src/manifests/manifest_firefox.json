@@ -16,7 +16,7 @@
     "scripts": ["browser-polyfill.js", "background.ts"]
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup/popup.html"
   },
   "content_scripts": [
     {
@@ -45,10 +45,10 @@
         "browser-polyfill.js",
         "icons/*.svg",
         "icons/*.png",
-        "popup.html",
-        "popup.js",
+        "popup/popup.html",
+        "popup/popup.js",
         "gist_dark.css",
-        "popup_dark.css",
+        "popup/popup_dark.css",
         "styles.css",
         "plugins/_shared/version_check.js",
         "plugins/_shared/reset.js",
@@ -74,7 +74,7 @@
     }
   ],
   "icons": {
-    "128": "icon128.png"
+    "128": "icons/icon128.png"
   },
   "browser_specific_settings": {
     "gecko": {

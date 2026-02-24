@@ -1,9 +1,16 @@
+/*
+ * preload.css — инжектируется через content_scripts до загрузки страницы (run_at: document_start).
+ * Скрывает список курсов до того, как скрипты успеют его отфильтровать,
+ * предотвращая «мигание» скрытых курсов при первой отрисовке.
+ * После применения фильтрации скрипт courses_fix.js снимает скрытие.
+ */
+
 ul.course-list {
-    opacity: 0 !important;
-    visibility: hidden !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 ul.course-list.course-archiver-ready {
-    opacity: 1 !important;
-    visibility: visible !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }

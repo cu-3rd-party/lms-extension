@@ -19,6 +19,7 @@
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.3.0",
     "@eslint/js": "^9.0.0",
+    "@types/webextension-polyfill": "^0.12.5",
     "cross-env": "^7.0.3",
     "eslint": "^9.0.0",
     "globals": "^15.0.0",
@@ -40,5 +41,8 @@
     "*.{json,css,html,md}": [
       "prettier --write"
     ]
+  },
+  "dependencies": {
+    "webextension-polyfill": "^0.12.0"
   }
 }
