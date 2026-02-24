@@ -1,0 +1,44 @@
+{
+  "name": "lms-extension",
+  "version": "1.8.6",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:chrome": "cross-env BROWSER=chrome vite",
+    "dev:firefox": "cross-env BROWSER=firefox vite build --watch",
+    "serve:firefox": "web-ext run --source-dir dist/firefox",
+    "build:chrome": "cross-env BROWSER=chrome vite build",
+    "build:firefox": "cross-env BROWSER=firefox vite build",
+    "release:chrome": "cross-env BROWSER=chrome vite build && node scripts/pack.js chrome",
+    "release:firefox": "cross-env BROWSER=firefox vite build && node scripts/pack.js firefox",
+    "lint": "eslint src/ scripts/ vite.config.js",
+    "lint:fix": "eslint src/ scripts/ vite.config.js --fix",
+    "format": "prettier --write .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.3.0",
+    "@eslint/js": "^9.0.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
+    "vite": "^6.0.0",
+    "web-ext": "^8.0.0"
+  },
+  "lint-staged": {
+    "src/**/*.{js,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "scripts/**/*.js": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,html,md}": [
+      "prettier --write"
+    ]
+  }
+}
