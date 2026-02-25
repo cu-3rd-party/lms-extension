@@ -338,17 +338,6 @@
       <button id="reset-all-settings-btn" class="btn-reset">Сбросить все настройки</button>
     </div>
 
-    <script>
-      // Load browser-polyfill first using an absolute extension URL,
-      // then load popup.js after it's ready — avoids ../ traversal issues.
-      const polyfill = document.createElement('script');
-      polyfill.src = chrome.runtime.getURL('browser-polyfill.js');
-      polyfill.onload = () => {
-        const main = document.createElement('script');
-        main.src = chrome.runtime.getURL('popup/popup.js');
-        document.body.appendChild(main);
-      };
-      document.body.appendChild(polyfill);
-    </script>
+    <script type="module" src="popup_loader.js"></script>
   </body>
 </html>

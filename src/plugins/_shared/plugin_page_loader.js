@@ -2,12 +2,14 @@
 'use strict';
 
 // --- КОНСТАНТЫ ---
-const OVERLAY_ID = 'cu-plugin-overlay-container';
-const CONTENT_WRAPPER_ID = 'cu-plugin-content-wrapper';
-const PLUGIN_BUTTON_ID = 'cu-plugin-main-button';
-const GIST_PANEL_ID = 'cu-plugin-gist-right-panel';
-const GIST_STYLE_ID = 'cu-gist-dark-theme-injected-style';
-let leftIframe = null;
+// var используется намеренно: скрипт может быть внедрён повторно при SPA-навигации,
+// и const/let бросили бы SyntaxError «already declared».
+var OVERLAY_ID = 'cu-plugin-overlay-container';
+var CONTENT_WRAPPER_ID = 'cu-plugin-content-wrapper';
+var PLUGIN_BUTTON_ID = 'cu-plugin-main-button';
+var GIST_PANEL_ID = 'cu-plugin-gist-right-panel';
+var GIST_STYLE_ID = 'cu-gist-dark-theme-injected-style';
+var leftIframe = leftIframe || null;
 
 /**
  * Скрывает оверлей.
@@ -167,35 +169,46 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
     if (!rightPanel) return;
 
     rightPanel.textContent = 'Загрузка Gist...';
-    const data = await browser.storage.sync.get('themeEnabled');
+
+    let data;
+    try {
+      data = await browser.storage.sync.get('themeEnabled');
+    } catch (e) {
+      rightPanel.textContent = 'Ошибка: контекст расширения недоступен. Перезагрузите страницу.';
+      return;
+    }
     applyGistTheme(!!data.themeEnabled);
 
-    chrome.runtime.sendMessage(
-      {
-        action: 'fetchGistContent',
-        url: 'https://gist.github.com/xfx1337/76aaac0351cfaf6f099d67eaf79b00b7.js',
-      },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          rightPanel.textContent = 'Ошибка: ' + chrome.runtime.lastError.message;
-          return;
-        }
-        if (response && response.success) {
-          rightPanel.innerHTML = response.html;
-          if (response.cssUrl && !document.getElementById('gist-stylesheet')) {
-            const gistStyle = document.createElement('link');
-            gistStyle.id = 'gist-stylesheet';
-            gistStyle.rel = 'stylesheet';
-            gistStyle.type = 'text/css';
-            gistStyle.href = response.cssUrl;
-            document.head.appendChild(gistStyle);
+    try {
+      chrome.runtime.sendMessage(
+        {
+          action: 'fetchGistContent',
+          url: 'https://gist.github.com/xfx1337/76aaac0351cfaf6f099d67eaf79b00b7.js',
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            rightPanel.textContent = 'Ошибка: ' + chrome.runtime.lastError.message;
+            return;
           }
-        } else {
-          rightPanel.textContent =
-            'Ошибка загрузки Gist: ' + (response ? response.error : 'Нет ответа.');
+          if (response && response.success) {
+            rightPanel.innerHTML = response.html;
+            if (response.cssUrl && !document.getElementById('gist-stylesheet')) {
+              const gistStyle = document.createElement('link');
+              gistStyle.id = 'gist-stylesheet';
+              gistStyle.rel = 'stylesheet';
+              gistStyle.type = 'text/css';
+              gistStyle.href = response.cssUrl;
+              document.head.appendChild(gistStyle);
+            }
+          } else {
+            rightPanel.textContent =
+              'Ошибка загрузки Gist: ' + (response ? response.error : 'Нет ответа.');
+          }
         }
-      }
-    );
+      );
+    } catch (e) {
+      rightPanel.textContent = 'Ошибка: контекст расширения недоступен. Перезагрузите страницу.';
+    }
   }
 
   // --- СЛУШАТЕЛИ ---
@@ -205,10 +218,13 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
     if (event.source !== leftIframe.contentWindow) return;
     if (event.data && event.data.action === 'receivePendingChanges') {
       const changes = event.data.payload;
+      const shouldReload = !!event.data.shouldReload;
+      // Изменения уже сохранены popup.js напрямую в storage — здесь только резервное сохранение
       if (Object.keys(changes).length > 0) {
         await browser.storage.sync.set(changes);
-        location.reload();
       }
+      // Перезагрузка только если это реально нужно (снег, стикер)
+      if (shouldReload) location.reload();
     }
   });
 

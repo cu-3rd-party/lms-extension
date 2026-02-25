@@ -1,10 +1,5 @@
-try {
-  importScripts('browser-polyfill.js');
-} catch (e) {
-  console.log('Running in a non-MV3 environment or Firefox.');
-}
-
-let courseListObserver = null;
+// var используется намеренно: при повторном внедрении let бросает «already declared».
+var courseListObserver = courseListObserver || null;
 
 /**
  * Применяет стили с правильными цветами.

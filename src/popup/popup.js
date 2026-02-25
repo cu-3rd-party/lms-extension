@@ -188,11 +188,13 @@ allKeys.forEach((key) => {
       const isEnabled = toggleElement.checked;
       const change = { [key]: isEnabled };
 
+      // Сохраняем немедленно — тема/OLED применяются через storage.onChanged без перезагрузки
+      browser.storage.sync.set(change);
       if (isInsideIframe) {
-        if (reloadNotice) reloadNotice.style.display = 'block';
         pendingChanges = { ...pendingChanges, ...change };
-      } else {
-        browser.storage.sync.set(change);
+        // Показываем уведомление только для скриптов, которые стартуют при загрузке страницы
+        const requiresReload = key === 'snowEnabled' || key === 'stickerEnabled';
+        if (requiresReload && reloadNotice) reloadNotice.style.display = 'block';
       }
 
       // --- Логика зависимостей ---
@@ -204,8 +206,8 @@ allKeys.forEach((key) => {
           if (!isEnabled && toggles.oledEnabled.checked) {
             toggles.oledEnabled.checked = false;
             const oledChange = { oledEnabled: false };
+            browser.storage.sync.set(oledChange);
             if (isInsideIframe) pendingChanges = { ...pendingChanges, ...oledChange };
-            else browser.storage.sync.set(oledChange);
           }
         }
       }
@@ -217,8 +219,8 @@ allKeys.forEach((key) => {
           if (!isEnabled && toggles.endOfCourseCalcEnabled.checked) {
             toggles.endOfCourseCalcEnabled.checked = false;
             const endOfCourseChange = { endOfCourseCalcEnabled: false };
+            browser.storage.sync.set(endOfCourseChange);
             if (isInsideIframe) pendingChanges = { ...pendingChanges, ...endOfCourseChange };
-            else browser.storage.sync.set(endOfCourseChange);
           }
         }
       }
@@ -304,11 +306,9 @@ if (openEditorBtn) {
 if (futureExamsDisplayFormat) {
   futureExamsDisplayFormat.addEventListener('change', () => {
     const selectedFormat = futureExamsDisplayFormat.value;
+    browser.storage.sync.set({ futureExamsDisplayFormat: selectedFormat });
     if (isInsideIframe) {
-      if (reloadNotice) reloadNotice.style.display = 'block';
       pendingChanges['futureExamsDisplayFormat'] = selectedFormat;
-    } else {
-      browser.storage.sync.set({ futureExamsDisplayFormat: selectedFormat });
     }
   });
 }
@@ -343,11 +343,9 @@ if (stickerFileInput) {
 if (renameTemplateSelect) {
   renameTemplateSelect.addEventListener('change', () => {
     const template = renameTemplateSelect.value;
+    browser.storage.sync.set({ autoRenameTemplate: template });
     if (isInsideIframe) {
-      if (reloadNotice) reloadNotice.style.display = 'block';
       pendingChanges['autoRenameTemplate'] = template;
-    } else {
-      browser.storage.sync.set({ autoRenameTemplate: template });
     }
     // Тут мы только сохраняем шаблон.
     // Контент-скрипт должен сам подхватить это через storage.onChanged и дернуть rename_hw.
@@ -374,18 +372,16 @@ if (isInsideIframe) {
 
     // Родитель просит изменения перед закрытием
     if (event.data && event.data.action === 'getPendingChanges') {
-      // Проверяем, нужно ли перезагружать страницу
-      // Если меняли стикеры, тему или снег — нужна перезагрузка
-      const needsReload =
-        'stickerEnabled' in pendingChanges ||
-        'themeEnabled' in pendingChanges ||
-        'snowEnabled' in pendingChanges;
+      // Перезагрузка нужна только для скриптов, запускающихся один раз при загрузке страницы.
+      // Тема/OLED применяются через storage.onChanged без перезагрузки — их нет в списке.
+      const needsReload = 'stickerEnabled' in pendingChanges || 'snowEnabled' in pendingChanges;
 
       window.parent.postMessage(
         {
           action: 'receivePendingChanges',
-          payload: pendingChanges,
-          shouldReload: needsReload, // <-- Важный флаг, если ваш контент-скрипт его поддерживает
+          // Изменения уже сохранены напрямую в storage, передаём пустой объект
+          payload: {},
+          shouldReload: needsReload,
         },
         '*'
       );

@@ -1,4 +1,5 @@
-const SKIPPED_TASKS_KEY = 'cu.lms.skipped-tasks';
+// var используется намеренно: при повторном внедрении const бросает «already declared».
+var SKIPPED_TASKS_KEY = SKIPPED_TASKS_KEY || 'cu.lms.skipped-tasks';
 
 function stripEmojis(text) {
   const EMOJI_REGEX = /[🔴🔵⚫️⚫❤️💙🖤]/g;

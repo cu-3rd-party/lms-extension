@@ -853,7 +853,8 @@ function bindFriendsLogic() {
   renderList();
 }
 
-const api = typeof browser !== 'undefined' ? browser : chrome;
+// var используется намеренно: скрипт может быть внедрён повторно при SPA-навигации.
+var api = typeof browser !== 'undefined' ? browser : chrome;
 
 function getStorage(keys, callback) {
   if (typeof browser !== 'undefined' && browser.storage) {
