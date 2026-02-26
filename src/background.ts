@@ -2,6 +2,61 @@
 import browser from 'webextension-polyfill';
 import type { PluginManifest } from './plugins/types';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface CalendarSessionConfig {
+  ckey: string;
+  uid: string;
+  timezone: string;
+}
+
+interface MailSessionConfig {
+  ckey: string;
+  uid: string;
+}
+
+interface CalendarEvent {
+  start: string;
+  end: string;
+  name?: string;
+  subject?: string;
+  decision?: string;
+  availability?: string;
+  hidden?: boolean;
+}
+
+interface Contact {
+  name: string;
+  email: string;
+  avatar: string;
+}
+
+/** Raw contact shape returned by Yandex Mail abook API */
+interface RawApiContact {
+  email: Array<{ value: string }>;
+  name: { full?: string; first?: string; last?: string };
+  monogram?: string;
+}
+
+interface TimeBlock {
+  start: Date;
+  end: Date;
+}
+
+type ScheduleResult =
+  | { success: true; schedule: Record<string, string>; weekStart: string }
+  | { success: false; error: string };
+
+type IncomingMessage =
+  | { action: 'fetchGistContent'; url: string }
+  | { action: 'SEARCH_CONTACTS'; query: string }
+  | { action: 'ANALYZE_SUBJECTS'; email: string }
+  | { action: 'GET_WEEKLY_SCHEDULE'; email: string; date?: string }
+  | { action: 'GET_CALENDAR_LINK'; email: string }
+  | { action: string; [key: string]: unknown };
+
 // --- PLUGIN AUTO-DISCOVERY ---
 // All index.manifest.ts files are picked up automatically at build time.
 // Adding a new plugin = creating a new plugins/<name>/index.manifest.ts file.
@@ -116,7 +171,7 @@ const SUBJECTS_LIST = [
 const YandexServices = {
   // --- CALENDAR SERVICE ---
   Calendar: {
-    async getEvents(email, daysAhead = 30) {
+    async getEvents(email: string, daysAhead = 30): Promise<CalendarEvent[]> {
       if (!email) throw new Error('Email обязателен');
       const session = await this._getSessionConfig();
       const now = new Date();
@@ -125,7 +180,7 @@ const YandexServices = {
       return await this._fetchEvents(email, session, now, future);
     },
 
-    async getPublicLink(email) {
+    async getPublicLink(email: string): Promise<string> {
       // Мы убрали try-catch и fallback-ссылку.
       // Если сессии нет, _getSessionConfig выбросит ошибку, и фронтенд покажет просьбу войти.
       const session = await YandexServices.Mail._getSessionConfig();
@@ -156,7 +211,10 @@ const YandexServices = {
     // === ФУНКЦИЯ АНАЛИЗА РАСПИСАНИЯ ===
     // === ФУНКЦИЯ АНАЛИЗА РАСПИСАНИЯ ===
     // Добавили аргумент targetDate
-    async analyzeSchedule(email, targetDate = null) {
+    async analyzeSchedule(
+      email: string,
+      targetDate: string | null = null
+    ): Promise<ScheduleResult> {
       try {
         const session = await this._getSessionConfig();
 
@@ -186,7 +244,7 @@ const YandexServices = {
             e.decision !== 'no' && e.availability !== 'free'
         );
 
-        const schedule = {};
+        const schedule: Record<string, string> = {};
         const daysMap = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
         for (let i = 0; i < 6; i++) {
@@ -202,31 +260,31 @@ const YandexServices = {
           });
 
           if (dayEvents.length === 0) {
-            schedule[daysMap[currentDay.getDay()]] = 'Свободен';
+            schedule[daysMap[currentDay.getDay()]!] = 'Свободен';
             continue;
           }
 
           // Сортируем
-          dayEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+          dayEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
           // Склеиваем
-          const merged = [];
+          const merged: TimeBlock[] = [];
           if (dayEvents.length > 0) {
-            let current = {
-              start: new Date(dayEvents[0].start),
-              end: new Date(dayEvents[0].end),
+            let current: TimeBlock = {
+              start: new Date(dayEvents[0]!.start),
+              end: new Date(dayEvents[0]!.end),
             };
 
             for (let k = 1; k < dayEvents.length; k++) {
-              const nextEv = {
-                start: new Date(dayEvents[k].start),
-                end: new Date(dayEvents[k].end),
+              const nextEv: TimeBlock = {
+                start: new Date(dayEvents[k]!.start),
+                end: new Date(dayEvents[k]!.end),
               };
 
-              const gap = (nextEv.start - current.end) / (1000 * 60);
+              const gap = (nextEv.start.getTime() - current.end.getTime()) / (1000 * 60);
 
-              if (nextEv.start <= current.end || gap < 15) {
-                if (nextEv.end > current.end) current.end = nextEv.end;
+              if (nextEv.start.getTime() <= current.end.getTime() || gap < 15) {
+                if (nextEv.end.getTime() > current.end.getTime()) current.end = nextEv.end;
               } else {
                 merged.push(current);
                 current = nextEv;
@@ -236,11 +294,11 @@ const YandexServices = {
           }
 
           // Форматируем
-          const totalStart = merged[0].start.toLocaleTimeString('ru-RU', {
+          const totalStart = merged[0]!.start.toLocaleTimeString('ru-RU', {
             hour: '2-digit',
             minute: '2-digit',
           });
-          const totalEnd = merged[merged.length - 1].end.toLocaleTimeString('ru-RU', {
+          const totalEnd = merged[merged.length - 1]!.end.toLocaleTimeString('ru-RU', {
             hour: '2-digit',
             minute: '2-digit',
           });
@@ -249,9 +307,9 @@ const YandexServices = {
 
           const breaks = [];
           for (let m = 0; m < merged.length - 1; m++) {
-            const breakStart = merged[m].end;
-            const breakEnd = merged[m + 1].start;
-            const diffMins = (breakEnd - breakStart) / (1000 * 60);
+            const breakStart = merged[m]!.end;
+            const breakEnd = merged[m + 1]!.start;
+            const diffMins = (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60);
 
             if (diffMins >= 20) {
               const bs = breakStart.toLocaleTimeString('ru-RU', {
@@ -270,7 +328,7 @@ const YandexServices = {
             resultString += ` (окна: ${breaks.join(', ')})`;
           }
 
-          schedule[daysMap[currentDay.getDay()]] = resultString;
+          schedule[daysMap[currentDay.getDay()]!] = resultString;
         }
 
         return {
@@ -280,11 +338,11 @@ const YandexServices = {
         };
       } catch (e) {
         console.error('Schedule error:', e);
-        return { success: false, error: e.message };
+        return { success: false, error: (e as Error).message };
       }
     },
 
-    async analyzeSubjects(email) {
+    async analyzeSubjects(email: string): Promise<string[] | null> {
       try {
         const session = await this._getSessionConfig();
 
@@ -306,7 +364,7 @@ const YandexServices = {
         }
 
         const events = await this._fetchEvents(email, session, start, end);
-        const foundSubjects = new Set();
+        const foundSubjects = new Set<string>();
 
         if (!events || events.length === 0) return [];
 
@@ -332,7 +390,7 @@ const YandexServices = {
           );
 
           if (englishGroupMatch) {
-            const group = englishGroupMatch[1].toUpperCase();
+            const group = englishGroupMatch[1]!.toUpperCase();
             foundSubjects.add(`Английский язык ${group}`);
             return;
           }
@@ -367,7 +425,7 @@ const YandexServices = {
       }
     },
 
-    async _getSessionConfig() {
+    async _getSessionConfig(): Promise<CalendarSessionConfig> {
       const uid = await YandexServices._getCookie('yandexuid', 'https://calendar.yandex.ru');
       if (!uid) throw new Error('Нет авторизации в Яндекс Календаре');
 
@@ -379,11 +437,16 @@ const YandexServices = {
       const matchCkey = text.match(/"ckey"\s*:\s*"([^"]+)"/);
       if (!matchCkey) throw new Error('Не удалось получить ключ API Календаря (ckey)');
 
-      return { ckey: matchCkey[1], uid: uid, timezone: 'Europe/Moscow' };
+      return { ckey: matchCkey[1]!, uid: uid, timezone: 'Europe/Moscow' };
     },
 
-    async _fetchEvents(email, session, start, end) {
-      const dateFormat = (d) => d.toISOString().split('T')[0];
+    async _fetchEvents(
+      email: string,
+      session: CalendarSessionConfig,
+      start: Date,
+      end: Date
+    ): Promise<CalendarEvent[]> {
+      const dateFormat = (d: Date): string => d.toISOString().split('T')[0]!;
       const url = `https://calendar.yandex.ru/api/models?_models=get-events-by-login`;
       const cid = `MAYA-${Math.floor(Math.random() * 100000000)}-${Date.now()}`;
 
@@ -440,7 +503,7 @@ const YandexServices = {
   // --- MAIL SERVICE ---
   // --- MAIL SERVICE ---
   Mail: {
-    async searchContacts(query) {
+    async searchContacts(query: string): Promise<Contact[]> {
       if (!query || query.length < 3) return [];
 
       // Попробуем выполнить запрос до 2 раз
@@ -453,7 +516,7 @@ const YandexServices = {
           return await this._fetchContacts(query, session);
         } catch (e) {
           // Если ошибка именно в невалидном ключе (ckey), пробуем снова
-          if (e.message === 'INVALID_CKEY') {
+          if ((e as Error).message === 'INVALID_CKEY') {
             console.warn(`[Mail] Ckey устарел. Попытка ${attempt} из ${maxRetries}...`);
             if (attempt === maxRetries) return []; // Если попытки кончились, возвращаем пустоту
             // Иначе цикл продолжится, получит новый session и повторит запрос
@@ -468,7 +531,7 @@ const YandexServices = {
       return [];
     },
 
-    async _getSessionConfig() {
+    async _getSessionConfig(): Promise<MailSessionConfig> {
       const uid = await YandexServices._getCookie('yandexuid', 'https://mail.yandex.ru');
       if (!uid) throw new Error('Нет авторизации в Яндекс Почте');
 
@@ -479,10 +542,10 @@ const YandexServices = {
       const matchCkey = text.match(/"ckey":\s*"([^"]+)"/);
       if (!matchCkey) throw new Error('Не удалось получить ключ API Почты');
 
-      return { ckey: matchCkey[1], uid: uid };
+      return { ckey: matchCkey[1]!, uid: uid };
     },
 
-    async _fetchContacts(query, session) {
+    async _fetchContacts(query: string, session: MailSessionConfig): Promise<Contact[]> {
       const url = `https://mail.yandex.ru/web-api/models/liza1?_m=abook-contacts`;
       const payload = {
         models: [
@@ -519,25 +582,22 @@ const YandexServices = {
       }
       // ----------------------------------------
 
-      const contacts = model?.data?.contact || [];
+      const contacts: RawApiContact[] = model?.data?.contact ?? [];
 
       return contacts
         .filter((c) => c.email && c.email.length > 0)
         .map((c) => ({
-          name: c.name.full || c.name.first + ' ' + c.name.last,
-          email: c.email[0].value,
-          avatar: c.monogram,
+          name: c.name.full ?? `${c.name.first ?? ''} ${c.name.last ?? ''}`.trim(),
+          email: c.email[0]!.value,
+          avatar: c.monogram ?? '',
         }));
     },
   },
 
-  async _getCookie(name, url) {
+  async _getCookie(name: string, url: string): Promise<string | null> {
     try {
-      return new Promise((resolve) => {
-        chrome.cookies.get({ url: url, name: name }, (cookie) => {
-          resolve(cookie ? cookie.value : null);
-        });
-      });
+      const cookie = await browser.cookies.get({ url, name });
+      return cookie ? cookie.value : null;
     } catch (e) {
       return null;
     }
@@ -582,10 +642,15 @@ browser.webNavigation.onCompleted.addListener((details) => {
 }, navFilter);
 
 // --- ОБРАБОТЧИК СООБЩЕНИЙ (ЕДИНЫЙ ДЛЯ ВСЕГО) ---
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browser.runtime.onMessage.addListener(((
+  rawRequest: unknown,
+  sender: unknown,
+  sendResponse: (response: unknown) => void
+) => {
+  const request = rawRequest as IncomingMessage;
   // 1. ЛОГИКА ОБРАБОТКИ GIST
   if (request.action === 'fetchGistContent') {
-    fetch(request.url)
+    fetch((request as { action: 'fetchGistContent'; url: string }).url)
       .then((response) => response.text())
       .then((text) => {
         let processedText = text.trim();
@@ -617,28 +682,35 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // 2. ЛОГИКА YANDEX MAIL (Поиск контактов по имени)
   if (request.action === 'SEARCH_CONTACTS') {
-    YandexServices.Mail.searchContacts(request.query)
+    YandexServices.Mail.searchContacts(
+      (request as { action: 'SEARCH_CONTACTS'; query: string }).query
+    )
       .then((c) => sendResponse({ success: true, contacts: c }))
       .catch((e) => sendResponse({ success: false }));
     return true;
   }
   if (request.action === 'ANALYZE_SUBJECTS') {
-    YandexServices.Calendar.analyzeSubjects(request.email)
+    YandexServices.Calendar.analyzeSubjects(
+      (request as { action: 'ANALYZE_SUBJECTS'; email: string }).email
+    )
       .then((s) => sendResponse({ success: true, subjects: s }))
       .catch((e) => sendResponse({ success: false }));
     return true;
   }
   if (request.action === 'GET_WEEKLY_SCHEDULE') {
+    const r = request as { action: 'GET_WEEKLY_SCHEDULE'; email: string; date?: string };
     // Передаем request.date вторым аргументом
-    YandexServices.Calendar.analyzeSchedule(request.email, request.date)
+    YandexServices.Calendar.analyzeSchedule(r.email, r.date ?? null)
       .then((res) => sendResponse(res))
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
   if (request.action === 'GET_CALENDAR_LINK') {
-    YandexServices.Calendar.getPublicLink(request.email)
+    YandexServices.Calendar.getPublicLink(
+      (request as { action: 'GET_CALENDAR_LINK'; email: string }).email
+    )
       .then((l) => sendResponse({ success: true, link: l }))
       .catch((e) => sendResponse({ success: false }));
     return true;
   }
-});
+}) as Parameters<typeof browser.runtime.onMessage.addListener>[0]);
