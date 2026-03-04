@@ -21,7 +21,7 @@
   "content_scripts": [
     {
       "matches": ["https://my.centraluniversity.ru/learn/courses/view/*"],
-      "css": ["preload.css"],
+      "js": ["preload.js"],
       "run_at": "document_start"
     },
     {
