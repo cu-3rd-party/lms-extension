@@ -96,7 +96,9 @@ function debounce(func, wait) {
 }
 
 async function init() {
-  const tabsContainer = await waitForElement('tui-tabs');
+  // ИЗМЕНЕНИЕ ЗДЕСЬ: ищем tui-tabs конкретно внутри блока с классом .header__tabs
+  const tabsContainer = await waitForElement('.header__tabs tui-tabs');
+
   if (document.getElementById('custom-friends-link')) return;
 
   injectModalStyles();
@@ -122,6 +124,7 @@ async function init() {
   friendsLink.href = '#';
   friendsLink.innerText = 'Друзья';
 
+  // Копируем атрибуты с соседней ссылки именно в хедере
   const neighbor = tabsContainer.querySelector('.header__tab-link');
   if (neighbor) {
     Array.from(neighbor.attributes).forEach((attr) => {
@@ -146,12 +149,10 @@ async function init() {
     }
   });
 
-  const moreBtn = tabsContainer.querySelector('.t-more');
-  if (moreBtn) {
-    tabsContainer.insertBefore(friendsLink, moreBtn);
-  } else {
-    tabsContainer.appendChild(friendsLink);
-  }
+  // Вставка кнопки
+  // В хедере кнопка "Еще" (t-more) находится вне tui-tabs, а внутри tui-tabs-with-more.
+  // Мы вставляем внутрь tui-tabs, поэтому appendChild добавит её в конец списка видимых ссылок (после Хендбука).
+  tabsContainer.appendChild(friendsLink);
 
   tabsContainer.addEventListener('click', (e) => {
     const clickedTab = e.target.closest('.header__tab-link');
