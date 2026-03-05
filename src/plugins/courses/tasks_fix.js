@@ -337,7 +337,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
           const submitTime = task.submitAt ? new Date(task.submitAt).getTime() : 0;
           const rejectTime = task.rejectAt ? new Date(task.rejectAt).getTime() : 0;
 
-          if (task.exercise?.activity?.name === 'Аудиторная работа') {
+          const activityName = task.exercise?.activity?.name || '';
+
+          // Список слов-триггеров, которые считаем "Семинаром/Аудиторной"
+          const seminarKeywords = ['Аудиторная', 'Семинар', 'Активность'];
+
+          if (seminarKeywords.some((keyword) => activityName.includes(keyword))) {
             statusElement.textContent = 'Аудиторная';
             statusElement.setAttribute('data-culms-status', 'seminar');
             row.setAttribute('data-culms-row-type', 'seminar');
@@ -427,19 +432,25 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     const submitTime = task.submitAt ? new Date(task.submitAt).getTime() : 0;
     const rejectTime = task.rejectAt ? new Date(task.rejectAt).getTime() : 0;
 
-    if (task.exercise?.activity?.name === 'Аудиторная работа') {
-      statusElement.setAttribute('data-culms-status', 'seminar');
+    const activityName = task.exercise?.activity?.name || '';
+
+    // Список слов-триггеров, которые считаем "Семинаром/Аудиторной"
+    const seminarKeywords = ['Аудиторная', 'Семинар', 'Активность'];
+
+    if (seminarKeywords.some((keyword) => activityName.includes(keyword))) {
       statusElement.textContent = 'Аудиторная';
+      statusElement.setAttribute('data-culms-status', 'seminar');
+      row.setAttribute('data-culms-row-type', 'seminar');
     } else if (rejectTime > submitTime && task.state === 'inProgress') {
-      statusElement.setAttribute('data-culms-status', 'revision');
       statusElement.textContent = REVISION_STATUS_TEXT;
+      statusElement.setAttribute('data-culms-status', 'revision');
     } else if (
       submitTime > rejectTime &&
       (statusElement.textContent.includes('В работе') ||
         statusElement.textContent.includes('Есть решение'))
     ) {
-      statusElement.setAttribute('data-culms-status', 'solved');
       statusElement.textContent = 'Есть решение';
+      statusElement.setAttribute('data-culms-status', 'solved');
     }
 
     updateButtonIcon(button, false);
