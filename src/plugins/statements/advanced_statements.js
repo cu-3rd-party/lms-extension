@@ -1867,7 +1867,7 @@
 
       accumulationRow.innerHTML = `
                 <td colspan="5" style="text-align: center; padding: 12px; color: #aaa; font-size: 13px; border-top: 1px solid rgba(255,255,255,0.05);">
-                    Накоплено на данный момент: <b style="color: #fff">${data.totalWeightedScore}</b> / <b style="color: #fff">${data.totalMaxScoreSoFar}</b> (${percentageStr})
+                    Накоплено на данный момент: <b>${data.totalWeightedScore}</b> / <b>${data.totalMaxScoreSoFar}</b> (${percentageStr})
                 </td>
             `;
       clonedTable.querySelector('tfoot').appendChild(accumulationRow);
