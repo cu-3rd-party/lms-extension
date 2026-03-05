@@ -265,11 +265,22 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
   }
 
   async function handleFileClick(event) {
-    if (event.target.closest('button.file-download') || event.target.closest('button[tuibutton]'))
+    // Если клик был по кнопке "Удалить" (.remove-button) или любой другой кнопке внутри файла
+    // мы просто выходим из функции и не отменяем стандартное поведение.
+    if (
+      event.target.closest('.remove-button') ||
+      event.target.closest('button.file-download') ||
+      event.target.closest('button[tuibutton]') ||
+      event.target.closest('button[tuiiconbutton]')
+    ) {
       return;
+    }
 
     const container = event.currentTarget;
     const match = window.location.pathname.match(/longreads\/(\d+)/);
+
+    // Если мы не в лонгриде, скрипт тоже не должен блокировать стандартное поведение,
+    // если только вы не хотите превью везде.
     if (!match) return;
 
     event.preventDefault();
@@ -306,7 +317,8 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
       }
     } else {
       console.error('File link not found');
-      // Если скрипт не нашел ссылку, можно просто ничего не делать или алертнуть
+      // Если ссылка не найдена, можно попробовать открыть стандартно (fallback),
+      // но обычно здесь мы просто ничего не делаем.
     }
   }
 
