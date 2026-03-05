@@ -1,5 +1,75 @@
 // friends_tab.js
 
+const API_COURSES_URL =
+  'https://my.centraluniversity.ru/api/micro-lms/courses/student?limit=10000&state=published';
+let myCoursesCache = null;
+
+// --- УТИЛИТЫ ДЛЯ СРАВНЕНИЯ КУРСОВ ---
+
+async function fetchMyCourses() {
+  if (myCoursesCache) return myCoursesCache;
+  try {
+    const response = await fetch(API_COURSES_URL, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    if (data && Array.isArray(data.items)) {
+      myCoursesCache = data.items.map((item) => item.name);
+      return myCoursesCache;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching user courses:', error);
+    return [];
+  }
+}
+
+function normalizeSubjectName(str) {
+  if (!str) return '';
+  let s = str.toLowerCase();
+  s = s.replace(/[cс]\s*\+\+/g, ' cpp '); // C++ fix
+  s = s.replace(/[.,:;()[\]]/g, ' ');
+  s = s.replace(/[—–−-]/g, ' ');
+
+  const words = s.split(/\s+/);
+  const stopWords = new Set([
+    'на',
+    'in',
+    'of',
+    'for',
+    'языке',
+    'программирования',
+    'часть',
+    'part',
+    'level',
+    'уровень',
+    'module',
+    'модуль',
+    'course',
+    'курс',
+  ]);
+
+  const meaningfulWords = words.filter((w) => {
+    const clean = w.trim();
+    return clean.length > 0 && !stopWords.has(clean);
+  });
+
+  return meaningfulWords.join(' ');
+}
+
+function areCoursesSimilar(subject1, subject2) {
+  const s1 = normalizeSubjectName(subject1);
+  const s2 = normalizeSubjectName(subject2);
+  if (!s1 || !s2) return false;
+  if (s1 === s2) return true;
+  if (s1.includes(s2) || s2.includes(s1)) return true;
+  return false;
+}
+
+// --- ОСНОВНОЙ КОД ---
+
 function waitForElement(selector) {
   return new Promise((resolve) => {
     if (document.querySelector(selector)) return resolve(document.querySelector(selector));
@@ -31,7 +101,6 @@ async function init() {
 
   injectModalStyles();
 
-  // Слушатель изменений настроек (тема/OLED) в реальном времени
   if (chrome && chrome.storage) {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'sync' && (changes.themeEnabled || changes.oledEnabled)) {
@@ -166,6 +235,11 @@ function injectModalStyles() {
             --fr-danger: #ff453a;
             --fr-overlay: rgba(0, 0, 0, 0.5);
             --fr-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            
+            /* Shared Subject Colors (Light) */
+            --fr-tag-shared-bg: #e8f5e9;
+            --fr-tag-shared-border: #4caf50;
+            --fr-tag-shared-text: #1b5e20;
         }
 
         /* --- DARK THEME --- */
@@ -179,19 +253,29 @@ function injectModalStyles() {
             --fr-input-border: #3c4043;
             --fr-overlay: rgba(0, 0, 0, 0.7);
             --fr-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            
+            /* Shared Subject Colors (Dark) */
+            --fr-tag-shared-bg: rgba(27, 94, 32, 0.4);
+            --fr-tag-shared-border: #66bb6a;
+            --fr-tag-shared-text: #a5d6a7;
         }
 
         /* --- OLED THEME (PURE BLACK) --- */
         #friends-overlay.theme-oled {
             --fr-bg: #000000;
-            --fr-card-bg: #0b0b0b; /* Совпадает с .tui-island в dark_theme.js */
+            --fr-card-bg: #0b0b0b; 
             --fr-text: #ffffff;
             --fr-text-sec: #b0b0b0;
             --fr-border: #333333;
             --fr-input-bg: #000000;
             --fr-input-border: #333333;
-            --fr-overlay: rgba(0, 0, 0, 1); /* Непрозрачный черный или очень темный для OLED эффекта */
-            --fr-shadow: none; /* Убираем тени в OLED для плоскости и чистоты */
+            --fr-overlay: rgba(0, 0, 0, 1);
+            --fr-shadow: none;
+
+            /* Shared Subject Colors (OLED) */
+            --fr-tag-shared-bg: #000000;
+            --fr-tag-shared-border: #2e7d32;
+            --fr-tag-shared-text: #4caf50;
         }
 
         #friends-overlay * {
@@ -408,6 +492,14 @@ function injectModalStyles() {
             color: var(--fr-text) !important;
             border: 1px solid var(--fr-border) !important;
         }
+        
+        /* Shared Tag Style */
+        .cu-ext-tag-shared {
+            background-color: var(--fr-tag-shared-bg) !important;
+            border-color: var(--fr-tag-shared-border) !important;
+            color: var(--fr-tag-shared-text) !important;
+            font-weight: 600;
+        }
 
         .cu-ext-schedule-box {
             margin-top: 10px;
@@ -480,7 +572,6 @@ function renderFriendsPage() {
     overlay = document.createElement('div');
     overlay.id = 'friends-overlay';
 
-    // Получаем настройки при создании (для всех тем: Dark + OLED)
     if (chrome && chrome.storage) {
       chrome.storage.sync.get(['themeEnabled', 'oledEnabled'], (data) => {
         applyThemeClasses(overlay, !!data.themeEnabled, !!data.oledEnabled);
@@ -562,7 +653,7 @@ function bindFriendsLogic() {
     });
   };
 
-  const renderList = () => {
+  const renderList = async () => {
     const friends = getStoredFriends();
     list.innerHTML = '';
 
@@ -574,6 +665,9 @@ function bindFriendsLogic() {
     } else {
       list.style.display = 'grid';
     }
+
+    // Получаем мои курсы для сравнения
+    const myCourses = await fetchMyCourses();
 
     const getAuthErrorHtml = () => `
             <div style="padding: 8px 0; color: var(--fr-danger); font-size: 12px; line-height: 1.4;">
@@ -591,7 +685,16 @@ function bindFriendsLogic() {
 
       let subjectsHtml = '';
       if (friend.subjects && friend.subjects.length > 0) {
-        subjectsHtml = friend.subjects.map((s) => `<span class="cu-ext-tag">${s}</span>`).join('');
+        subjectsHtml = friend.subjects
+          .map((s) => {
+            // Проверяем, есть ли предмет у меня
+            const isShared = myCourses.some((mySubj) => areCoursesSimilar(s, mySubj));
+            const extraClass = isShared ? 'cu-ext-tag-shared' : '';
+            const title = isShared ? ' title="Вы тоже изучаете этот предмет"' : '';
+
+            return `<span class="cu-ext-tag ${extraClass}"${title}>${s}</span>`;
+          })
+          .join('');
       } else if (friend.subjects && friend.subjects.length === 0) {
         subjectsHtml =
           '<span style="color: var(--fr-text-sec); font-size: 12px; font-style: italic;">Предметов не найдено</span>';
@@ -726,9 +829,18 @@ function bindFriendsLogic() {
               currentFriends[friendIdx].subjects = subjects;
               saveStoredFriends(currentFriends);
             }
+
+            // Получаем актуальный список моих курсов (если кэш пуст)
+            const currentMyCourses = await fetchMyCourses();
+
             if (subjects.length > 0) {
               subjContainer.innerHTML = subjects
-                .map((s) => `<span class="cu-ext-tag">${s}</span>`)
+                .map((s) => {
+                  const isShared = currentMyCourses.some((mySubj) => areCoursesSimilar(s, mySubj));
+                  const extraClass = isShared ? 'cu-ext-tag-shared' : '';
+                  const title = isShared ? ' title="Вы тоже изучаете этот предмет"' : '';
+                  return `<span class="cu-ext-tag ${extraClass}"${title}>${s}</span>`;
+                })
                 .join('');
             } else {
               subjContainer.innerHTML =
@@ -789,7 +901,7 @@ function bindFriendsLogic() {
 
     if (hasChanges) {
       saveStoredFriends(friends);
-      renderList();
+      await renderList();
       statusDiv.innerHTML = `<p style="color: #28a745; margin-bottom: 0; font-size: 14px;">Предметы обновлены!</p>`;
       setTimeout(() => (statusDiv.innerHTML = ''), 3000);
     }
