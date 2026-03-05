@@ -15717,3 +15717,11 @@ input[tuiRadio][data-status='primary']:checked {
   background-color: #3390ec !important;
   color: #ffffff !important;
 }
+
+.left .message-content {
+  background-color: var(--culms-dark-bg-secondary) !important; /* Приятный темно-серый цвет */
+}
+
+.right .message-content {
+  background-color: var(--culms-dark-bg-secondary) !important; /* Приятный темно-серый цвет */
+}
