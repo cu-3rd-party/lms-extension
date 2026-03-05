@@ -177,3 +177,25 @@ tui-input .t-textfield {
 .t-close::after {
   color: #ffffff !important;
 }
+
+input[tuiRadio][data-status='primary'] {
+  /* Меняем красный на приятный синий (как в Telegram или VS Code) */
+  --cu-radio-primary-background: rgb(0, 0, 0) !important;
+
+  /* Цвет точки/маркера внутри (белый) */
+  --cu-radio-primary-mark: #ffffff !important;
+
+  /* На всякий случай переопределяем нативные свойства */
+  border-color: rgb(0, 0, 0) !important;
+}
+
+/* Состояние при наведении (делаем чуть светлее) */
+input[tuiRadio][data-status='primary']:hover {
+  --cu-radio-primary-background: #55aaff !important;
+}
+
+/* Если вдруг стили заданы жестко через background, а не переменные */
+input[tuiRadio][data-status='primary']:checked {
+  background-color: #3390ec !important;
+  color: #ffffff !important;
+}
