@@ -1,13 +1,8 @@
 import { defineConfig } from 'vite';
 import { crx } from '@crxjs/vite-plugin';
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
+import manifest from './manifest.config.js';
 
 const BROWSER = process.env.BROWSER ?? 'chrome';
-
-const chromeManifest = require('./src/manifests/manifest.json');
-const firefoxManifest = require('./src/manifests/manifest_firefox.json');
 
 export default defineConfig({
   // src/ is the extension root — all manifest paths resolve from here
@@ -35,9 +30,7 @@ export default defineConfig({
 
   plugins: [
     crx({
-      manifest: BROWSER === 'firefox' ? firefoxManifest : chromeManifest,
-      // crx handles web_accessible_resources, service-worker vs background-page,
-      // and strips use_dynamic_url for Firefox automatically
+      manifest,
       browser: /** @type {'chrome' | 'firefox'} */ (BROWSER),
     }),
   ],
