@@ -22,10 +22,7 @@ async function processWeightInfo() {
 }
 
 async function fetchLongreadData(longreadId) {
-  const apiUrl = `https://my.centraluniversity.ru/api/micro-lms/longreads/${longreadId}/materials?limit=10000`;
-  const response = await fetch(apiUrl, { credentials: 'include' });
-  if (!response.ok) throw new Error(`API request failed! Status: ${response.status}`);
-  return await response.json();
+  return window.__culmsLmsApi.fetchMaterials(longreadId);
 }
 
 function findWeightInApiResponse(data) {

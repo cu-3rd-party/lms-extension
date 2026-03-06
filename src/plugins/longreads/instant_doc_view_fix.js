@@ -68,6 +68,7 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
             position: absolute;
         }
         @keyframes cu-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
     `;
   document.head.appendChild(style);
 
@@ -131,31 +132,11 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
   // ОСНОВНАЯ ЛОГИКА ПОИСКА ФАЙЛОВ (из предыдущей версии)
   // =========================================================
 
-  let materialsCache = null;
-  let currentLongreadsId = null;
-  let tasksCache = {};
-  let commentsCache = {};
+  const tasksCache = {};
+  const commentsCache = {};
 
-  async function fetchMaterials(longreadsId) {
-    if (materialsCache && currentLongreadsId === longreadsId) return materialsCache;
-    if (currentLongreadsId !== longreadsId) {
-      materialsCache = null;
-      tasksCache = {};
-      commentsCache = {};
-    }
-    try {
-      const resp = await fetch(
-        `https://my.centraluniversity.ru/api/micro-lms/longreads/${longreadsId}/materials?limit=10000`,
-        { credentials: 'include' }
-      );
-      if (!resp.ok) throw new Error(resp.status);
-      const data = await resp.json();
-      materialsCache = data;
-      currentLongreadsId = longreadsId;
-      return data;
-    } catch (e) {
-      return null;
-    }
+  function fetchMaterials(longreadsId) {
+    return window.__culmsLmsApi.fetchMaterials(longreadsId);
   }
 
   async function fetchTaskDetails(taskId) {
@@ -200,6 +181,13 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
 
     // 1. Поиск в материалах
     for (const item of materialsData.items) {
+      // Случай A: item сам является файлом (discriminator: "file"), данные в item.content
+      if (item.content?.name === fullDisplayedFileName && item.content?.filename) {
+        foundFilename = item.content.filename;
+        foundVersion = item.content.version || item.version;
+        break;
+      }
+      // Случай B: файлы в массиве attachments
       const attachments = item.attachments || item.content?.attachments || [];
       const found = attachments.find((att) => att.name === fullDisplayedFileName);
       if (found) {
@@ -322,35 +310,79 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
     }
   }
 
+  // Устанавливает href прямо на существующий a.file — он уже является <a>,
+  // просто без href. handleFileClick делает preventDefault() на левый клик,
+  // поэтому поведение левого клика не меняется. Правый клик видит href → "Открыть в новой вкладке".
+  async function prefetchAndSetHref(container, longreadsId) {
+    try {
+      const materialsData = await fetchMaterials(longreadsId);
+      if (!materialsData) return;
+      const result = await getDownloadUrl(container, materialsData);
+
+      if (result?.url) {
+        let finalUrl = result.url;
+        if (finalUrl.includes('response-content-disposition=attachment')) {
+          finalUrl = finalUrl.replace(
+            'response-content-disposition=attachment',
+            'response-content-disposition=inline'
+          );
+        }
+        container.href = finalUrl;
+        container.target = '_blank';
+        container.rel = 'noopener noreferrer';
+        console.log(
+          '[CU LMS Fix] href set for:',
+          container.querySelector('.t-name')?.textContent?.trim()
+        );
+      } else {
+        console.warn(
+          '[CU LMS Fix] No URL found for:',
+          container.querySelector('.t-name')?.textContent?.trim(),
+          '| result:',
+          result
+        );
+      }
+    } catch (e) {
+      console.error('[CU LMS Fix] prefetchAndSetHref error:', e);
+    }
+  }
+
   function processElements() {
     // Ищем все файлы, которые еще не обрабатывали
     const fileContainers = document.querySelectorAll('a.file:not([data-cu-fix-applied])');
+    console.log('[CU LMS Fix] processElements: found', fileContainers.length, 'unprocessed files');
+
+    const longreadsMatch = window.location.pathname.match(/longreads\/(\d+)/);
+    const longreadsId = longreadsMatch?.[1];
 
     fileContainers.forEach((container) => {
-      // 1. Проверяем, находится ли файл внутри опубликованного сообщения.
-      // Тег <cu-message> оборачивает конкретный комментарий в ленте.
       const isInsideMessage = container.closest('cu-message');
-
-      // 2. Проверяем, является ли файл статичным материалом (лонгрид).
-      // У материалов лонгрида обычно нет атрибута data-delete="true".
-      // При этом мы также проверяем, что это НЕ черновик в поле ввода (cu-type-message-bar).
+      const isLongreadMaterial = !!container.closest('cu-longread-material-file');
       const isDraftInput = container.closest('cu-type-message-bar');
       const isDeletable = container.getAttribute('data-delete') === 'true';
-
-      // Файл считается "статичным материалом", если он не удаляемый и не находится в инпуте
       const isStaticMaterial = !isDeletable && !isDraftInput;
 
-      // ПРИМЕНЯЕМ ФИКС, ЕСЛИ:
-      // Это файл в сообщении (комментарий) ИЛИ Это материал лонгрида
-      if (isInsideMessage || isStaticMaterial) {
+      console.log('[CU LMS Fix] file:', {
+        name: container.querySelector('.t-name')?.textContent?.trim(),
+        isInsideMessage: !!isInsideMessage,
+        isLongreadMaterial,
+        isDraftInput: !!isDraftInput,
+        isDeletable,
+        isStaticMaterial,
+      });
+
+      if (isInsideMessage || isStaticMaterial || isLongreadMaterial) {
         container.dataset.cuFixApplied = 'true';
         container.addEventListener('click', handleFileClick, { capture: true });
         container.style.cursor = 'pointer';
-        // console.log('[CU LMS Fix] Applied to:', isInsideMessage ? 'Comment Attachment' : 'Static Material');
+        if (longreadsId) prefetchAndSetHref(container, longreadsId);
+        console.log(
+          '[CU LMS Fix] Applied to:',
+          isInsideMessage ? 'Comment' : isLongreadMaterial ? 'Longread' : 'Static Material'
+        );
       } else {
-        // Если это черновик или что-то неизвестное — помечаем как ignored,
-        // чтобы обсервер не перепроверял его постоянно.
         container.dataset.cuFixApplied = 'ignored';
+        console.log('[CU LMS Fix] Ignored (draft or unknown)');
       }
     });
   }
