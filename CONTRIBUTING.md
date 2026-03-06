@@ -86,7 +86,10 @@ eslint.config.js           # ESLint flat config
 
 ## Код-стиль
 
-Проект использует ESLint + Prettier. Pre-commit хук автоматически проверяет и форматирует staged-файлы.
+Проект использует ESLint + Prettier. Pre-commit хук автоматически проверяет и форматирует staged-файлы через lint-staged.
+
+Коммиты должны следовать формату [Conventional Commits](https://www.conventionalcommits.org/), например:
+`feat: add dark theme`, `fix(popup): correct alignment`, `chore: update deps`. Commit-msg хук проверяет это автоматически.
 
 - JS-файлы в `src/` для браузерного окружения, глобалы `webextensions` доступны
 - Файлы в `scripts/` и `vite.config.js` для Node.js окружения

@@ -17,6 +17,8 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.4.3",
+    "@commitlint/config-conventional": "^20.4.3",
     "@crxjs/vite-plugin": "^2.3.0",
     "@eslint/js": "^10.0.1",
     "@types/webextension-polyfill": "^0.12.5",
