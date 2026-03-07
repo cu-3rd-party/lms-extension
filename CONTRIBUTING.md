@@ -76,6 +76,8 @@ eslint.config.js           # ESLint flat config
 
 Подробная инструкция — в [`src/plugins/README.md`](src/plugins/README.md).
 
+Хочешь сгенерировать плагин с помощью ИИ? Используй готовый промпт из [`src/plugins/AI-GUIDE.md`](src/plugins/AI-GUIDE.md) — скопируй его в ChatGPT/Claude и допиши что нужно реализовать.
+
 Кратко:
 
 1. Создай папку `src/plugins/my-plugin/`

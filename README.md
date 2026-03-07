@@ -32,3 +32,5 @@ bun run build:firefox  # → dist/firefox/
 **Firefox:** откройте `about:debugging#/runtime/this-firefox` → «Load Temporary Add-on...» → выберите любой файл из `dist/firefox/`
 
 Подробнее о структуре проекта, плагинах и настройке окружения — в [CONTRIBUTING.md](CONTRIBUTING.md).
+
+E2E-тесты расширения — в [tests/](tests/).

@@ -1,18 +1,15 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Pack the built extension into a zip / xpi for distribution.
- * Replaces build-chrome.sh and build-firefox.sh.
  *
  * Usage:
- *   node scripts/pack.js [chrome|firefox]
- *   BROWSER=firefox node scripts/pack.js
+ *   bun --bun scripts/pack.ts [chrome|firefox]
+ *   BROWSER=firefox bun --bun scripts/pack.ts
  */
 
-import { execSync } from 'child_process';
-import { mkdirSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
@@ -34,5 +31,9 @@ if (!existsSync(buildDir)) {
 }
 
 console.log(`Packing ${BROWSER} extension…`);
-execSync(`cd "${distDir}" && zip -qr "${outFile}" .`);
+const result = Bun.spawnSync(['zip', '-qr', outFile, '.'], { cwd: distDir });
+if (result.exitCode !== 0) {
+  console.error(result.stderr.toString());
+  process.exit(result.exitCode ?? 1);
+}
 console.log(`✓  build/lms-extension-${BROWSER}.${ext}`);

@@ -81,7 +81,15 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+
+# Playwright
+.chrome-profile/
+test-results/
+playwright-report/
 .output
+tests/.auth.json
+tests/.cookies.json
+tests/.chrome-profile/
 
 # Gatsby files
 .cache/
@@ -142,5 +150,8 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Generated from node_modules at build time
+src/browser-polyfill.js
 
 build/

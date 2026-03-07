@@ -3,7 +3,7 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**', 'build/**', 'node_modules/**', 'src/browser-polyfill.js'],
+    ignores: ['dist/**', 'build/**', 'node_modules/**'],
   },
   // Extension source scripts (content scripts, background, popup)
   {

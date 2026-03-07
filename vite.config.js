@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { crx } from '@crxjs/vite-plugin';
 import manifest from './manifest.config.js';
+import fs from 'fs';
 
 const BROWSER = process.env.BROWSER ?? 'chrome';
 
@@ -29,6 +30,15 @@ export default defineConfig({
   },
 
   plugins: [
+    {
+      name: 'copy-browser-polyfill',
+      buildStart() {
+        fs.copyFileSync(
+          'node_modules/webextension-polyfill/dist/browser-polyfill.js',
+          'src/browser-polyfill.js'
+        );
+      },
+    },
     crx({
       manifest,
       browser: /** @type {'chrome' | 'firefox'} */ (BROWSER),
