@@ -1,8 +1,11 @@
-// popup.js - УНИВЕРСАЛЬНАЯ ФИНАЛЬНАЯ ВЕРСИЯ (с контекстной плашкой, всеми опциями и загрузкой стикеров)
+// popup.js - УНИВЕРСАЛЬНАЯ ФИНАЛЬНАЯ ВЕРСИЯ (с отложенным сохранением)
 'use strict';
 
 // --- ОПРЕДЕЛЕНИЕ КОНТЕКСТА ---
 const isInsideIframe = window.self !== window.top;
+
+// Настройки, которые применяются "на лету" без перезагрузки (можно сохранять сразу)
+const LIVE_SETTINGS = ['themeEnabled', 'oledEnabled'];
 
 // --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP ---
 const darkThemeLinkID = 'popup-dark-theme-style';
@@ -36,32 +39,23 @@ const toggles = {
   courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
   advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
   endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'),
-  friendsEnabled: document.getElementById('friends-toggle'), // <-- ДОБАВИТЬ ЭТУ СТРОКУ
+  friendsEnabled: document.getElementById('friends-toggle'),
 };
 
 // Элементы UI для зависимых настроек
 const endOfCourseCalcLabel = document.getElementById('end-of-course-calc-label');
 const futureExamsDisplayContainer = document.getElementById('future-exams-display-container');
 const futureExamsDisplayFormat = document.getElementById('future-exams-display-format');
-
-// --- НОВОЕ: элементы UI для авто-переименования ДЗ ---
 const autoRenameFormatContainer = document.getElementById('auto-rename-format-container');
 const renameTemplateSelect = document.getElementById('rename-template-select');
-
-// Элементы UI для стикеров
 const stickerUploadContainer = document.getElementById('sticker-upload-container');
 const stickerFileInput = document.getElementById('sticker-file-input');
 const stickerPreview = document.getElementById('sticker-preview');
 const noStickerText = document.getElementById('no-sticker-text');
 const stickerResetBtn = document.getElementById('sticker-reset-btn');
-
-// Уведомление о перезагрузке (для iframe)
 const reloadNotice = document.getElementById('reload-notice');
-
-// Объединяем все ключи настроек для удобства
 const stickerFitSelect = document.getElementById('sticker-fit-select');
 
-// Добавь 'stickerObjectFit' в массив allKeys
 const allKeys = [
   ...Object.keys(toggles),
   'futureExamsDisplayFormat',
@@ -71,19 +65,12 @@ const allKeys = [
 let pendingChanges = {};
 
 // --- ФУНКЦИИ ДЛЯ РАБОТЫ СО СТИКЕРАМИ ---
-
-/**
- * Показывает или скрывает блок загрузки картинки
- */
 function updateStickerUI(isEnabled) {
   if (stickerUploadContainer) {
     stickerUploadContainer.style.display = isEnabled ? 'block' : 'none';
   }
 }
 
-/**
- * Загружает превью стикера из local storage (не sync, т.к. размер большой)
- */
 function loadStickerImage() {
   if (!stickerPreview || !noStickerText) return;
 
@@ -100,7 +87,6 @@ function loadStickerImage() {
   });
 }
 
-// --- НОВОЕ: UI для авто-переименования ДЗ ---
 function updateAutoRenameUI(isEnabled) {
   if (autoRenameFormatContainer) {
     autoRenameFormatContainer.style.display = isEnabled ? 'block' : 'none';
@@ -108,10 +94,6 @@ function updateAutoRenameUI(isEnabled) {
 }
 
 // --- ОСНОВНАЯ ЛОГИКА ОБНОВЛЕНИЯ СОСТОЯНИЙ ---
-
-/**
- * Обновляет состояние всех переключателей на основе данных из хранилища.
- */
 function refreshToggleStates() {
   browser.storage.sync.get([...allKeys, 'autoRenameTemplate']).then((data) => {
     allKeys.forEach((key) => {
@@ -120,17 +102,11 @@ function refreshToggleStates() {
       }
     });
 
-    // Особая логика для зависимых переключателей
     const isThemeEnabled = !!data.themeEnabled;
     const isAdvancedStatementsEnabled = !!data.advancedStatementsEnabled;
-    const isAutoRenameEnabled = !!data.autoRenameEnabled; // НОВОЕ
+    const isAutoRenameEnabled = !!data.autoRenameEnabled;
 
-    // OLED зависит от Темной темы
-    if (toggles.oledEnabled) {
-      toggles.oledEnabled.disabled = !isThemeEnabled;
-    }
-
-    // Калькулятор зависит от Расширенной ведомости
+    if (toggles.oledEnabled) toggles.oledEnabled.disabled = !isThemeEnabled;
     if (toggles.endOfCourseCalcEnabled) {
       toggles.endOfCourseCalcEnabled.disabled = !isAdvancedStatementsEnabled;
       endOfCourseCalcLabel.classList.toggle('disabled-label', !isAdvancedStatementsEnabled);
@@ -138,30 +114,22 @@ function refreshToggleStates() {
 
     if (data.stickerEnabled) {
       updateStickerUI(true);
-      // Показываем кнопку редактора
       const editorContainer = document.getElementById('sticker-editor-container');
       if (editorContainer) editorContainer.style.display = 'block';
-
       loadStickerImage();
     } else {
       updateStickerUI(false);
       const editorContainer = document.getElementById('sticker-editor-container');
       if (editorContainer) editorContainer.style.display = 'none';
     }
-    if (stickerFitSelect) {
-      stickerFitSelect.value = data.stickerObjectFit || 'cover';
-    }
+    if (stickerFitSelect) stickerFitSelect.value = data.stickerObjectFit || 'cover';
 
-    // НОВОЕ: логика UI авто-переименования
     updateAutoRenameUI(isAutoRenameEnabled);
     if (renameTemplateSelect && data.autoRenameTemplate) {
       renameTemplateSelect.value = data.autoRenameTemplate;
     }
 
-    // Применяем тему к самому popup
     applyPopupTheme(isThemeEnabled);
-
-    // Обновляем отображение полей, зависящих от состояний переключателей
     updateFormatDisplayVisibility(data.futureExamsDisplayFormat);
   });
 }
@@ -172,7 +140,6 @@ function updateFormatDisplayVisibility(displayFormat) {
       ? 'block'
       : 'none';
   }
-
   if (futureExamsDisplayFormat && displayFormat) {
     futureExamsDisplayFormat.value = displayFormat;
   }
@@ -180,7 +147,7 @@ function updateFormatDisplayVisibility(displayFormat) {
 
 // --- ДОБАВЛЕНИЕ ОБРАБОТЧИКОВ СОБЫТИЙ ---
 
-// 1. Обработчики для всех переключателей (checkboxes)
+// 1. Обработчики для всех переключателей
 allKeys.forEach((key) => {
   const toggleElement = toggles[key];
   if (toggleElement) {
@@ -188,61 +155,60 @@ allKeys.forEach((key) => {
       const isEnabled = toggleElement.checked;
       const change = { [key]: isEnabled };
 
-      // Сохраняем немедленно — тема/OLED применяются через storage.onChanged без перезагрузки
-      browser.storage.sync.set(change);
       if (isInsideIframe) {
+        // Если мы внутри iframe, просто копим изменения
         pendingChanges = { ...pendingChanges, ...change };
-        // Показываем уведомление только для скриптов, которые стартуют при загрузке страницы
-        const requiresReload = key === 'snowEnabled' || key === 'stickerEnabled';
-        if (requiresReload && reloadNotice) reloadNotice.style.display = 'block';
+
+        // Живые настройки (тема) сохраняем сразу для мгновенного эффекта
+        if (LIVE_SETTINGS.includes(key)) {
+          browser.storage.sync.set(change);
+        } else {
+          // Для остальных просто показываем плашку "Применится после закрытия"
+          if (reloadNotice) reloadNotice.style.display = 'block';
+        }
+      } else {
+        // Если открыто как классический popup окна
+        browser.storage.sync.set(change);
       }
 
       // --- Логика зависимостей ---
-
-      // Зависимость OLED от Темы
       if (key === 'themeEnabled') {
         if (toggles.oledEnabled) {
           toggles.oledEnabled.disabled = !isEnabled;
           if (!isEnabled && toggles.oledEnabled.checked) {
             toggles.oledEnabled.checked = false;
             const oledChange = { oledEnabled: false };
-            browser.storage.sync.set(oledChange);
-            if (isInsideIframe) pendingChanges = { ...pendingChanges, ...oledChange };
+            if (isInsideIframe) {
+              pendingChanges = { ...pendingChanges, ...oledChange };
+              browser.storage.sync.set(oledChange); // OLED тоже Live настройка
+            } else {
+              browser.storage.sync.set(oledChange);
+            }
           }
         }
-      }
-      // Зависимость Калькулятора от Ведомости
-      else if (key === 'advancedStatementsEnabled') {
+      } else if (key === 'advancedStatementsEnabled') {
         if (toggles.endOfCourseCalcEnabled) {
           toggles.endOfCourseCalcEnabled.disabled = !isEnabled;
           endOfCourseCalcLabel.classList.toggle('disabled-label', !isEnabled);
           if (!isEnabled && toggles.endOfCourseCalcEnabled.checked) {
             toggles.endOfCourseCalcEnabled.checked = false;
             const endOfCourseChange = { endOfCourseCalcEnabled: false };
-            browser.storage.sync.set(endOfCourseChange);
-            if (isInsideIframe) pendingChanges = { ...pendingChanges, ...endOfCourseChange };
+            if (isInsideIframe) {
+              pendingChanges = { ...pendingChanges, ...endOfCourseChange };
+              if (reloadNotice) reloadNotice.style.display = 'block';
+            } else {
+              browser.storage.sync.set(endOfCourseChange);
+            }
           }
         }
-      }
-      // Видимость настроек экзаменов
-      else if (key === 'futureExamsViewToggle') {
+      } else if (key === 'futureExamsViewToggle') {
         updateFormatDisplayVisibility();
-      }
-      // Видимость настроек стикеров
-      else if (key === 'stickerEnabled') {
-        // Логика для старого контейнера (чтобы не ломалось)
+      } else if (key === 'stickerEnabled') {
         updateStickerUI(isEnabled);
-
-        // --- ИСПРАВЛЕНИЕ: Логика для НОВОГО контейнера с кнопками ---
         const editorContainer = document.getElementById('sticker-editor-container');
-        if (editorContainer) {
-          editorContainer.style.display = isEnabled ? 'block' : 'none';
-        }
-
+        if (editorContainer) editorContainer.style.display = isEnabled ? 'block' : 'none';
         if (isEnabled) loadStickerImage();
-      }
-      // НОВОЕ: видимость выбора шаблона авто-переименования
-      else if (key === 'autoRenameEnabled') {
+      } else if (key === 'autoRenameEnabled') {
         updateAutoRenameUI(isEnabled);
       }
     });
@@ -255,41 +221,26 @@ if (openEditorBtn) {
     const targetUrl =
       'https://my.centraluniversity.ru/learn/courses/view/actual?customIconEditor=true';
 
-    // 1. Принудительно ставим галочку "Включено", если пользователь нажал кнопку редактора,
-    // но забыл включить сам переключатель.
     if (toggles.stickerEnabled && !toggles.stickerEnabled.checked) {
       toggles.stickerEnabled.checked = true;
-      // Обновляем pendingChanges вручную, так как событие change может не успеть отработать
-      if (isInsideIframe) {
-        pendingChanges['stickerEnabled'] = true;
-      }
+      if (isInsideIframe) pendingChanges['stickerEnabled'] = true;
     }
 
-    // 2. Логика перехода с гарантированным сохранением
     if (isInsideIframe) {
-      // Если мы внутри Iframe, изменения лежат в pendingChanges.
-      // Нужно СРОЧНО отправить их родителю перед тем, как страница перезагрузится.
-
-      // Убедимся, что включение стикеров попало в изменения
       pendingChanges['stickerEnabled'] = true;
-
       window.parent.postMessage(
         {
           action: 'receivePendingChanges',
-          payload: pendingChanges,
-          shouldReload: false, // Ставим false, так как мы всё равно уходим со страницы
+          payload: pendingChanges, // Отправляем всё накопленное перед переходом
+          shouldReload: false,
         },
         '*'
       );
 
-      // Даем крошечную задержку (50мс), чтобы сообщение успело дойти до родителя,
-      // и только потом меняем URL
       setTimeout(() => {
         window.parent.location.href = targetUrl;
       }, 50);
     } else {
-      // Если открыто как отдельное окно браузера (popup)
-      // Сначала явно сохраняем в storage, и только ПОСЛЕ успешного сохранения (then) закрываем окно.
       browser.storage.sync.set({ stickerEnabled: true }).then(() => {
         browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
           if (tabs.length > 0) {
@@ -302,24 +253,49 @@ if (openEditorBtn) {
   });
 }
 
-// 2. Обработчик для выпадающего списка формата экзаменов
+// 2. Обработчики дропдаунов (откладываем сохранение в Iframe)
 if (futureExamsDisplayFormat) {
   futureExamsDisplayFormat.addEventListener('change', () => {
     const selectedFormat = futureExamsDisplayFormat.value;
-    browser.storage.sync.set({ futureExamsDisplayFormat: selectedFormat });
     if (isInsideIframe) {
       pendingChanges['futureExamsDisplayFormat'] = selectedFormat;
+      if (reloadNotice) reloadNotice.style.display = 'block';
+    } else {
+      browser.storage.sync.set({ futureExamsDisplayFormat: selectedFormat });
     }
   });
 }
 
-// 3. Обработчик ЗАГРУЗКИ ФАЙЛА (Стикеры)
+if (renameTemplateSelect) {
+  renameTemplateSelect.addEventListener('change', () => {
+    const template = renameTemplateSelect.value;
+    if (isInsideIframe) {
+      pendingChanges['autoRenameTemplate'] = template;
+      if (reloadNotice) reloadNotice.style.display = 'block';
+    } else {
+      browser.storage.sync.set({ autoRenameTemplate: template });
+    }
+  });
+}
+
+if (stickerFitSelect) {
+  stickerFitSelect.addEventListener('change', () => {
+    const val = stickerFitSelect.value;
+    if (isInsideIframe) {
+      pendingChanges['stickerObjectFit'] = val;
+      if (reloadNotice) reloadNotice.style.display = 'block';
+    } else {
+      browser.storage.sync.set({ stickerObjectFit: val });
+    }
+  });
+}
+
+// 3. Обработчик загрузки файла
 if (stickerFileInput) {
   stickerFileInput.addEventListener('change', (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Лимит 3 МБ
     if (file.size > 3 * 1024 * 1024) {
       alert('Файл слишком большой! Пожалуйста, выберите картинку до 3 МБ.');
       stickerFileInput.value = '';
@@ -329,30 +305,15 @@ if (stickerFileInput) {
     const reader = new FileReader();
     reader.onload = function (e) {
       const base64String = e.target.result;
-      // Сохраняем в LOCAL storage (большие данные)
       browser.storage.local.set({ customStickerData: base64String }).then(() => {
         loadStickerImage();
-        // Если мы не в iframe, можно уведомить background или content script,
-        // но storage listener там сработает сам.
       });
     };
     reader.readAsDataURL(file);
   });
 }
 
-if (renameTemplateSelect) {
-  renameTemplateSelect.addEventListener('change', () => {
-    const template = renameTemplateSelect.value;
-    browser.storage.sync.set({ autoRenameTemplate: template });
-    if (isInsideIframe) {
-      pendingChanges['autoRenameTemplate'] = template;
-    }
-    // Тут мы только сохраняем шаблон.
-    // Контент-скрипт должен сам подхватить это через storage.onChanged и дернуть rename_hw.
-  });
-}
-
-// 4. Обработчик УДАЛЕНИЯ КАРТИНКИ (Стикеры)
+// 4. Обработчик удаления картинки
 if (stickerResetBtn) {
   stickerResetBtn.addEventListener('click', () => {
     browser.storage.local.remove('customStickerData').then(() => {
@@ -364,23 +325,19 @@ if (stickerResetBtn) {
 
 // --- СИСТЕМНЫЕ СЛУШАТЕЛИ ---
 
-// Слушатели сообщений из iframe (если popup открыт внутри страницы)
+// Отправка накопленных изменений родителю при закрытии меню
 if (isInsideIframe) {
   window.addEventListener('message', (event) => {
-    // Проверяем, что сообщение от родителя
     if (event.source !== window.parent) return;
 
-    // Родитель просит изменения перед закрытием
     if (event.data && event.data.action === 'getPendingChanges') {
-      // Перезагрузка нужна только для скриптов, запускающихся один раз при загрузке страницы.
-      // Тема/OLED применяются через storage.onChanged без перезагрузки — их нет в списке.
-      const needsReload = 'stickerEnabled' in pendingChanges || 'snowEnabled' in pendingChanges;
+      // Перезагрузка нужна, если в pendingChanges есть что-то помимо "живых" настроек
+      const needsReload = Object.keys(pendingChanges).some((k) => !LIVE_SETTINGS.includes(k));
 
       window.parent.postMessage(
         {
           action: 'receivePendingChanges',
-          // Изменения уже сохранены напрямую в storage, передаём пустой объект
-          payload: {},
+          payload: pendingChanges, // Теперь мы реально передаем все изменения
           shouldReload: needsReload,
         },
         '*'
@@ -392,19 +349,14 @@ if (isInsideIframe) {
   });
 }
 
-// Слушаем изменения в хранилище, чтобы popup всегда отражал актуальное состояние
-// (например, если открыто несколько вкладок или настройки изменены программно)
 browser.storage.onChanged.addListener((changes, area) => {
-  if (area === 'sync') {
-    refreshToggleStates();
-  }
+  if (area === 'sync') refreshToggleStates();
 });
 
-// Первоначальная инициализация
 refreshToggleStates();
 
+// Логика сброса настроек
 const resetBtn = document.getElementById('reset-all-settings-btn');
-
 if (resetBtn) {
   resetBtn.addEventListener('click', () => {
     const confirmed = confirm(
@@ -412,37 +364,23 @@ if (resetBtn) {
     );
     if (!confirmed) return;
 
-    // 1. Очистка хранилища РАСШИРЕНИЯ (это попап делает сам)
     browser.storage.local.clear().then(() => {
-      console.log('Extension Local Storage cleared');
       if (stickerFileInput) stickerFileInput.value = '';
       loadStickerImage();
     });
 
-    // 2. Очистка хранилища САЙТА (LMS)
     if (isInsideIframe) {
-      // Вариант А: Мы внутри Iframe -> шлем postMessage родителю
-      // (Родитель - это content.js, который мы обновили в Шаге 1)
       window.parent.postMessage({ action: 'RESET_LMS_LOCAL_STORAGE_IFRAME' }, '*');
     } else {
-      // Вариант Б: Мы в обычном меню -> шлем сообщение во вкладку
       browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
         if (tabs.length > 0) {
           browser.tabs
-            .sendMessage(tabs[0].id, {
-              action: 'RESET_LMS_LOCAL_STORAGE_FROM_POPUP',
-            })
-            .catch((err) => {
-              console.log(
-                'Контент-скрипт не ответил (возможно, страница не загружена полностью):',
-                err
-              );
-            });
+            .sendMessage(tabs[0].id, { action: 'RESET_LMS_LOCAL_STORAGE_FROM_POPUP' })
+            .catch(() => {});
         }
       });
     }
 
-    // 3. Сброс настроек UI и Sync
     const defaultSettings = {
       themeEnabled: false,
       oledEnabled: false,
@@ -462,8 +400,13 @@ if (resetBtn) {
     };
 
     if (isInsideIframe) {
-      // UI обновление для iframe
       pendingChanges = { ...pendingChanges, ...defaultSettings };
+
+      // Сбрасываем тему сразу, чтобы было визуально понятно, что меню обнулилось
+      browser.storage.sync.set({
+        themeEnabled: false,
+        oledEnabled: false,
+      });
 
       Object.keys(defaultSettings).forEach((key) => {
         if (toggles[key]) {
@@ -485,11 +428,11 @@ if (resetBtn) {
 
       if (reloadNotice) reloadNotice.style.display = 'block';
     } else {
-      // Для обычного popup
       browser.storage.sync.set(defaultSettings);
     }
   });
 }
+
 const resetCourseIconsBtn = document.getElementById('reset-course-icons-btn');
 if (resetCourseIconsBtn) {
   resetCourseIconsBtn.addEventListener('click', () => {
@@ -497,7 +440,6 @@ if (resetCourseIconsBtn) {
 
     if (confirmed) {
       browser.storage.local.remove('courseIcons').then(() => {
-        // Принудительная перезагрузка родительской страницы
         if (isInsideIframe) {
           window.parent.location.reload();
         } else {
@@ -509,18 +451,6 @@ if (resetCourseIconsBtn) {
           });
         }
       });
-    }
-  });
-}
-
-if (stickerFitSelect) {
-  stickerFitSelect.addEventListener('change', () => {
-    const val = stickerFitSelect.value;
-    if (isInsideIframe) {
-      if (reloadNotice) reloadNotice.style.display = 'block';
-      pendingChanges['stickerObjectFit'] = val;
-    } else {
-      browser.storage.sync.set({ stickerObjectFit: val });
     }
   });
 }
