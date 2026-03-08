@@ -155,3 +155,9 @@ vite.config.ts.timestamp-*
 src/browser-polyfill.js
 
 build/
+
+# Playwright
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
