@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 /**
  * Pack the built extension into a zip / xpi for distribution.
  *
@@ -7,9 +6,10 @@
  *   BROWSER=firefox bun --bun scripts/pack.ts
  */
 
-import { existsSync, mkdirSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
+import { resolve, dirname, relative, join } from 'path';
 import { fileURLToPath } from 'url';
+import { zipSync } from 'fflate';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
@@ -30,10 +30,22 @@ if (!existsSync(buildDir)) {
   mkdirSync(buildDir, { recursive: true });
 }
 
-console.log(`Packing ${BROWSER} extension…`);
-const result = Bun.spawnSync(['zip', '-qr', outFile, '.'], { cwd: distDir });
-if (result.exitCode !== 0) {
-  console.error(result.stderr.toString());
-  process.exit(result.exitCode ?? 1);
+function collectFiles(dir: string): Record<string, Uint8Array> {
+  const files: Record<string, Uint8Array> = {};
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    const rel = relative(distDir, full).replace(/\\/g, '/');
+    if (statSync(full).isDirectory()) {
+      Object.assign(files, collectFiles(full));
+    } else {
+      files[rel] = new Uint8Array(readFileSync(full));
+    }
+  }
+  return files;
 }
+
+console.log(`Packing ${BROWSER} extension…`);
+const files = collectFiles(distDir);
+const zipped = zipSync(files, { level: 6 });
+writeFileSync(outFile, zipped);
 console.log(`✓  build/lms-extension-${BROWSER}.${ext}`);
