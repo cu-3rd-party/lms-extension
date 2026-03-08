@@ -1,0 +1,99 @@
+name: Publish Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish-chrome:
+    name: Publish Chrome
+    runs-on: ubuntu-latest
+    environment: publish-chrome
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          RAW_NAME="${{ github.event.release.name }}"
+          RAW_TAG="${{ github.event.release.tag_name }}"
+          RAW="${RAW_NAME:-$RAW_TAG}"
+          VERSION="${RAW#v}"
+          if [[ -z "$VERSION" ]]; then
+            echo "Release name/tag is empty" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set manifest/package versions
+        run: |
+          node -e "const fs=require('fs'); const v='${{ steps.version.outputs.version }}'; const files=['package.json','src/manifests/manifest.json','src/manifests/manifest_firefox.json']; for (const f of files){ const json=JSON.parse(fs.readFileSync(f,'utf8')); json.version=v; fs.writeFileSync(f, JSON.stringify(json, null, 2)+"\n"); }"
+
+      - name: Build & pack chrome
+        run: bun run release:chrome
+
+      - name: Publish to Chrome Web Store
+        uses: browser-actions/release-chrome-extension@v0
+        with:
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          extension-path: build/lms-extension-chrome.zip
+          oauth-client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          oauth-client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          oauth-refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+
+  publish-firefox:
+    name: Publish Firefox
+    runs-on: ubuntu-latest
+    environment: publish-firefox
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          RAW_NAME="${{ github.event.release.name }}"
+          RAW_TAG="${{ github.event.release.tag_name }}"
+          RAW="${RAW_NAME:-$RAW_TAG}"
+          VERSION="${RAW#v}"
+          if [[ -z "$VERSION" ]]; then
+            echo "Release name/tag is empty" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set manifest/package versions
+        run: |
+          node -e "const fs=require('fs'); const v='${{ steps.version.outputs.version }}'; const files=['package.json','src/manifests/manifest.json','src/manifests/manifest_firefox.json']; for (const f of files){ const json=JSON.parse(fs.readFileSync(f,'utf8')); json.version=v; fs.writeFileSync(f, JSON.stringify(json, null, 2)+"\n"); }"
+
+      - name: Build & pack firefox
+        run: bun run release:firefox
+
+      - name: Publish to Firefox Add-ons
+        uses: kewisch/action-web-ext@v1
+        with:
+          cmd: sign
+          source: build/lms-extension-firefox.xpi
+          channel: listed
+          apiKey: ${{ secrets.AMO_API_KEY }}
+          apiSecret: ${{ secrets.AMO_API_SECRET }}

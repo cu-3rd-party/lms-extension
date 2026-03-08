@@ -1,0 +1,201 @@
+/* OLED theme: true black backgrounds and high contrast text */
+:root {
+  --background: #000000 !important;
+  --background-alt: #000000;
+  --background-accent: #111111;
+  --elevation-01: #000000 !important;
+  --elevation-03: #000000;
+  /* Base backgrounds */
+  --culms-dark-bg-primary: #000000 !important;
+  /* true black */
+  --culms-dark-bg-secondary: #0b0b0b !important;
+  --culms-dark-bg-hover: #111111 !important;
+  --culms-dark-bg-hover-light: #161616 !important;
+  --culms-dark-bg-transparent: transparent !important;
+
+  /* Text colors */
+  --culms-dark-text-primary: #ffffff;
+  --culms-dark-text-secondary: #e6e6e6;
+  --culms-dark-text-tertiary: #b3b3b3;
+  --culms-dark-text-link-hover: #8ab4f8;
+
+  /* Borders / dividers */
+  --culms-dark-border-primary: #1c1c1c;
+  --culms-dark-border-secondary: #242424;
+  --culms-dark-border-hover: #2e2e2e;
+  --culms-dark-border-hover-light: #3a3a3a;
+
+  /* Status chips */
+  --culms-dark-status-positive: #1e8e3e;
+  --culms-dark-status-negative: #d93025;
+  --culms-dark-status-in-progress: #f9ab00;
+  --culms-dark-status-neutral: #4285f4;
+  --culms-dark-status-backlog: #1a1a1a;
+  --culms-dark-status-chip-bg: #0f0f0f;
+
+  /* Misc */
+  --culms-dark-bg-seminar: #0a0a0a;
+  --culms-status-seminar: #111111 !important;
+
+  /* Scrollbar */
+  --culms-dark-scrollbar-thumb: #2a2a2a;
+  --culms-dark-scrollbar-track: #111111;
+
+  /* Compatibility vars */
+  --sidebar-layout-content-background-color: var(--culms-dark-bg-primary) !important;
+  --cu-island-cover-bg: var(--culms-dark-bg-primary) !important;
+  --informer-tui-text-02: var(--culms-dark-text-primary) !important;
+}
+
+/* Minimal overrides that rely on existing dark theme selectors */
+
+/* Базовый стиль для карточки курса */
+body .course-card {
+  background-color: var(--culms-dark-bg-primary) !important;
+  --cu-island-color-bg: var(--culms-dark-bg-primary) !important;
+  --cu-island-color-bg-hover: var(--culms-dark-bg-hover) !important;
+  /* Добавляем плавный переход для фона */
+  transition: background-color 0.2s ease-in-out;
+}
+
+/* Цвет текста для всех дочерних элементов карточки */
+body .course-card * {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Стиль псевдо-элемента для рамки */
+.tui-island::before {
+  display: block !important;
+  border: 1px solid var(--culms-dark-border-primary) !important;
+  /* Добавляем плавный переход для цвета рамки */
+  transition: border-color 0.2s ease-in-out;
+}
+
+/* --- ИСПРАВЛЕНИЕ HOVER-ЭФФЕКТА --- */
+
+/* При наведении на ссылку, меняем фон самой карточки */
+a:hover .course-card {
+  background-color: var(--cu-island-color-bg-hover) !important;
+}
+
+/* При наведении на ссылку, меняем цвет рамки */
+a:hover .tui-island::before {
+  border-color: var(--culms-dark-border-hover-light) !important;
+}
+
+/* Global surfaces */
+.content-wrapper,
+.nav,
+.message-content,
+.user-profile-menu__content {
+  background-color: var(--culms-dark-bg-primary) !important;
+}
+
+/* Text surfaces */
+.user-info__name,
+.user-info__email,
+.user-actions__action-title {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Tables */
+.cu-table,
+.cu-table tbody tr,
+.cu-table tbody td {
+  background-color: var(--culms-dark-bg-primary) !important;
+  color: var(--culms-dark-text-primary) !important;
+}
+
+.cu-table thead th {
+  background-color: var(--culms-dark-bg-primary) !important;
+  color: var(--culms-dark-text-tertiary) !important;
+  border-bottom: 1px solid var(--culms-dark-border-primary) !important;
+}
+
+.cu-table tbody td,
+.cu-table tbody td a {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+.cu-table tbody tr:hover td {
+  background-color: var(--culms-dark-bg-hover) !important;
+}
+
+.cu-table td._border-right,
+.cu-table td {
+  border-color: var(--culms-dark-border-primary) !important;
+}
+
+.cu-table tfoot tr td {
+  background-color: var(--culms-dark-bg-secondary) !important;
+  border-color: var(--culms-dark-border-primary) !important;
+}
+
+.cu-table tfoot tr td,
+.cu-table tfoot tr td span {
+  color: var(--culms-dark-text-secondary) !important;
+}
+
+/* Dropdowns */
+tui-dropdown:not([data-appearance='dropdown-list']),
+tui-dropdown[data-appearance='dropdown-list'] {
+  background-color: var(--culms-dark-bg-secondary) !important;
+  border: 1px solid var(--culms-dark-border-primary) !important;
+}
+
+/* Chips / statuses */
+tui-chip[data-appearance='neutral'] {
+  background: var(--culms-dark-status-chip-bg) !important;
+  color: var(--culms-dark-text-tertiary) !important;
+  border: 1px solid transparent !important;
+}
+
+tui-chip[data-appearance='positive-pale'] {
+  background-color: var(--culms-dark-status-positive) !important;
+  color: var(--culms-dark-text-primary) !important;
+  border: none !important;
+}
+
+tui-chip[data-appearance='negative-pale'] {
+  background-color: var(--culms-dark-status-negative) !important;
+  color: var(--culms-dark-text-primary) !important;
+  border: none !important;
+}
+
+/* Inputs */
+tui-input .t-textfield {
+  background-color: var(--culms-dark-bg-hover-light) !important;
+}
+
+/* Editor */
+.tiptap.ProseMirror * {
+  color: var(--culms-dark-text-secondary) !important;
+  background-color: transparent !important;
+}
+
+.t-close::before,
+.t-close::after {
+  color: #ffffff !important;
+}
+
+input[tuiRadio][data-status='primary'] {
+  /* Меняем красный на приятный синий (как в Telegram или VS Code) */
+  --cu-radio-primary-background: rgb(0, 0, 0) !important;
+
+  /* Цвет точки/маркера внутри (белый) */
+  --cu-radio-primary-mark: #ffffff !important;
+
+  /* На всякий случай переопределяем нативные свойства */
+  border-color: rgb(0, 0, 0) !important;
+}
+
+/* Состояние при наведении (делаем чуть светлее) */
+input[tuiRadio][data-status='primary']:hover {
+  --cu-radio-primary-background: #55aaff !important;
+}
+
+/* Если вдруг стили заданы жестко через background, а не переменные */
+input[tuiRadio][data-status='primary']:checked {
+  background-color: #3390ec !important;
+  color: #ffffff !important;
+}

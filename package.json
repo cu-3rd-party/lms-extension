@@ -1,0 +1,56 @@
+{
+  "name": "lms-extension",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:chrome": "cross-env BROWSER=chrome vite",
+    "dev:firefox": "cross-env BROWSER=firefox vite build --watch",
+    "serve:firefox": "web-ext run --source-dir dist/firefox",
+    "build:chrome": "cross-env BROWSER=chrome vite build",
+    "build:firefox": "cross-env BROWSER=firefox vite build",
+    "release:chrome": "cross-env BROWSER=chrome vite build && bun --bun scripts/pack.ts chrome",
+    "release:firefox": "cross-env BROWSER=firefox vite build && bun --bun scripts/pack.ts firefox",
+    "lint": "eslint src/ scripts/ vite.config.js",
+    "lint:fix": "eslint src/ scripts/ vite.config.js --fix",
+    "format": "prettier --write .",
+    "prepare": "husky",
+    "test": "playwright test",
+    "test:login": "bun --env-file=.env scripts/login.ts"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.4.3",
+    "@commitlint/config-conventional": "^20.4.3",
+    "@crxjs/vite-plugin": "^2.3.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
+    "@types/bun": "^1.3.10",
+    "@types/node": "^25.3.5",
+    "@types/webextension-polyfill": "^0.12.5",
+    "cross-env": "^10.1.0",
+    "eslint": "^10.0.2",
+    "globals": "^17.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.2",
+    "playwright": "^1.58.2",
+    "prettier": "^3.8.1",
+    "vite": "^7.3.1",
+    "web-ext": "^9.4.0"
+  },
+  "lint-staged": {
+    "src/**/*.{js,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "scripts/**/*.js": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,html,md}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "webextension-polyfill": "^0.12.0"
+  }
+}

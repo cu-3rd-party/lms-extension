@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="build" type="CompoundRunConfigurationType">
+    <toRun name="build:chrome" type="js.build_tools.npm" />
+    <toRun name="build:firefox" type="js.build_tools.npm" />
+    <toRun name="format" type="js.build_tools.npm" />
+    <toRun name="lint" type="js.build_tools.npm" />
+    <method v="2" />
+  </configuration>
+</component>

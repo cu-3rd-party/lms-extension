@@ -6,9 +6,10 @@
 <img width="414" height="201" alt="image" src="https://github.com/user-attachments/assets/da2b3e7b-fff0-4f24-a464-faafa6e3f547" />
 <img width="349" height="245" alt="image" src="https://github.com/user-attachments/assets/52258788-a134-4338-a773-c8b716ea26a9" />
 
-
 ## Если вы обычный пользователь
+
 Мы залили наше расширение в официальные магазины браузеров, вот ссылки:
+
 <div align="center">
 
 **[Установить для Chrome](https://chromewebstore.google.com/detail/cu-lms-enhancer/cbkadnkphiaalgjpgilbkphoecacfjop?authuser=7&hl=en)**  
@@ -18,15 +19,18 @@
 
 ## Если вы разработчик
 
-1. Склонируйте к себе репозиторий с помощью `git clone https://github.com/cu-3rd-party/lms-extension.git`
+```bash
+git clone https://github.com/cu-3rd-party/lms-extension.git
+cd lms-extension
+bun install
+bun run build:chrome   # → dist/chrome/
+bun run build:firefox  # → dist/firefox/
+```
 
-### Для Chrome:
-2. Запустите скрипт `build-chrome.sh`
-3. Откройте страницу `chrome://extensions`
-4. В правом верхнем углу включите режим разработчика.
-5. Нажмите "Загрузить распакованное расширение" и выберите директорию `build/chrome-debug/`
+**Chrome:** откройте `chrome://extensions` → включите режим разработчика → «Загрузить распакованное» → выберите `dist/chrome/`
 
-### Для Firefox:
-2. Запустите скрипт `build-firefox.sh`
-3. Откройте страницу `about:debugging#/runtime/this-firefox`
-4. Нажмите "Load temporary Add-on..." и выберите `build/lms-extension-firefox.xpi`
+**Firefox:** откройте `about:debugging#/runtime/this-firefox` → «Load Temporary Add-on...» → выберите любой файл из `dist/firefox/`
+
+Подробнее о структуре проекта, плагинах и настройке окружения — в [CONTRIBUTING.md](CONTRIBUTING.md).
+
+E2E-тесты расширения — в [tests/](tests/).

@@ -1,0 +1,54 @@
+:host,
+:root {
+  --informer-tui-base-01: rgb(32, 33, 36) !important;
+  --informer-tui-base-02: rgb(40, 41, 44) !important;
+  --informer-tui-base-03: rgb(55, 56, 60) !important;
+  --informer-tui-elevation-01: rgb(32, 33, 36) !important;
+  --informer-tui-background-base: rgb(32, 33, 36) !important;
+  --informer-tui-const-white: rgb(32, 33, 36) !important;
+  --informer-tui-text-01: rgb(255, 255, 255) !important;
+  --informer-tui-text-02: #bdc1c6 !important;
+  --informer-tui-text-03: #bdc1c6 !important;
+  --informer-tui-text-primary: rgb(255, 255, 255) !important;
+  --informer-tui-text-secondary: #bdc1c6 !important;
+  --informer-tui-text-tertiary: #bdc1c6 !important;
+  --informer-tui-primary: #4285f4 !important;
+  --informer-tui-primary-text: #ffffff !important;
+  --informer-tui-secondary: rgb(40, 41, 44) !important;
+  --informer-tui-secondary-hover: rgb(55, 56, 60) !important;
+  --informer-tui-link: #8ab4f8 !important;
+}
+
+.tui-island,
+.onbording-popup {
+  background-color: rgb(40, 41, 44) !important;
+}
+.side-buttons button .t-wrapper {
+  background: rgb(50, 51, 54) !important;
+}
+svg path[fill='currentColor'] {
+  fill: #e8eaed !important;
+}
+button[appearance='whiteblock'] {
+  background-color: rgb(40, 41, 44) !important;
+  border-bottom-color: rgb(55, 56, 60) !important;
+}
+button[appearance='whiteblock']:hover {
+  background-color: rgb(55, 56, 60) !important;
+}
+.data-list button[appearance='whiteblock'] div.t-wrapper {
+  background-color: var(--culms-dark-bg-secondary) !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid rgb(55, 56, 60) !important;
+}
+.data-list button[appearance='whiteblock']:hover div.t-wrapper {
+  background-color: rgb(55, 56, 60) !important;
+  border-bottom-color: rgb(85, 86, 90) !important;
+}
+.data-list button[appearance='whiteblock'] .title__text {
+  color: #e8eaed !important;
+}
+.data-list button[appearance='whiteblock'] informer-copy-category-link-button svg path {
+  fill: #bdc1c6 !important;
+}
