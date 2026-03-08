@@ -4,6 +4,13 @@
 
 ## Первый запуск
 
+### 0. Установи Playwright и Chromium
+
+```bash
+bun add -d @playwright/test
+bunx playwright install chromium
+```
+
 ### 1. Собери расширение
 
 ```bash
