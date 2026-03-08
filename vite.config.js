@@ -2,7 +2,10 @@ import { defineConfig } from 'vite';
 import { crx } from '@crxjs/vite-plugin';
 import manifest from './manifest.config.js';
 import fs from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const BROWSER = process.env.BROWSER ?? 'chrome';
 
 export default defineConfig({
@@ -17,6 +20,11 @@ export default defineConfig({
       // executeScript context — disable tree-shaking so function declarations
       // in one file remain available when called by another file.
       treeshake: false,
+      // For Firefox, explicitly include background.ts as an entry point since
+      // crxjs does not bundle it automatically for Firefox builds.
+      ...(BROWSER === 'firefox' && {
+        input: { background: resolve(__dirname, 'src/background.ts') },
+      }),
       output: {
         // Preserve original filenames so background.js can reference them by
         // name via chrome.scripting.executeScript({ files: ['tasks_fix.js'] })
@@ -43,5 +51,15 @@ export default defineConfig({
       manifest,
       browser: /** @type {'chrome' | 'firefox'} */ (BROWSER),
     }),
+    BROWSER === 'firefox' && {
+      name: 'fix-firefox-background',
+      closeBundle() {
+        const manifestPath = resolve(__dirname, `dist/firefox/manifest.json`);
+        if (!fs.existsSync(manifestPath)) return;
+        const mf = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+        mf.background = { scripts: ['background.js'], type: 'module' };
+        fs.writeFileSync(manifestPath, JSON.stringify(mf, null, 2));
+      },
+    },
   ],
 });
