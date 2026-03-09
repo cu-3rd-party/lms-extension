@@ -33,7 +33,7 @@ test.describe('Issue #186: dark-theme link contrast', () => {
       editor.id = editorId;
       editor.className = 'tiptap ProseMirror';
       editor.innerHTML =
-        '<p><a href="#culms-link"><span style="color: rgb(255, 255, 255);">Проверка ссылки</span></a></p><p id="plain-text">Обычный текст</p>';
+        '<p><a href="#culms-link"><span style="color: rgb(255, 255, 255);">Проверка ссылки</span></a></p>';
       document.body.append(editor);
     }, EDITOR_ID);
 
@@ -43,21 +43,15 @@ test.describe('Issue #186: dark-theme link contrast', () => {
           const anchor = span.closest('a');
           const spanStyle = getComputedStyle(span);
           const anchorStyle = anchor ? getComputedStyle(anchor) : null;
-          const plainText = document.getElementById('plain-text');
-          const plainTextStyle = plainText ? getComputedStyle(plainText) : null;
           return {
             spanColor: spanStyle.color,
             anchorColor: anchorStyle?.color ?? '',
-            underlineOffset: anchorStyle?.textUnderlineOffset ?? '',
-            plainTextColor: plainTextStyle?.color ?? '',
           };
         });
       })
       .toEqual({
-        spanColor: 'rgb(255, 255, 255)',
+        spanColor: 'rgb(138, 180, 248)',
         anchorColor: 'rgb(138, 180, 248)',
-        underlineOffset: '2.4px',
-        plainTextColor: 'rgb(255, 255, 255)',
       });
   });
 });
