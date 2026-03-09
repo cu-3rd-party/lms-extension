@@ -1,34 +1,46 @@
 import { test as base, chromium, type BrowserContext } from '@playwright/test';
-import { existsSync, readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const COOKIES_FILE = resolve(__dirname, '../.cookies.json');
-const PROFILE_DIR = resolve(__dirname, '../.chrome-profile');
+const COOKIES_FILES = [
+  resolve(__dirname, '../.cookies.json'),
+  resolve(__dirname, './.cookies.json'),
+];
 const EXTENSION_PATH = resolve(__dirname, '../../dist/chrome');
 export const LMS_URL = 'https://my.centraluniversity.ru';
 
 type WorkerFixtures = { workerContext: BrowserContext; extensionId: string };
 
+function getCookiesFile(): string | null {
+  return COOKIES_FILES.find((file) => existsSync(file)) ?? null;
+}
+
 export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
   workerContext: [
     async ({}, use) => {
-      if (existsSync(COOKIES_FILE)) {
+      const cookiesFile = getCookiesFile();
+      if (cookiesFile) {
+        const profileDir = mkdtempSync(join(tmpdir(), 'culms-playwright-'));
         // Чистый профиль + инжектируем куки из файла
-        const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
+        const ctx = await chromium.launchPersistentContext(profileDir, {
           headless: false,
           args: [
             `--disable-extensions-except=${EXTENSION_PATH}`,
             `--load-extension=${EXTENSION_PATH}`,
           ],
         });
-        const cookies = JSON.parse(readFileSync(COOKIES_FILE, 'utf-8'));
+        const cookies = JSON.parse(readFileSync(cookiesFile, 'utf-8'));
         await ctx.addCookies(cookies);
         await use(ctx);
         await ctx.close();
+        rmSync(profileDir, { recursive: true, force: true });
       } else {
-        throw new Error('Куки не найдены. Сохрани сессию: bun run test:login');
+        throw new Error(
+          `Куки не найдены. Ожидался один из файлов: ${COOKIES_FILES.join(', ')}. Сохрани сессию: bun run test:login`
+        );
       }
     },
     { scope: 'worker' },
@@ -51,10 +63,12 @@ export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
     await use(workerContext);
   },
 
-  page: async ({ context }, use) => {
+  page: async ({ context, extensionId }, use) => {
+    await clearAllExtensionStorage(context, extensionId);
     const page = await context.newPage();
     await use(page);
     await page.close();
+    await clearAllExtensionStorage(context, extensionId);
   },
 });
 
@@ -101,5 +115,19 @@ export async function clearExtensionStorage(
       area === 'local' ? chrome.storage.local.remove(key) : chrome.storage.sync.remove(key),
     { area, key }
   );
+  await page.close();
+}
+
+async function clearAllExtensionStorage(
+  context: BrowserContext,
+  extensionId: string
+): Promise<void> {
+  if (!extensionId) return;
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+  await page.evaluate(async () => {
+    await chrome.storage.local.clear();
+    await chrome.storage.sync.clear();
+  });
   await page.close();
 }
