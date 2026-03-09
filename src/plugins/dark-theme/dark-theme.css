@@ -10457,7 +10457,22 @@ tui-badge[tuiAppearance][data-size][data-appearance='pale-yellow'] {
 }
 
 .cu-block-status .t-block-image:not(:empty) {
+  color: var(--culms-dark-text-secondary) !important;
   margin-bottom: 0;
+}
+
+.cu-block-status .t-block-image svg {
+  color: inherit !important;
+}
+
+.cu-block-status .t-block-image svg [stroke='#000'],
+.cu-block-status .t-block-image svg [stroke='#000000'],
+.cu-block-status .t-block-image svg [stroke='black'],
+.cu-block-status .t-block-image svg [fill='#000'],
+.cu-block-status .t-block-image svg [fill='#000000'],
+.cu-block-status .t-block-image svg [fill='black'] {
+  stroke: var(--culms-dark-text-secondary) !important;
+  fill: var(--culms-dark-text-secondary) !important;
 }
 
 .cu-block-status_flat > .t-block-image,
