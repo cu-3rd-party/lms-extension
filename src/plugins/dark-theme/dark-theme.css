@@ -13060,6 +13060,10 @@ tui-tooltip .t-icon {
   border: none;
 }
 
+tui-tooltip tui-icon:after {
+  color: var(--culms-dark-text-secondary) !important;
+}
+
 tui-tooltip:hover tui-icon:after {
   color: var(--text-tertiary-hover);
 }
