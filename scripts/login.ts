@@ -15,7 +15,10 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const COOKIES_FILE = resolve(__dirname, '../tests/helpers/.cookies.json');
+const COOKIES_FILES = [
+  resolve(__dirname, '../tests/.cookies.json'),
+  resolve(__dirname, '../tests/helpers/.cookies.json'),
+];
 const LMS_URL = 'https://my.centraluniversity.ru';
 const LOGIN_URL = `${LMS_URL}/login`;
 
@@ -90,10 +93,12 @@ try {
 const allCookies = await context.cookies();
 const sessionCookies = allCookies.filter((c) => c.domain.includes('centraluniversity.ru'));
 
-mkdirSync(dirname(COOKIES_FILE), { recursive: true });
-writeFileSync(COOKIES_FILE, JSON.stringify(sessionCookies, null, 2));
+for (const cookiesFile of COOKIES_FILES) {
+  mkdirSync(dirname(cookiesFile), { recursive: true });
+  writeFileSync(cookiesFile, JSON.stringify(sessionCookies, null, 2));
+}
 
-console.log(`Сохранено ${sessionCookies.length} куки → ${COOKIES_FILE}`);
+console.log(`Сохранено ${sessionCookies.length} куки → ${COOKIES_FILES.join(', ')}`);
 console.log('Теперь можно запускать тесты: bun run test');
 
 await browser.close();
