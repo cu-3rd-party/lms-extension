@@ -191,8 +191,9 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             .state-chip[data-culms-status="skipped"] { background-color: ${skippedChipBg} !important; color: white !important; }
             .state-chip[data-culms-status="revision"] { background-color: ${revisionChipBg} !important; color: white !important; } 
 
-            .culms-late-days-container { display: flex; align-items: center; justify-content: flex-start; }
-            .culms-action-button { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; height: 24px; width: 24px; padding: 0; margin-right: 8px; opacity: 0.6; transition: opacity 0.2s; }
+            .task-table__late-days { min-width: 72px !important; white-space: nowrap; }
+            .culms-late-days-container { display: flex; align-items: center; justify-content: flex-start; gap: 4px; }
+            .culms-action-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 20px; background: transparent; border: none; cursor: pointer; height: 20px; width: 20px; padding: 0; opacity: 0.6; transition: opacity 0.2s; }
             .culms-action-button:hover { opacity: 1; }
             .culms-action-button svg { width: 18px; height: 18px; color: ${iconColor}; fill: currentColor; }
 
