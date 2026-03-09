@@ -31,16 +31,33 @@ test.describe('Issue #185: tooltip icon color in dark theme', () => {
     await page.evaluate((tooltipId) => {
       const tooltip = document.createElement('tui-tooltip');
       tooltip.id = tooltipId;
+      tooltip.style.display = 'inline-flex';
+      tooltip.style.padding = '12px';
       tooltip.innerHTML = '<tui-icon></tui-icon>';
       document.body.append(tooltip);
     }, TOOLTIP_ID);
 
+    const tooltip = page.locator(`#${TOOLTIP_ID}`);
+    const icon = tooltip.locator('tui-icon');
+
     await expect
       .poll(async () => {
-        return page.locator(`#${TOOLTIP_ID} tui-icon`).evaluate((icon) => {
+        return icon.evaluate((icon) => {
           return getComputedStyle(icon, '::after').color;
         });
       })
       .toBe('rgb(232, 234, 237)');
+
+    await tooltip.hover();
+
+    await expect
+      .poll(async () => {
+        const hoveredColor = await icon.evaluate((icon) => {
+          return getComputedStyle(icon, '::after').color;
+        });
+
+        return hoveredColor !== 'rgb(0, 0, 0)' && hoveredColor !== 'rgba(0, 0, 0, 1)';
+      })
+      .toBe(true);
   });
 });
