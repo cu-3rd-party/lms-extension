@@ -4,17 +4,25 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const COOKIES_FILE = resolve(__dirname, '../.cookies.json');
+const COOKIES_FILES = [
+  resolve(__dirname, '../.cookies.json'),
+  resolve(__dirname, './.cookies.json'),
+];
 const PROFILE_DIR = resolve(__dirname, '../.chrome-profile');
 const EXTENSION_PATH = resolve(__dirname, '../../dist/chrome');
 export const LMS_URL = 'https://my.centraluniversity.ru';
 
 type WorkerFixtures = { workerContext: BrowserContext; extensionId: string };
 
+function getCookiesFile(): string | null {
+  return COOKIES_FILES.find((file) => existsSync(file)) ?? null;
+}
+
 export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
   workerContext: [
     async ({}, use) => {
-      if (existsSync(COOKIES_FILE)) {
+      const cookiesFile = getCookiesFile();
+      if (cookiesFile) {
         // Чистый профиль + инжектируем куки из файла
         const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
           headless: false,
@@ -23,12 +31,14 @@ export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
             `--load-extension=${EXTENSION_PATH}`,
           ],
         });
-        const cookies = JSON.parse(readFileSync(COOKIES_FILE, 'utf-8'));
+        const cookies = JSON.parse(readFileSync(cookiesFile, 'utf-8'));
         await ctx.addCookies(cookies);
         await use(ctx);
         await ctx.close();
       } else {
-        throw new Error('Куки не найдены. Сохрани сессию: bun run test:login');
+        throw new Error(
+          `Куки не найдены. Ожидался один из файлов: ${COOKIES_FILES.join(', ')}. Сохрани сессию: bun run test:login`
+        );
       }
     },
     { scope: 'worker' },
