@@ -46,6 +46,7 @@ bun run test:browser
 
 По умолчанию скрипт открывает страницу issue #185 и заранее включает `themeEnabled`, `advancedStatementsEnabled` и `endOfCourseCalcEnabled`. Если нужна другая страница, передай `TEST_BROWSER_URL=https://...`.
 `playwright.config.ts` игнорирует `tests/source/**`, потому что там лежат `bun:test` регрессионные проверки, а не браузерные E2E.
+`playwright.config.ts` игнорирует `tests/source/**`, потому что там лежат `bun:test` регрессионные проверки, а не браузерные E2E.
 
 ## Отдельные тесты
 
