@@ -108,6 +108,32 @@
         color: #e0e0e0;
       }
 
+      .action-button {
+        width: 100%;
+        padding: 9px 12px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: opacity 0.2s ease;
+      }
+
+      .action-button:hover {
+        opacity: 0.92;
+      }
+
+      .action-button_primary {
+        background-color: #2196f3;
+        color: #fff;
+      }
+
+      .action-button_danger {
+        margin-top: 8px;
+        background: #fff0f0;
+        border: 1px solid #ffcccc;
+        color: #d63031;
+      }
+
       .disabled-label {
         color: #999;
       }
@@ -335,7 +361,12 @@
 
     <div class="section">
       <h3>Не работает?</h3>
-      <button id="reset-all-settings-btn" class="btn-reset">Сбросить все настройки</button>
+      <button id="disable-extension-once-btn" class="action-button action-button_primary">
+        Перезагрузить без плагина
+      </button>
+      <button id="reset-all-settings-btn" class="action-button action-button_danger">
+        Сбросить все настройки
+      </button>
     </div>
 
     <script type="module" src="popup_loader.js"></script>
