@@ -10,7 +10,7 @@ const PAGE = `${LMS_URL}/learn/courses/view/actual`;
 const STYLE_ID = 'culms-dark-theme-style-base';
 const HOST_ID = 'culms-test-statements-statuses';
 
-test.describe('Issue #193: statements statuses in dark theme', () => {
+test.describe('Issue #193: statements status chips in dark theme', () => {
   test.afterEach(async ({ context, extensionId, page }) => {
     await page.evaluate((hostId) => {
       document.getElementById(hostId)?.remove();
@@ -18,7 +18,7 @@ test.describe('Issue #193: statements statuses in dark theme', () => {
     await clearExtensionStorage(context, extensionId, 'sync', 'themeEnabled');
   });
 
-  test('применяет темную палитру к чипам статусов в таблице ведомости', async ({
+  test('перекрашивает статусные чипы внутри ведомости под темную палитру', async ({
     page,
     context,
     extensionId,
@@ -36,7 +36,8 @@ test.describe('Issue #193: statements statuses in dark theme', () => {
         <tbody>
           <tr>
             <td><tui-chip data-appearance="positive-pale">Сдано</tui-chip></td>
-            <td><tui-chip data-appearance="support-neutral">Не начато</tui-chip></td>
+            <td><tui-chip data-appearance="support-categorical-12-pale">На проверке</tui-chip></td>
+            <td><tui-chip data-appearance="support-neutral">Без статуса</tui-chip></td>
           </tr>
         </tbody>
       `;
@@ -48,16 +49,19 @@ test.describe('Issue #193: statements statuses in dark theme', () => {
         return page.evaluate((hostId) => {
           const host = document.getElementById(hostId);
           const positive = host?.querySelector("tui-chip[data-appearance='positive-pale']");
+          const review = host?.querySelector("tui-chip[data-appearance='support-categorical-12-pale']");
           const neutral = host?.querySelector("tui-chip[data-appearance='support-neutral']");
 
           return {
             positiveBg: positive ? getComputedStyle(positive).backgroundColor : '',
+            reviewBg: review ? getComputedStyle(review).backgroundColor : '',
             neutralBg: neutral ? getComputedStyle(neutral).backgroundColor : '',
           };
         }, HOST_ID);
       })
       .toEqual({
         positiveBg: 'rgba(30, 142, 62, 0.56)',
+        reviewBg: 'rgba(66, 133, 244, 0.66)',
         neutralBg: 'rgba(60, 64, 67, 0.72)',
       });
   });
