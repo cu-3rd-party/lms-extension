@@ -15483,8 +15483,14 @@ pre[class*='language-'] ::selection {
 }
 
 /* Ссылки (если есть) делаем читаемыми */
+.tiptap.ProseMirror a,
+.tiptap.ProseMirror a span {
+  color: var(--culms-dark-text-link-hover) !important;
+  text-decoration-color: currentColor !important;
+}
+
 .tiptap.ProseMirror a {
-  color: #61afef !important; /* Или ваш акцентный цвет */
+  text-underline-offset: 0.15em;
 }
 
 .tiptap.ProseMirror pre,
