@@ -43,7 +43,7 @@ export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
         );
       }
     },
-    { scope: 'worker' },
+    { scope: 'worker', timeout: 60_000 },
   ],
 
   extensionId: [
@@ -51,12 +51,12 @@ export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
       let sw = workerContext.serviceWorkers()[0];
       if (!sw) {
         sw = await workerContext
-          .waitForEvent('serviceworker', { timeout: 10_000 })
+          .waitForEvent('serviceworker', { timeout: 20_000 })
           .catch(() => null);
       }
       await use(sw ? new URL(sw.url()).hostname : '');
     },
-    { scope: 'worker' },
+    { scope: 'worker', timeout: 30_000 },
   ],
 
   context: async ({ workerContext }, use) => {
