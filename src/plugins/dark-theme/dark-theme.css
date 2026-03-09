@@ -15484,7 +15484,8 @@ pre[class*='language-'] ::selection {
 
 /* Ссылки (если есть) делаем читаемыми */
 .tiptap.ProseMirror a,
-.tiptap.ProseMirror a span {
+.tiptap.ProseMirror a span,
+.tiptap.ProseMirror a span:not([class*='token']):not([class*='language']):not(code) {
   color: var(--culms-dark-text-link-hover) !important;
   text-decoration-color: currentColor !important;
 }

@@ -18,7 +18,7 @@ test.describe('Issue #186: dark-theme link contrast', () => {
     await clearExtensionStorage(context, extensionId, 'sync', 'themeEnabled');
   });
 
-  test('сохраняет контрастный синий цвет ссылок даже с вложенным span', async ({
+  test('делает ссылки заметно синими на фоне обычного текста', async ({
     page,
     context,
     extensionId,
@@ -33,25 +33,23 @@ test.describe('Issue #186: dark-theme link contrast', () => {
       editor.id = editorId;
       editor.className = 'tiptap ProseMirror';
       editor.innerHTML =
-        '<p><a href="#culms-link"><span style="color: rgb(255, 255, 255);">Проверка ссылки</span></a></p>';
+        '<p id="plain-text">Обычный текст</p><p><a href="#culms-link">Проверка ссылки</a></p>';
       document.body.append(editor);
     }, EDITOR_ID);
 
     await expect
       .poll(async () => {
-        return page.locator(`#${EDITOR_ID} a span`).evaluate((span) => {
-          const anchor = span.closest('a');
-          const spanStyle = getComputedStyle(span);
-          const anchorStyle = anchor ? getComputedStyle(anchor) : null;
+        return page.locator(`#${EDITOR_ID} a`).evaluate((anchor) => {
+          const plainText = document.getElementById('plain-text');
           return {
-            spanColor: spanStyle.color,
-            anchorColor: anchorStyle?.color ?? '',
+            linkColor: getComputedStyle(anchor).color,
+            plainTextColor: plainText ? getComputedStyle(plainText).color : '',
           };
         });
       })
       .toEqual({
-        spanColor: 'rgb(138, 180, 248)',
-        anchorColor: 'rgb(138, 180, 248)',
+        linkColor: 'rgb(138, 180, 248)',
+        plainTextColor: 'rgb(255, 255, 255)',
       });
   });
 });
