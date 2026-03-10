@@ -15471,6 +15471,11 @@ pre[class*='language-'] ::selection {
   background-color: transparent !important; /* На случай если фон задан параграфу */
 }
 
+.tiptap.ProseMirror ol li::marker,
+.tiptap.ProseMirror ul li::marker {
+  color: var(--culms-dark-text-primary) !important;
+}
+
 /* 
    САМОЕ ВАЖНОЕ: СБРОС ЦВЕТА И ФОНА У SPAN
    Мы используем :not(), чтобы не сломать подсветку синтаксиса (классы token/language).
