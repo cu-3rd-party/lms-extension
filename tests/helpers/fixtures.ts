@@ -72,7 +72,28 @@ export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
   },
 });
 
+
 export { expect } from '@playwright/test';
+
+async function openExtensionPage(context: BrowserContext, extensionId: string) {
+  const extensionUrl = `chrome-extension://${extensionId}/popup/popup.html`;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const page = await context.newPage();
+
+    try {
+      await page.goto(extensionUrl, { waitUntil: 'domcontentloaded' });
+      return page;
+    } catch (error) {
+      lastError = error;
+      await page.close();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+
+  throw lastError;
+}
 
 /**
  * Записывает значение в chrome.storage через popup-страницу расширения.
@@ -85,8 +106,7 @@ export async function setExtensionStorage(
   value: unknown
 ): Promise<void> {
   if (!extensionId) return;
-  const page = await context.newPage();
-  await page.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+  const page = await openExtensionPage(context, extensionId);
   await page.evaluate(
     ({ area, key, value }) =>
       area === 'local'
@@ -108,8 +128,7 @@ export async function clearExtensionStorage(
   key: string
 ): Promise<void> {
   if (!extensionId) return;
-  const page = await context.newPage();
-  await page.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+  const page = await openExtensionPage(context, extensionId);
   await page.evaluate(
     ({ area, key }) =>
       area === 'local' ? chrome.storage.local.remove(key) : chrome.storage.sync.remove(key),
@@ -123,8 +142,7 @@ async function clearAllExtensionStorage(
   extensionId: string
 ): Promise<void> {
   if (!extensionId) return;
-  const page = await context.newPage();
-  await page.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+  const page = await openExtensionPage(context, extensionId);
   await page.evaluate(async () => {
     await chrome.storage.local.clear();
     await chrome.storage.sync.clear();
