@@ -58,6 +58,10 @@ body .course-card {
   transition: background-color 0.2s ease-in-out;
 }
 
+body .course-card.withoutCategory[style*='--cu-island-cover-bg'] {
+  background-color: var(--cu-island-cover-bg) !important;
+}
+
 /* Цвет текста для всех дочерних элементов карточки */
 body .course-card * {
   color: var(--culms-dark-text-primary) !important;

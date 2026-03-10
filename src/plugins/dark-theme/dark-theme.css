@@ -15640,6 +15640,10 @@ body .course-card.withoutCategory {
   background-color: var(--culms-dark-bg-secondary) !important;
 }
 
+body .course-card.withoutCategory[style*='--cu-island-cover-bg'] {
+  background-color: var(--cu-island-cover-bg) !important;
+}
+
 /*
  * ШАГ 4: Корректируем цвет ИКОНОК для читаемости на разных фонах.
  * - По умолчанию иконка светлая.
