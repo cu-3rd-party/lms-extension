@@ -59,7 +59,7 @@ test.describe('Issue #185: tooltip icon color in dark theme', () => {
     await clearExtensionStorage(context, extensionId, 'sync', 'endOfCourseCalcEnabled');
   });
 
-  test('меняет цвет реальной tooltip-иконки на странице формулы', async ({
+  test('делает реальную tooltip-иконку заметно светлее на тёмной теме', async ({
     page,
     context,
     extensionId,
@@ -73,8 +73,20 @@ test.describe('Issue #185: tooltip icon color in dark theme', () => {
 
     const tooltip = page.locator('cu-tooltip').first();
     const icon = tooltip.locator('tui-icon');
-    const defaultColor = await resolveCssColor(page, 'var(--culms-dark-text-secondary)');
-    const hoverColor = await resolveCssColor(page, 'var(--text-tertiary-hover-on-dark)');
+    const defaultColor = await resolveCssColor(page, 'var(--text-primary-on-dark)');
+    const hoverColor = await resolveCssColor(page, 'var(--culms-dark-text-primary)');
+
+    await expect
+      .poll(async () => {
+        return icon.evaluate((node) => getComputedStyle(node).filter);
+      })
+      .not.toBe('none');
+
+    await expect
+      .poll(async () => {
+        return icon.evaluate((node) => getComputedStyle(node).opacity);
+      })
+      .toBe('0.96');
 
     await expect
       .poll(async () => {
