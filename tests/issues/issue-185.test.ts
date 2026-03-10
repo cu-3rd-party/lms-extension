@@ -6,58 +6,98 @@ import {
   clearExtensionStorage,
 } from '../helpers/fixtures.js';
 
-const PAGE = `${LMS_URL}/learn/courses/view/actual`;
+const PAGE = `${LMS_URL}/learn/reports/student-performance/actual/by-semester`;
 const STYLE_ID = 'culms-dark-theme-style-base';
-const TOOLTIP_ID = 'culms-test-tooltip';
+
+async function openActivityPageWithTooltips(page) {
+  await page.goto(PAGE);
+  await expect(page.locator('tr.course-row').first()).toBeVisible({ timeout: 15_000 });
+
+  const rowCount = await page.locator('tr.course-row').count();
+  const attempts = Math.min(rowCount, 5);
+
+  for (let index = 0; index < attempts; index += 1) {
+    await page.goto(PAGE);
+    await expect(page.locator('tr.course-row').first()).toBeVisible({ timeout: 15_000 });
+    await page.locator('tr.course-row').nth(index).click();
+    await expect(page.locator('a[href*="/activity"]')).toBeVisible({ timeout: 10_000 });
+
+    await page.locator('a[href*="/activity"]').click();
+    await expect(page).toHaveURL(/\/learn\/reports\/student-performance\/actual\/\d+\/activity/);
+
+    const tooltipCount = await expect
+      .poll(async () => {
+        return page.locator('cu-tooltip tui-icon').count();
+      }, { timeout: 15_000 })
+      .toBeGreaterThan(0)
+      .then(() => page.locator('cu-tooltip tui-icon').count())
+      .catch(() => 0);
+
+    if (tooltipCount > 0) {
+      return;
+    }
+  }
+
+  throw new Error('Не удалось найти страницу активности с tooltip-иконками для issue #185');
+}
+
+async function resolveCssColor(page, value) {
+  return page.evaluate((cssValue) => {
+    const probe = document.createElement('div');
+    probe.style.color = cssValue;
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  }, value);
+}
 
 test.describe('Issue #185: tooltip icon color in dark theme', () => {
-  test.afterEach(async ({ context, extensionId, page }) => {
-    await page.evaluate((tooltipId) => {
-      document.getElementById(tooltipId)?.remove();
-    }, TOOLTIP_ID);
+  test.afterEach(async ({ context, extensionId }) => {
     await clearExtensionStorage(context, extensionId, 'sync', 'themeEnabled');
+    await clearExtensionStorage(context, extensionId, 'sync', 'advancedStatementsEnabled');
+    await clearExtensionStorage(context, extensionId, 'sync', 'endOfCourseCalcEnabled');
   });
 
-  test('оставляет иконку подсказки светлой вместо черной', async ({
+  test('меняет цвет реальной tooltip-иконки на странице формулы', async ({
     page,
     context,
     extensionId,
   }) => {
     await setExtensionStorage(context, extensionId, 'sync', 'themeEnabled', true);
+    await setExtensionStorage(context, extensionId, 'sync', 'advancedStatementsEnabled', true);
+    await setExtensionStorage(context, extensionId, 'sync', 'endOfCourseCalcEnabled', true);
 
-    await page.goto(PAGE);
+    await openActivityPageWithTooltips(page);
     await expect(page.locator(`#${STYLE_ID}`)).toBeAttached({ timeout: 10_000 });
 
-    await page.evaluate((tooltipId) => {
-      const tooltip = document.createElement('tui-tooltip');
-      tooltip.id = tooltipId;
-      tooltip.style.display = 'inline-flex';
-      tooltip.style.padding = '12px';
-      tooltip.innerHTML = '<tui-icon></tui-icon>';
-      document.body.append(tooltip);
-    }, TOOLTIP_ID);
-
-    const tooltip = page.locator(`#${TOOLTIP_ID}`);
+    const tooltip = page.locator('cu-tooltip').first();
     const icon = tooltip.locator('tui-icon');
+    const defaultColor = await resolveCssColor(page, 'var(--culms-dark-text-secondary)');
+    const hoverColor = await resolveCssColor(page, 'var(--text-tertiary-hover-on-dark)');
+
+    await expect
+      .poll(async () => {
+        return icon.evaluate((node) => getComputedStyle(node, '::after').maskImage);
+      })
+      .not.toBe('none');
 
     await expect
       .poll(async () => {
         return icon.evaluate((icon) => {
-          return getComputedStyle(icon, '::after').color;
+          return getComputedStyle(icon, '::after').backgroundColor;
         });
       })
-      .toBe('rgb(232, 234, 237)');
+      .toBe(defaultColor);
 
     await tooltip.hover();
 
     await expect
       .poll(async () => {
-        const hoveredColor = await icon.evaluate((icon) => {
-          return getComputedStyle(icon, '::after').color;
+        return icon.evaluate((icon) => {
+          return getComputedStyle(icon, '::after').backgroundColor;
         });
-
-        return hoveredColor !== 'rgb(0, 0, 0)' && hoveredColor !== 'rgba(0, 0, 0, 1)';
       })
-      .toBe(true);
+      .toBe(hoverColor);
   });
 });

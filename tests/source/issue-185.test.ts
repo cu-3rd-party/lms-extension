@@ -7,7 +7,8 @@ const darkThemeCss = readFileSync(
   'utf8'
 );
 
-test('dark theme defines a non-black default color for tooltip icons', () => {
-  expect(darkThemeCss).toContain('tui-tooltip tui-icon:after');
-  expect(darkThemeCss).toContain('color: var(--culms-dark-text-secondary) !important;');
+test('dark theme styles real LMS tooltip help icons via ::after background color', () => {
+  expect(darkThemeCss).toContain('cu-tooltip tui-icon::after');
+  expect(darkThemeCss).toContain('background-color: var(--culms-dark-text-secondary) !important;');
+  expect(darkThemeCss).toContain('background-color: var(--text-tertiary-hover-on-dark) !important;');
 });

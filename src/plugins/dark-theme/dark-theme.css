@@ -13056,16 +13056,21 @@ tui-textfield.cu-text-field tui-input-chip[tuiChip][tuiAppearance][data-appearan
   background-color: var(--negative);
 }
 
-tui-tooltip .t-icon {
+tui-tooltip .t-icon,
+cu-tooltip .t-icon {
   border: none;
 }
 
-tui-tooltip tui-icon:after {
+tui-tooltip tui-icon::after,
+cu-tooltip tui-icon::after {
   color: var(--culms-dark-text-secondary) !important;
+  background-color: var(--culms-dark-text-secondary) !important;
 }
 
-tui-tooltip:hover tui-icon:after {
-  color: var(--text-tertiary-hover);
+tui-tooltip:hover tui-icon::after,
+cu-tooltip:hover tui-icon::after {
+  color: var(--text-tertiary-hover-on-dark) !important;
+  background-color: var(--text-tertiary-hover-on-dark) !important;
 }
 
 tui-notification {
