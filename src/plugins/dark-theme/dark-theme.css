@@ -13056,12 +13056,53 @@ tui-textfield.cu-text-field tui-input-chip[tuiChip][tuiAppearance][data-appearan
   background-color: var(--negative);
 }
 
-tui-tooltip .t-icon {
+tui-tooltip .t-icon,
+cu-tooltip .t-icon {
   border: none;
 }
 
-tui-tooltip:hover tui-icon:after {
-  color: var(--text-tertiary-hover);
+tui-tooltip tui-icon,
+cu-tooltip tui-icon {
+  --cu-tooltip-icon-color: var(--text-primary-on-dark) !important;
+}
+
+tui-tooltip tui-icon.hint,
+cu-tooltip tui-icon.hint {
+  filter: brightness(0) invert(1) !important;
+  opacity: 0.96 !important;
+}
+
+tui-tooltip tui-icon::after,
+cu-tooltip tui-icon::after {
+  color: var(--text-primary-on-dark) !important;
+  background-color: var(--text-primary-on-dark) !important;
+}
+
+tui-tooltip:hover tui-icon,
+cu-tooltip:hover tui-icon {
+  --cu-tooltip-icon-color: var(--culms-dark-text-primary) !important;
+}
+
+tui-tooltip:hover tui-icon.hint,
+cu-tooltip:hover tui-icon.hint,
+tui-tooltip tui-icon.hint:hover,
+cu-tooltip tui-icon.hint:hover {
+  opacity: 1 !important;
+}
+
+tui-tooltip:hover tui-icon,
+cu-tooltip:hover tui-icon,
+tui-tooltip tui-icon:hover,
+cu-tooltip tui-icon:hover {
+  --cu-tooltip-icon-color: var(--culms-dark-text-primary) !important;
+}
+
+tui-tooltip:hover tui-icon::after,
+cu-tooltip:hover tui-icon::after,
+tui-tooltip tui-icon:hover::after,
+cu-tooltip tui-icon:hover::after {
+  color: var(--culms-dark-text-primary) !important;
+  background-color: var(--culms-dark-text-primary) !important;
 }
 
 tui-notification {

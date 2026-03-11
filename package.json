@@ -16,7 +16,8 @@
     "format": "prettier --write .",
     "prepare": "husky",
     "test": "playwright test",
-    "test:login": "bun --env-file=.env scripts/login.ts"
+    "test:login": "bun --env-file=.env scripts/login.ts",
+    "test:browser": "bun --env-file=.env scripts/open-test-browser.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.3",
