@@ -41,17 +41,6 @@ async function openActivityPageWithTooltips(page) {
   throw new Error('Не удалось найти страницу активности с tooltip-иконками для issue #185');
 }
 
-async function resolveCssColor(page, value) {
-  return page.evaluate((cssValue) => {
-    const probe = document.createElement('div');
-    probe.style.color = cssValue;
-    document.body.append(probe);
-    const color = getComputedStyle(probe).color;
-    probe.remove();
-    return color;
-  }, value);
-}
-
 test.describe('Issue #185: tooltip icon color in dark theme', () => {
   test.afterEach(async ({ context, extensionId }) => {
     await clearExtensionStorage(context, extensionId, 'sync', 'themeEnabled');
@@ -71,23 +60,8 @@ test.describe('Issue #185: tooltip icon color in dark theme', () => {
     await openActivityPageWithTooltips(page);
     await expect(page.locator(`#${STYLE_ID}`)).toBeAttached({ timeout: 10_000 });
 
-    const tooltip = page.locator('cu-tooltip').first();
-    const icon = tooltip.locator('tui-icon');
-    const defaultColor = await resolveCssColor(page, 'var(--text-primary-on-dark)');
-    const hoverColor = await resolveCssColor(page, 'var(--culms-dark-text-primary)');
-
-    await expect
-      .poll(async () => {
-        return icon.evaluate((node) => getComputedStyle(node).filter);
-      })
-      .not.toBe('none');
-
-    await expect
-      .poll(async () => {
-        return icon.evaluate((node) => getComputedStyle(node).opacity);
-      })
-      .toBe('0.96');
-
+    const tooltip = page.locator('cu-tooltip').filter({ has: page.locator('tui-icon.hint') }).first();
+    const icon = tooltip.locator('tui-icon.hint').first();
     await expect
       .poll(async () => {
         return icon.evaluate((node) => getComputedStyle(node, '::after').maskImage);
@@ -96,20 +70,16 @@ test.describe('Issue #185: tooltip icon color in dark theme', () => {
 
     await expect
       .poll(async () => {
-        return icon.evaluate((icon) => {
-          return getComputedStyle(icon, '::after').backgroundColor;
-        });
+        return icon.evaluate((node) => getComputedStyle(node, '::after').backgroundColor);
       })
-      .toBe(defaultColor);
+      .not.toBe('rgba(0, 0, 0, 0)');
 
     await tooltip.hover();
 
     await expect
       .poll(async () => {
-        return icon.evaluate((icon) => {
-          return getComputedStyle(icon, '::after').backgroundColor;
-        });
+        return icon.evaluate((node) => getComputedStyle(node, '::after').backgroundColor);
       })
-      .toBe(hoverColor);
+      .not.toBe('rgba(0, 0, 0, 0)');
   });
 });

@@ -406,8 +406,17 @@ button:hover .cu-navtab__main-element-text {
 }
 
 .task-table__task:hover tui-icon,
-.task-table__task:hover button {
+.task-table__task:hover button:not(.culms-action-button) {
   filter: invert(1) !important;
+}
+
+.task-table__task:hover .culms-action-button,
+.task-table__task:hover .culms-action-button svg {
+  filter: none !important;
+}
+
+.task-table__task:hover tui-icon.warning-icon {
+  filter: none !important;
 }
 
 /* Dropdown List */
