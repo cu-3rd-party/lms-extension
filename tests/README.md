@@ -38,6 +38,13 @@ bun run test:login
 bun run test
 ```
 
+Для ручной проверки в том же окружении, что и e2e-фикстуры, можно открыть браузер так:
+
+```bash
+bun run test:browser
+```
+
+По умолчанию скрипт открывает страницу issue #185 и заранее включает `themeEnabled`, `advancedStatementsEnabled` и `endOfCourseCalcEnabled`. Если нужна другая страница, передай `TEST_BROWSER_URL=https://...`.
 `playwright.config.ts` игнорирует `tests/source/**`, потому что там лежат `bun:test` регрессионные проверки, а не браузерные E2E.
 
 ## Отдельные тесты
@@ -86,10 +93,11 @@ test.afterEach(async ({ context, extensionId }) => {
 - `clearExtensionStorage(context, extensionId, area, key)` — удаляет ключ из `chrome.storage`
 - `setExtensionStorage(context, extensionId, area, key, value)` — записывает значение в `chrome.storage`
 
+Оба хелпера теперь падают с явной ошибкой, если Chrome не выдал `extensionId`. Это защищает от ложных ручных проверок, когда расширение не поднялось, а запись в storage тихо не выполнилась.
 Оба хелпера открывают popup-страницу расширения и вызывают `chrome.storage` оттуда.
 
 > `chrome.storage` недоступен из `page.evaluate()` (контекст страницы). Service worker MV3 ненадёжен — Chrome завершает его в любой момент. Единственный стабильный способ — extension page (popup).
 
 `tests/helpers/fixtures.ts` дополнительно автоматически очищает `chrome.storage.local` и `chrome.storage.sync` до и после каждого теста, чтобы сценарии не конфликтовали между собой через общие настройки расширения.
-
+Фикстуры ждут service worker расширения до 20 секунд, а storage-хелперы при необходимости повторяют открытие popup несколько раз: это убирает флаки, когда Chrome поднимает extension page не с первой попытки.
 Для точечных регрессий под отдельные issue используй каталог `tests/issues/`: там лежат Playwright-тесты, которые проверяют конкретный фикс в браузере, а не только CSS/исходники.
