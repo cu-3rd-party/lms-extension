@@ -14,3 +14,8 @@ test('dark theme does not invert custom task action buttons on row hover', () =>
   expect(darkThemeCss).toContain('.task-table__task:hover .culms-action-button');
   expect(darkThemeCss).toContain('filter: none !important;');
 });
+
+test('dark theme does not invert warning icons on row hover', () => {
+  expect(darkThemeCss).toContain('.task-table__task:hover tui-icon.warning-icon');
+  expect(darkThemeCss).toContain('filter: none !important;');
+});

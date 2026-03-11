@@ -415,6 +415,10 @@ button:hover .cu-navtab__main-element-text {
   filter: none !important;
 }
 
+.task-table__task:hover tui-icon.warning-icon {
+  filter: none !important;
+}
+
 /* Dropdown List */
 tui-dropdown[data-appearance='dropdown-list'] {
   background-color: var(--culms-dark-bg-secondary) !important;

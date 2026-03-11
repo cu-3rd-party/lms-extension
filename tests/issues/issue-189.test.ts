@@ -44,4 +44,22 @@ test.describe('Issue #189: task hover icons in dark theme', () => {
         svgFilter: 'none',
       });
   });
+
+  test('не инвертирует warning icon при hover строки', async ({ page, context, extensionId }) => {
+    await setExtensionStorage(context, extensionId, 'sync', 'themeEnabled', true);
+
+    await page.goto(TASKS_PAGE);
+    await page.waitForSelector('tr[class*="task-table__task"]', { timeout: 15_000 });
+    await page.waitForSelector('tui-icon.warning-icon', { timeout: 10_000 });
+
+    const warningIcon = page.locator('tui-icon.warning-icon').first();
+    const row = page.locator('tr[class*="task-table__task"]').filter({ has: warningIcon }).first();
+    await row.hover();
+
+    await expect
+      .poll(async () => {
+        return warningIcon.evaluate((icon) => getComputedStyle(icon).filter);
+      })
+      .toBe('none');
+  });
 });
