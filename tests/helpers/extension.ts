@@ -87,9 +87,23 @@ export async function launchAuthenticatedExtensionContext() {
 }
 
 async function openExtensionPopup(context: BrowserContext, extensionId: string) {
-  const page = await context.newPage();
-  await page.goto(getExtensionPopupUrl(extensionId));
-  return page;
+  const extensionUrl = getExtensionPopupUrl(extensionId);
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const page = await context.newPage();
+
+    try {
+      await page.goto(extensionUrl, { waitUntil: 'domcontentloaded' });
+      return page;
+    } catch (error) {
+      lastError = error;
+      await page.close();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+
+  throw lastError;
 }
 
 export async function setExtensionStorage(
