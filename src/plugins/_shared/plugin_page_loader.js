@@ -216,6 +216,18 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
   // Слушатель сообщений от iframe
   window.addEventListener('message', async (event) => {
     if (event.source !== leftIframe.contentWindow) return;
+    if (event.data && event.data.action === 'reloadWithoutExtension') {
+      const overlay = document.getElementById(OVERLAY_ID);
+      if (overlay) {
+        overlay.style.display = 'none';
+      }
+
+      browser.runtime.sendMessage({ action: 'BYPASS_EXTENSION_ONCE' }).catch((error) => {
+        console.error('[Plugin menu] Failed to reload without extension:', error);
+      });
+      return;
+    }
+
     if (event.data && event.data.action === 'receivePendingChanges') {
       const changes = event.data.payload;
       const shouldReload = !!event.data.shouldReload;

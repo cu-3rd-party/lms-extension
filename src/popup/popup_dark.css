@@ -30,3 +30,9 @@ body.dark-theme .slider {
 body.dark-theme input:checked + .slider {
   background-color: #2196f3;
 }
+
+body.dark-theme .action-button_danger {
+  background: #3b2729;
+  border-color: #6a3b40;
+  color: #ffb4ab;
+}
