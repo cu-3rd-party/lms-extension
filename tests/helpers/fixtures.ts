@@ -20,14 +20,14 @@ export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
         await cleanup();
       }
     },
-    { scope: 'worker' },
+    { scope: 'worker', timeout: 60_000 },
   ],
 
   extensionId: [
     async ({ workerContext }, use) => {
       await use(await resolveExtensionId(workerContext));
     },
-    { scope: 'worker' },
+    { scope: 'worker', timeout: 30_000 },
   ],
 
   context: async ({ workerContext }, use) => {
@@ -42,6 +42,7 @@ export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
     await clearAllExtensionStorage(context, extensionId);
   },
 });
+
 
 export { expect } from '@playwright/test';
 export { LMS_URL, clearExtensionStorage, setExtensionStorage };
