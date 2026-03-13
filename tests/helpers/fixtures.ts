@@ -1,62 +1,33 @@
-import { test as base, chromium, type BrowserContext } from '@playwright/test';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
-import { tmpdir } from 'os';
-import { join, resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const COOKIES_FILES = [
-  resolve(__dirname, '../.cookies.json'),
-  resolve(__dirname, './.cookies.json'),
-];
-const EXTENSION_PATH = resolve(__dirname, '../../dist/chrome');
-export const LMS_URL = 'https://my.centraluniversity.ru';
+import { test as base, type BrowserContext } from '@playwright/test';
+import {
+  LMS_URL,
+  clearAllExtensionStorage,
+  clearExtensionStorage,
+  launchAuthenticatedExtensionContext,
+  resolveExtensionId,
+  setExtensionStorage,
+} from './extension.js';
 
 type WorkerFixtures = { workerContext: BrowserContext; extensionId: string };
-
-function getCookiesFile(): string | null {
-  return COOKIES_FILES.find((file) => existsSync(file)) ?? null;
-}
 
 export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
   workerContext: [
     async ({}, use) => {
-      const cookiesFile = getCookiesFile();
-      if (cookiesFile) {
-        const profileDir = mkdtempSync(join(tmpdir(), 'culms-playwright-'));
-        // Чистый профиль + инжектируем куки из файла
-        const ctx = await chromium.launchPersistentContext(profileDir, {
-          headless: false,
-          args: [
-            `--disable-extensions-except=${EXTENSION_PATH}`,
-            `--load-extension=${EXTENSION_PATH}`,
-          ],
-        });
-        const cookies = JSON.parse(readFileSync(cookiesFile, 'utf-8'));
-        await ctx.addCookies(cookies);
-        await use(ctx);
-        await ctx.close();
-        rmSync(profileDir, { recursive: true, force: true });
-      } else {
-        throw new Error(
-          `Куки не найдены. Ожидался один из файлов: ${COOKIES_FILES.join(', ')}. Сохрани сессию: bun run test:login`
-        );
+      const { context, cleanup } = await launchAuthenticatedExtensionContext();
+      try {
+        await use(context);
+      } finally {
+        await cleanup();
       }
     },
-    { scope: 'worker' },
+    { scope: 'worker', timeout: 60_000 },
   ],
 
   extensionId: [
     async ({ workerContext }, use) => {
-      let sw = workerContext.serviceWorkers()[0];
-      if (!sw) {
-        sw = await workerContext
-          .waitForEvent('serviceworker', { timeout: 10_000 })
-          .catch(() => null);
-      }
-      await use(sw ? new URL(sw.url()).hostname : '');
+      await use(await resolveExtensionId(workerContext));
     },
-    { scope: 'worker' },
+    { scope: 'worker', timeout: 30_000 },
   ],
 
   context: async ({ workerContext }, use) => {
@@ -72,7 +43,6 @@ export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
   },
 });
 
-export { expect } from '@playwright/test';
 
 async function openExtensionPage(context: BrowserContext, extensionId: string) {
   const extensionUrl = `chrome-extension://${extensionId}/popup/popup.html`;

@@ -454,13 +454,13 @@ tui-chip[data-appearance='negative-pale'] {
 }
 
 tui-chip[data-appearance='support-categorical-13-pale'] {
-  background-color: var(--culms-dark-status-neutral) !important;
+  background-color: rgba(249, 171, 0, 0.56) !important;
   color: var(--culms-dark-text-primary) !important;
   border: none !important;
 }
 
 tui-chip[data-appearance='support-categorical-12-pale'] {
-  background-color: var(--culms-dark-status-in-progress) !important;
+  background-color: rgba(66, 133, 244, 0.66) !important;
   color: var(--culms-dark-text-primary) !important;
   border: none !important;
 }
@@ -13060,12 +13060,53 @@ tui-textfield.cu-text-field tui-input-chip[tuiChip][tuiAppearance][data-appearan
   background-color: var(--negative);
 }
 
-tui-tooltip .t-icon {
+tui-tooltip .t-icon,
+cu-tooltip .t-icon {
   border: none;
 }
 
-tui-tooltip:hover tui-icon:after {
-  color: var(--text-tertiary-hover);
+tui-tooltip tui-icon,
+cu-tooltip tui-icon {
+  --cu-tooltip-icon-color: var(--text-primary-on-dark) !important;
+}
+
+tui-tooltip tui-icon.hint,
+cu-tooltip tui-icon.hint {
+  filter: brightness(0) invert(1) !important;
+  opacity: 0.96 !important;
+}
+
+tui-tooltip tui-icon::after,
+cu-tooltip tui-icon::after {
+  color: var(--text-primary-on-dark) !important;
+  background-color: var(--text-primary-on-dark) !important;
+}
+
+tui-tooltip:hover tui-icon,
+cu-tooltip:hover tui-icon {
+  --cu-tooltip-icon-color: var(--culms-dark-text-primary) !important;
+}
+
+tui-tooltip:hover tui-icon.hint,
+cu-tooltip:hover tui-icon.hint,
+tui-tooltip tui-icon.hint:hover,
+cu-tooltip tui-icon.hint:hover {
+  opacity: 1 !important;
+}
+
+tui-tooltip:hover tui-icon,
+cu-tooltip:hover tui-icon,
+tui-tooltip tui-icon:hover,
+cu-tooltip tui-icon:hover {
+  --cu-tooltip-icon-color: var(--culms-dark-text-primary) !important;
+}
+
+tui-tooltip:hover tui-icon::after,
+cu-tooltip:hover tui-icon::after,
+tui-tooltip tui-icon:hover::after,
+cu-tooltip tui-icon:hover::after {
+  color: var(--culms-dark-text-primary) !important;
+  background-color: var(--culms-dark-text-primary) !important;
 }
 
 tui-notification {
@@ -13305,7 +13346,7 @@ tui-chip[data-appearance='support-categorical-01'][data-appearance='support-cate
 tui-chip[data-appearance='support-categorical-13-pale'][data-appearance='support-categorical-13-pale'] {
   border: none;
   color: var(--text-primary);
-  background-color: var(--categorical-13-pale);
+  background-color: rgba(249, 171, 0, 0.56) !important;
 }
 
 tui-chip[data-appearance='positive-pale'][data-appearance='positive-pale'] {
@@ -13357,7 +13398,7 @@ tui-chip[data-appearance='support-neutral'][data-appearance='support-neutral'] {
 tui-chip[data-appearance='support-categorical-12-pale'][data-appearance='support-categorical-12-pale'] {
   border: none;
   color: var(--text-primary);
-  background-color: var(--categorical-12-pale);
+  background-color: rgba(66, 133, 244, 0.66) !important;
 }
 
 tui-chip[data-appearance='support-categorical-20-pale'][data-appearance='support-categorical-20-pale'] {
@@ -15487,8 +15528,15 @@ pre[class*='language-'] ::selection {
 }
 
 /* Ссылки (если есть) делаем читаемыми */
+.tiptap.ProseMirror a,
+.tiptap.ProseMirror a span,
+.tiptap.ProseMirror a span:not([class*='token']):not([class*='language']):not(code) {
+  color: var(--culms-dark-text-link-hover) !important;
+  text-decoration-color: currentColor !important;
+}
+
 .tiptap.ProseMirror a {
-  color: #61afef !important; /* Или ваш акцентный цвет */
+  text-underline-offset: 0.15em;
 }
 
 .tiptap.ProseMirror pre,
