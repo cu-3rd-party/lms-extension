@@ -281,9 +281,13 @@ tui-avatar[data-type='text'] {
   filter: invert(0) brightness(0.8) !important;
 }
 
-.cu-table tbody td,
-.cu-table tbody td a {
+.cu-table tbody td {
   color: var(--culms-dark-text-primary) !important;
+}
+
+.cu-table tbody td a,
+.cu-table tbody td a span {
+  color: var(--culms-dark-text-link-hover) !important;
 }
 
 .cu-table tbody td a:hover {
