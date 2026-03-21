@@ -137,3 +137,43 @@
 ### `debug_utils.js`
 
 Утилита для отладки. Предоставляет глобальную функцию `cuLmsLog`, которую используют все остальные скрипты для вывода логов (можно отключить в `DEBUG_MODE`).
+
+---
+
+### `apricot_api.js`
+
+- Отвечает за интерфейс в веб-странице: `window.__akhCheckApi`.
+- Методы:
+  - `fetchCourseDetails(courseId)`
+  - `fetchTaskProgress(taskId)`
+  - `fetchAllProgress()`
+- Работает через `CustomEvent` и `AKH_PROXY_REQUEST`/`AKH_PROXY_RESPONSE_*`.
+
+### `akh_bridge.js`
+
+- Слушает `AKH_PROXY_REQUEST` и пересылает запрос в фон через `chrome.runtime.sendMessage`.
+- Возвращает ответ обратно в страницу через `AKH_PROXY_RESPONSE_<id>`.
+- Обрабатывает JSON из-за особенностей Firefox (строка или объект).
+
+### `apricot_tasks_fix.js`
+
+- Включает отображение статусов Apricot в таблице задач LMS.
+- Находится в `plugins/courses/apricot_tasks_fix.js`.
+- Логика:
+  - Периодически (каждые 3 секунды) проходит по строкам задач
+  - Нормализует названия (`normalize`): удаляет "ДЗ N", "неделя N", спецсимволы и лишние пробелы
+  - Находит совпадения среди задач/групп Apricot
+  - Выбирает статус с максимальным приоритетом (Rework > On review > Accepted > None)
+  - Добавляет бейдж `AKH: STATUS` в столбец статуса
+
+### `token_grabber.js`
+
+- Берёт токены из `localStorage:
+  - access: `auth-token` / `access`
+  - refresh: `refresh-token` / `refresh_token` / `auth-refresh` / `refresh`
+- Посылает `chrome.runtime.sendMessage({action: 'AKH_SAVE_TOKENS', access, refresh})`.
+
+### Как ориентация
+
+- Все эти скрипты работают вместе: `token_grabber` даёт токен, `apricot_api` - интерфейс, `akh_bridge` - прокси, `apricot_tasks_fix` - отображение.
+- Цель — показать текущие статусы Apricot задач внутри LMS без переписывания интерфейса LMS.

@@ -851,3 +851,36 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   initializeObserver();
   throttledCheckAndRun();
 }
+
+// --- ВСТАВИТЬ В tasks_fix.js ---
+
+function loadApricotModule() {
+  if (window.__apricotTasksFixInitialized) return;
+
+  // ВАЖНО: Пути должны в точности совпадать с путями в папке проекта и manifest.ts
+  const scripts = ['plugins/_shared/apricot_api.js', 'plugins/courses/apricot_tasks_fix.js'];
+
+  scripts.forEach((path) => {
+    const script = document.createElement('script');
+
+    // browser.runtime.getURL построит правильный путь типа chrome-extension://ID/path...
+    script.src = browser.runtime.getURL(path);
+
+    script.onload = () => {
+      console.log(`[CU LMS] Script loaded: ${path}`);
+      // Можно удалять тег после загрузки, чтобы не засорять DOM
+      script.remove();
+    };
+
+    script.onerror = () => {
+      console.error(
+        `[CU LMS] Failed to load script: ${path}. Проверь путь и web_accessible_resources в манифесте.`
+      );
+    };
+
+    (document.head || document.documentElement).appendChild(script);
+  });
+}
+
+// Запускаем
+loadApricotModule();
