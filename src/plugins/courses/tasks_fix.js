@@ -573,14 +573,16 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   const masterCourseList = new Set();
   let selectedStatuses = new Set(HARDCODED_STATUSES);
   let selectedCourses = new Set();
+  let knownCourses = new Set();
 
   function loadFilterSettings() {
     try {
       const savedFilters = localStorage.getItem(FILTER_STORAGE_KEY);
       if (savedFilters) {
-        const { statuses, courses } = JSON.parse(savedFilters);
+        const { statuses, courses, knownCourses: savedKnown } = JSON.parse(savedFilters);
         if (statuses && Array.isArray(statuses)) selectedStatuses = new Set(statuses);
         if (courses && Array.isArray(courses)) selectedCourses = new Set(courses);
+        if (savedKnown && Array.isArray(savedKnown)) knownCourses = new Set(savedKnown);
         window.cuLmsLog('Task Status Updater: Filter settings loaded from storage');
       }
     } catch (error) {
@@ -594,6 +596,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       const filterData = {
         statuses: Array.from(selectedStatuses),
         courses: Array.from(selectedCourses),
+        knownCourses: Array.from(masterCourseList),
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filterData));
@@ -611,10 +614,23 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
           const courseName = el.textContent.trim();
           if (courseName) masterCourseList.add(courseName);
         });
-      if (selectedCourses.size === 0) {
+
+      if (knownCourses.size === 0) {
+        // Нет сохранённых данных — выбираем все курсы
         masterCourseList.forEach((course) => selectedCourses.add(course));
+      } else {
+        // Убираем устаревшие курсы (которых нет в DOM)
+        selectedCourses.forEach((course) => {
+          if (!masterCourseList.has(course)) selectedCourses.delete(course);
+        });
+        // Добавляем новые курсы (которых не было раньше) как выбранные
+        masterCourseList.forEach((course) => {
+          if (!knownCourses.has(course)) selectedCourses.add(course);
+        });
       }
+
       window.cuLmsLog('Task Status Updater: Master course list created with saved selections.');
+      saveFilterSettings();
     }
     applyCombinedFilter();
   }
@@ -851,3 +867,36 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   initializeObserver();
   throttledCheckAndRun();
 }
+
+// --- ВСТАВИТЬ В tasks_fix.js ---
+
+function loadApricotModule() {
+  if (window.__apricotTasksFixInitialized) return;
+
+  // ВАЖНО: Пути должны в точности совпадать с путями в папке проекта и manifest.ts
+  const scripts = ['plugins/_shared/apricot_api.js', 'plugins/courses/apricot_tasks_fix.js'];
+
+  scripts.forEach((path) => {
+    const script = document.createElement('script');
+
+    // browser.runtime.getURL построит правильный путь типа chrome-extension://ID/path...
+    script.src = browser.runtime.getURL(path);
+
+    script.onload = () => {
+      console.log(`[CU LMS] Script loaded: ${path}`);
+      // Можно удалять тег после загрузки, чтобы не засорять DOM
+      script.remove();
+    };
+
+    script.onerror = () => {
+      console.error(
+        `[CU LMS] Failed to load script: ${path}. Проверь путь и web_accessible_resources в манифесте.`
+      );
+    };
+
+    (document.head || document.documentElement).appendChild(script);
+  });
+}
+
+// Запускаем
+loadApricotModule();
