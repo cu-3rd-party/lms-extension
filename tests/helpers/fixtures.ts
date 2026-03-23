@@ -42,6 +42,3 @@ export const test = base.extend<{ context: BrowserContext }, WorkerFixtures>({
     await clearAllExtensionStorage(context, extensionId);
   },
 });
-
-export { expect } from '@playwright/test';
-export { LMS_URL, clearExtensionStorage, setExtensionStorage };

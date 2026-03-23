@@ -336,6 +336,37 @@ tui-chip[data-appearance='neutral'] {
   border: 1px solid transparent !important;
 }
 
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='positive-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='negative-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='warning-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-categorical-13-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-categorical-12-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-neutral'] {
+  color: var(--culms-dark-text-primary) !important;
+  border: none !important;
+}
+
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='positive-pale'] {
+  background-color: rgba(30, 142, 62, 0.56) !important;
+}
+
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='negative-pale'] {
+  background-color: rgba(217, 48, 37, 0.56) !important;
+}
+
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='warning-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-categorical-13-pale'] {
+  background-color: rgba(249, 171, 0, 0.56) !important;
+}
+
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-categorical-12-pale'] {
+  background-color: rgba(66, 133, 244, 0.66) !important;
+}
+
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-neutral'] {
+  background-color: rgba(60, 64, 67, 0.72) !important;
+}
+
 .task-table__course-name {
   /*BTDEV: course_name color*/
   color: var(--culms-dark-text-tertiary) !important;
@@ -15507,26 +15538,76 @@ pre[class*='language-'] ::selection {
   font-style: italic !important;
 }
 
-/* 1. ФОН И БАЗОВЫЙ ЦВЕТ ТЕКСТА
-   Используем .tiptap.ProseMirror в начале, чтобы вес селектора был (0,3,1) против (0,2,0) у сайта
-*/
+/* 1. ФОН И БАЗОВЫЙ ЦВЕТ ТЕКСТА */
 
 /* --- 0. ГЛОБАЛЬНЫЙ СБРОС ДЛЯ ТЕКСТА ВНУТРИ РЕДАКТОРА --- */
 
 /* Сбрасываем цвета у блочных элементов (P, H1-H6, LI) */
-.tiptap.ProseMirror,
-.tiptap.ProseMirror p,
-.tiptap.ProseMirror h1,
-.tiptap.ProseMirror h2,
-.tiptap.ProseMirror h3,
-.tiptap.ProseMirror ul,
-.tiptap.ProseMirror ol,
-.tiptap.ProseMirror li,
-.tiptap.ProseMirror blockquote {
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true']) p,
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true']) h1,
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true']) h2,
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true']) h3,
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true']) ul,
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true']) ol,
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true']) li,
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true']) blockquote {
   color: var(--culms-dark-text-primary) !important;
   background-color: transparent !important; /* На случай если фон задан параграфу */
 }
 
+.tiptap.ProseMirror ol li::marker,
+.tiptap.ProseMirror ul li::marker {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Обеспечиваем светлую нумерацию/буллеты для всех возможных контейнеров редактора */
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true']) :is(ol, ul) {
+  list-style-color: var(--culms-dark-text-primary) !important;
+}
+
+/* Если у li есть собственный темный color, маркер может наследоваться тёмным */
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true'])
+  :is(ol, ul)
+  li {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true'])
+  :is(ol, ul)
+  li::marker {
+  color: var(--culms-dark-text-primary) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--culms-dark-text-primary) !important;
+}
+
+/*
+ * Часть longread-списков в LMS рендерится не через нативный ::marker,
+ * а через кастомный li::before с counters(item, ".").
+ */
+:is(.tiptap.ProseMirror, .ProseMirror, .tiptap, .rich-text, [contenteditable='true'])
+  :is(ol, ul)
+  > li::before {
+  color: var(--culms-dark-text-primary) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--culms-dark-text-primary) !important;
+}
+
+/* Fallback для LMS-страниц, где список рендерится вне ожидаемых rich-text контейнеров */
+body :is(ol, ul) > li {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+body :is(ol, ul) > li::marker {
+  color: var(--culms-dark-text-primary) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--culms-dark-text-primary) !important;
+}
+
+body :is(ol, ul) > li::before {
+  color: var(--culms-dark-text-primary) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--culms-dark-text-primary) !important;
+}
 /* 
    САМОЕ ВАЖНОЕ: СБРОС ЦВЕТА И ФОНА У SPAN
    Мы используем :not(), чтобы не сломать подсветку синтаксиса (классы token/language).
