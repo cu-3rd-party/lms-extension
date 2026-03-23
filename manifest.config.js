@@ -20,6 +20,8 @@ export default defineManifest({
     'https://mail.yandex.ru/*',
     'https://calendar.yandex.ru/*',
     'https://passport.yandex.ru/*',
+    "https://akhcheck.ru/*",
+    "https://back.akhcheck.ru/*"
   ],
   background:
     BROWSER === 'firefox'
@@ -33,6 +35,16 @@ export default defineManifest({
       matches: ['https://my.centraluniversity.ru/learn/courses/view/*'],
       js: ['preload.js'],
       run_at: 'document_start',
+    },
+    {
+      matches: ['https://my.centraluniversity.ru/*'],
+      js: ['plugins/_shared/akh_bridge.js'],
+      run_at: 'document_start',
+    },
+    {
+      matches: ["https://akhcheck.ru/*"],
+      js: ["plugins/_shared/token_grabber.js"],
+      run_at: "document_idle",
     },
     {
       matches: [
@@ -68,6 +80,7 @@ export default defineManifest({
         'plugins/_shared/course_card_image_replacer.js',
         'plugins/emoji-swap/emoji_swap.js',
         'plugins/courses/tasks_fix.js',
+        'plugins/courses/apricot_tasks_fix.js',
         'plugins/course-view/course_card_simplifier.js',
         'plugins/course-view/courses_fix.js',
         'plugins/course-view/course_overview_task_status.js',
@@ -75,6 +88,7 @@ export default defineManifest({
         'plugins/course-view/course_friends_list.js',
         'plugins/course-view/future_exams_view.js',
         'plugins/_shared/lms_materials_api.js',
+        'plugins/_shared/apricot_api.js',
         'plugins/longreads/homework_weight_fix.js',
         'plugins/longreads/instant_doc_view_fix.js',
         'plugins/longreads/task_status_adaptation.js',

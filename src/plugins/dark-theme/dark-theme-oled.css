@@ -166,6 +166,37 @@ tui-chip[data-appearance='negative-pale'] {
   border: none !important;
 }
 
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='positive-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='negative-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='warning-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-categorical-13-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-categorical-12-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-neutral'] {
+  color: var(--culms-dark-text-primary) !important;
+  border: none !important;
+}
+
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='positive-pale'] {
+  background-color: rgba(30, 142, 62, 0.56) !important;
+}
+
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='negative-pale'] {
+  background-color: rgba(217, 48, 37, 0.56) !important;
+}
+
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='warning-pale'],
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-categorical-13-pale'] {
+  background-color: rgba(249, 171, 0, 0.56) !important;
+}
+
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-categorical-12-pale'] {
+  background-color: rgba(66, 133, 244, 0.66) !important;
+}
+
+.cu-table tbody td :is(tui-chip, .state-chip)[data-appearance='support-neutral'] {
+  background-color: rgba(60, 64, 67, 0.72) !important;
+}
+
 /* Inputs */
 tui-input .t-textfield {
   background-color: var(--culms-dark-bg-hover-light) !important;
