@@ -1,15 +1,11 @@
 import { test as base, type BrowserContext } from '@playwright/test';
 import {
+  LMS_URL,
   clearAllExtensionStorage,
+  clearExtensionStorage,
   launchAuthenticatedExtensionContext,
   resolveExtensionId,
-} from './extension.js';
-
-export { expect } from '@playwright/test';
-export {
-  LMS_URL,
   setExtensionStorage,
-  clearExtensionStorage,
 } from './extension.js';
 
 type WorkerFixtures = { workerContext: BrowserContext; extensionId: string };

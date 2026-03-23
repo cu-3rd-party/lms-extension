@@ -441,8 +441,19 @@ button:hover .cu-navtab__main-element-text {
 }
 
 .task-table__task:hover tui-icon,
-.task-table__task:hover button {
-  filter: invert(1) !important;
+.task-table__task:hover button,
+.task-table__task:hover svg,
+.task-table__task:hover svg path,
+.task-table__task:hover svg * {
+  filter: none !important;
+  color: var(--culms-dark-text-primary) !important;
+  fill: var(--culms-dark-text-primary) !important;
+  stroke: var(--culms-dark-text-primary) !important;
+  -webkit-text-fill-color: var(--culms-dark-text-primary) !important;
+}
+
+.task-table__task:hover tui-icon.warning-icon {
+  filter: none !important;
 }
 
 /* Dropdown List */
