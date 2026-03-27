@@ -191,8 +191,36 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             .state-chip[data-culms-status="skipped"] { background-color: ${skippedChipBg} !important; color: white !important; }
             .state-chip[data-culms-status="revision"] { background-color: ${revisionChipBg} !important; color: white !important; } 
 
-            .culms-late-days-container { display: flex; align-items: center; justify-content: flex-start; }
-            .culms-action-button { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; height: 24px; width: 24px; padding: 0; margin-right: 8px; opacity: 0.6; transition: opacity 0.2s; }
+            .task-table__late-days {
+                min-width: 120px !important;
+                width: 120px !important;
+                white-space: nowrap !important;
+                box-sizing: border-box !important;
+            }
+
+            .culms-late-days-container { 
+                display: flex; 
+                align-items: center; 
+                justify-content: flex-start; 
+                gap: 4px; 
+                flex-wrap: nowrap; 
+            }
+            
+            .culms-action-button { 
+                display: inline-flex; 
+                align-items: center; 
+                justify-content: center; 
+                background: transparent; 
+                border: none; 
+                cursor: pointer; 
+                height: 24px; 
+                width: 24px; 
+                padding: 0; 
+                opacity: 0.6; 
+                transition: opacity 0.2s; 
+                flex-shrink: 0; 
+            }
+            
             .culms-action-button:hover { opacity: 1; }
             .culms-action-button svg { width: 18px; height: 18px; color: ${iconColor}; fill: currentColor; }
 
@@ -255,16 +283,25 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   function buildTableStructure() {
     const headerRow = document.querySelector('.task-table__header');
-    if (headerRow && !headerRow.querySelector('[data-culms-weight-header]')) {
-      const scoreHeader = headerRow.querySelector('.task-table__score');
-      const stateHeader = headerRow.querySelector('.task-table__state');
-      if (scoreHeader && stateHeader) {
-        const weightHeader = scoreHeader.cloneNode(true);
-        weightHeader.setAttribute('data-culms-weight-header', 'true');
-        weightHeader.textContent = 'Вес';
-        stateHeader.parentNode.insertBefore(weightHeader, stateHeader.nextSibling);
+    if (headerRow) {
+      if (!headerRow.querySelector('[data-culms-weight-header]')) {
+        const scoreHeader = headerRow.querySelector('.task-table__score');
+        const stateHeader = headerRow.querySelector('.task-table__state');
+        if (scoreHeader && stateHeader) {
+          const weightHeader = scoreHeader.cloneNode(true);
+          weightHeader.setAttribute('data-culms-weight-header', 'true');
+          weightHeader.textContent = 'Вес';
+          stateHeader.parentNode.insertBefore(weightHeader, stateHeader.nextSibling);
+        }
+      }
+      // Принудительно расширяем заголовок последней ячейки, чтобы было место для кнопок
+      const lateDaysHeader = headerRow.querySelector('.task-table__late-days');
+      if (lateDaysHeader) {
+        lateDaysHeader.style.minWidth = '120px';
+        lateDaysHeader.style.width = '120px';
       }
     }
+
     document.querySelectorAll('tr[class*="task-table__task"]').forEach((row) => {
       if (row.querySelector('[data-culms-weight-cell]')) return;
       const originalScoreCell = row.querySelector('.task-table__score');
