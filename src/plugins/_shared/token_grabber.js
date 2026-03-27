@@ -1,7 +1,9 @@
 // plugins/apricot/token_grabber.js
 (function () {
+  const extApi = typeof chrome !== 'undefined' ? chrome : browser;
+  if (!extApi || !extApi.runtime) return;
+
   const access = localStorage.getItem('auth-token') || localStorage.getItem('access');
-  // Ищем возможные ключи для рефреш-токена
   const refresh =
     localStorage.getItem('refresh-token') ||
     localStorage.getItem('refresh_token') ||
@@ -9,7 +11,7 @@
     localStorage.getItem('refresh');
 
   if (access) {
-    chrome.runtime.sendMessage({
+    extApi.runtime.sendMessage({
       action: 'AKH_SAVE_TOKENS',
       access: access.replace(/"/g, ''),
       refresh: refresh ? refresh.replace(/"/g, '') : null,
