@@ -78,6 +78,7 @@ export default defineManifest({
         'plugins/_shared/plugin_page_loader.js',
         'plugins/_shared/snow.js',
         'plugins/_shared/course_card_image_replacer.js',
+        'plugins/_shared/cu-clubs.js',
         'plugins/emoji-swap/emoji_swap.js',
         'plugins/courses/tasks_fix.js',
         'plugins/courses/apricot_tasks_fix.js',
