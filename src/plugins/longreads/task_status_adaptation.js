@@ -132,18 +132,20 @@ if (typeof window.__culmsLongreadFixInitialized === 'undefined') {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
-            /* Стилизуем чип внутри компонента по data-атрибуту */
+            /* Стилизуем чип внутри компонента по data-атрибуту с усиленным весом селектора */
             
-            /* СКИП - Фиолетовый */
-            cu-student-task tui-chip[data-culms-status="skipped"] {
+            /* СКИП - Темно-серый */
+            html body cu-student-task tui-chip[data-culms-status="skipped"][data-culms-status="skipped"] {
                 background-color: #b516d7 !important;
                 color: white !important;
+                border: none !important;
             }
 
-            /* ДОРАБОТКА - Оранжево-красный */
-            cu-student-task tui-chip[data-culms-status="revision"] {
+            /* ДОРАБОТКА - Красный */
+            html body cu-student-task tui-chip[data-culms-status="revision"][data-culms-status="revision"] {
                 background-color: #FE456A !important;
                 color: white !important;
+                border: none !important;
             }
         `;
     document.head.appendChild(style);
