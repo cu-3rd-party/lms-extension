@@ -187,9 +187,11 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             /* --- Стили таблицы --- */
             tr[data-culms-row-type="seminar"] { background-color: ${seminarRowBg} !important; }
             .state-chip[data-culms-status="seminar"] { background-color: ${seminarChipBg} !important; color: white !important; ${isDarkTheme ? 'border: 1px solid #444;' : ''} }
-            .state-chip[data-culms-status="solved"] { background-color: ${solvedChipBg} !important; color: white !important; }
-            .state-chip[data-culms-status="skipped"] { background-color: ${skippedChipBg} !important; color: white !important; }
-            .state-chip[data-culms-status="revision"] { background-color: ${revisionChipBg} !important; color: white !important; } 
+              
+            html body tui-chip.state-chip[data-culms-status="solved"][data-culms-status="solved"] { background-color: ${solvedChipBg} !important; color: white !important; border: none !important; }
+            html body tui-chip.state-chip[data-culms-status="skipped"][data-culms-status="skipped"] { background-color: ${skippedChipBg} !important; color: white !important; border: none !important; }
+            html body tui-chip.state-chip[data-culms-status="revision"][data-culms-status="revision"] { background-color: ${revisionChipBg} !important; color: white !important; border: none !important; }
+
 
             .task-table__late-days {
                 min-width: 120px !important;
