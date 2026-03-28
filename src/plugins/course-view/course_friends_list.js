@@ -218,7 +218,15 @@
     const isNotifOpen = document.querySelector('cu-notification-sidebar-header');
     const isProfileOpen = document.querySelector('.user-profile-menu__content');
 
-    if (isNotifOpen || isProfileOpen) {
+    // Добавляем селекторы для модальных окон.
+    // Учитывая, что это Центральный Университет (связь с Т-Банком),
+    // там скорее всего используется Taiga UI (tui-dialog) или Angular (cdk-overlay).
+    // Также добавлен универсальный селектор [role="dialog"].
+    const isModalOpen = document.querySelector(
+      'tui-dialog, tui-wrapper, .cdk-overlay-container, [role="dialog"]'
+    );
+
+    if (isNotifOpen || isProfileOpen || isModalOpen) {
       widget.style.opacity = '0';
       widget.style.pointerEvents = 'none';
     } else {
