@@ -101,3 +101,4 @@ jobs:
           channel: listed
           apiKey: ${{ secrets.AMO_API_KEY }}
           apiSecret: ${{ secrets.AMO_API_SECRET }}
+          waitForDownload: false
