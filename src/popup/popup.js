@@ -40,6 +40,7 @@ const toggles = {
   advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
   endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'),
   friendsEnabled: document.getElementById('friends-toggle'),
+  hideBonusButtonEnabled: document.getElementById('hide-bonus-button-toggle'),
 };
 
 // Элементы UI для зависимых настроек
@@ -397,6 +398,7 @@ if (resetBtn) {
       stickerEnabled: false,
       courseOverviewAutoscrollToggle: false,
       friendsEnabled: true,
+      hideBonusButtonEnabled: false,
     };
 
     if (isInsideIframe) {
