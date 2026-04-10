@@ -15873,3 +15873,98 @@ input[tuiRadio][data-status='primary']:checked {
 .right .message-content {
   background-color: var(--culms-dark-bg-secondary) !important; /* Приятный темно-серый цвет */
 }
+
+cu-referrals-header-action a[tuibutton] {
+  /* Цвет фона кнопки (например, темно-серый или полупрозрачный фиолетовый) */
+  --cu-button-background-color: var(--neutral) !important;
+
+  /* Цвет текста и иконки (например, белый или светло-фиолетовый) */
+  --cu-button-text-color: #e2d4ff !important;
+
+  /* Если у кнопки есть обводка, ее тоже можно изменить или убрать */
+  --cu-button-border: none !important;
+}
+
+/* Опционально: стиль при наведении курсора (hover) */
+cu-referrals-header-action a[tuibutton]:hover {
+  --cu-button-background-color: #3b3e4a !important;
+}
+
+/* https://my.centraluniversity.ru/referrals */
+:root {
+  --accent-pale: var(--culms-dark-bg-primary) !important;
+  --educational-green-pale: #00ab47 !important;
+  --base-care-tiny-pale: var(--culms-dark-bg-primary);
+}
+
+cu-faq tui-accordion button[tuiaccordion]:hover {
+  color: var(--culms-dark-text-link-hover) !important;
+  --tui-text-01: var(--culms-dark-text-link-hover) !important;
+}
+
+cu-invite-friends .content-wrapper {
+  /* Если хочешь убрать тот странный белый градиентный квадрат со скриншота: */
+  background: #477df9 !important;
+
+  /* Или если хочешь задать ему свой конкретный темный цвет: */
+  /* background-color: #28292c !important; */
+
+  /* Убираем рамки или тени, если они там есть */
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Обращаемся к самому главному тегу компонента */
+cu-invite-friends {
+  /* Меняем темный фон на более светлый серый. Картинка при этом останется на месте */
+  background-color: #477df9 !important;
+
+  /* Добавляем границу, чтобы блок не сливался с общим фоном страницы */
+  border: 1px solid var(--culms-dark-border-primary) !important;
+  border-radius: 24px; /* На всякий случай, если слетят скругления */
+}
+
+cu-invite-friends .actions__copy {
+  /* Меняем цвет фона. Можно использовать твою переменную, например: var(--culms-dark-status-neutral) */
+  background-color: var(--culms-dark-bg-secondary) !important;
+
+  /* Цвет текста на кнопке */
+  color: #ffffff !important;
+
+  /* На всякий случай убираем рамку, если она есть */
+  border: none !important;
+}
+
+/* Эффект при наведении курсора (чтобы кнопка казалась живой) */
+cu-invite-friends .actions__copy:hover {
+  /* Делаем цвет чуть темнее или светлее основного */
+  background-color: #3367d6 !important;
+}
+
+cu-pay-attention {
+  /* Меняем темный фон на более светлый серый. Картинка при этом останется на месте */
+  background-color: #477df9 !important;
+
+  /* Добавляем границу, чтобы блок не сливался с общим фоном страницы */
+  border: 1px solid var(--culms-dark-border-primary) !important;
+  border-radius: 24px; /* На всякий случай, если слетят скругления */
+}
+cu-pay-attention .content-wrapper {
+  background-color: #477df9 !important;
+}
+
+/* 3. Меняем цвет текста внутри блока (чтобы черный текст не потерялся на темном фоне) */
+cu-pay-attention .font-service-heading-3,
+cu-pay-attention .rule span {
+  color: #ffffff !important;
+}
+
+.b24-form-header-description {
+  color: var(
+    --culms-dark-text-primary
+  ) !important; /* !important нужен, чтобы перебить стандартные стили Битрикса */
+}
+
+.b24-form-control {
+  color: var(--culms-dark-text-secondary) !important; /* Темно-серый цвет текста */
+}
