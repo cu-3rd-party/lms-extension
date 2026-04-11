@@ -15,6 +15,7 @@ const manifest = {
     'plugins/_shared/hide_bonus.js',
     'plugins/_shared/cu-clubs.js',
     'plugins/_shared/plugin_page_loader.js',
+    'plugins/_shared/feedback_menu.js',
     'plugins/_shared/snow.js',
     'plugins/_shared/course_card_image_replacer.js',
   ],
