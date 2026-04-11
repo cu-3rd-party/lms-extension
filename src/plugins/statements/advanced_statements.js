@@ -766,7 +766,7 @@
         weight: 0.15,
         count: 1,
       },
-      контрольные: {
+      'контрольные работы': {
         weight: 0.3,
         count: 3,
       },
@@ -1809,55 +1809,87 @@
     const clonedTable = originalTable.cloneNode(true);
     clonedTable.querySelectorAll('thead th cu-tooltip').forEach((tip) => tip.remove());
 
+    // --- ОБНОВЛЕННАЯ РАБОТА С ЗАГОЛОВКАМИ ---
     const headerRow = clonedTable.querySelector('thead tr');
     if (headerRow) {
-      const firstHeaderCell = headerRow.querySelector('th');
-      const newHeaderCell = document.createElement('th');
-      newHeaderCell.textContent = 'Количество';
-      newHeaderCell.classList.add('adv-table-count-col');
-      firstHeaderCell.insertAdjacentElement('afterend', newHeaderCell);
+      const firstHeaderCell = headerRow.querySelector('th.column-activity');
+      if (firstHeaderCell) {
+        const newHeaderCell = document.createElement('th');
+        newHeaderCell.textContent = 'Кол-во';
+        newHeaderCell.className = 'column-count adv-table-count-col _sticky';
+        newHeaderCell.setAttribute('tuith', ''); // Важно для сохранения верстки Taiga UI
+        firstHeaderCell.insertAdjacentElement('afterend', newHeaderCell);
+      }
     }
 
+    // --- ОБНОВЛЕННАЯ РАБОТА С ТЕЛОМ ТАБЛИЦЫ ---
     const tbody = clonedTable.querySelector('tbody');
     tbody.innerHTML = '';
     data.activities.forEach((act) => {
       const newRow = rowTemplate.cloneNode(true);
-      const firstCell = newRow.querySelector('td');
-      const countCell = document.createElement('td');
-      countCell.textContent = act.countDisplay;
-      countCell.classList.add('adv-table-count-col');
-      firstCell.insertAdjacentElement('afterend', countCell);
 
-      newRow.querySelector('.column-activity').textContent = act.name;
-      newRow.querySelector('.column-average-score .signed-cell__average-score').textContent =
-        act.averageScore;
-      newRow.querySelector('.column-weight .signed-cell > span').textContent =
-        `${Math.round(act.weight * 100)}%`;
-      newRow.querySelector('.column-total > span').textContent = act.weightedScore;
+      // Добавляем ячейку "Количество"
+      const firstCell = newRow.querySelector('td.column-activity');
+      if (firstCell) {
+        const countCell = document.createElement('td');
+        countCell.textContent = act.countDisplay;
+        countCell.className = 'column-count adv-table-count-col';
+        countCell.setAttribute('tuitd', ''); // Важно для сохранения верстки
+        firstCell.insertAdjacentElement('afterend', countCell);
+      }
+
+      // Заполняем новые классы
+      const nameCell = newRow.querySelector('.column-activity');
+      if (nameCell) nameCell.textContent = act.name;
+
+      const avgCell = newRow.querySelector('.column-average-score');
+      if (avgCell) avgCell.textContent = act.averageScore;
+
+      const weightCell = newRow.querySelector('.column-weight');
+      if (weightCell) weightCell.textContent = `${Math.round(act.weight * 100)}%`;
+
+      const totalCell = newRow.querySelector('.column-total');
+      if (totalCell) {
+        const span = totalCell.querySelector('span');
+        if (span) span.textContent = act.weightedScore;
+        else totalCell.textContent = act.weightedScore;
+      }
+
       tbody.appendChild(newRow);
     });
 
-    const footerCells = clonedTable.querySelectorAll('tfoot td');
+    // --- ОБНОВЛЕННАЯ РАБОТА С ФУТЕРОМ ---
     const footerRow = clonedTable.querySelector('tfoot tr');
-
-    // Добавляем пустую ячейку для колонки "Количество" в футер
-    if (footerRow && footerCells.length > 0) {
+    if (footerRow) {
       const firstFooterCell = footerRow.querySelector('td');
-      const emptyFooterCell = document.createElement('td');
-      firstFooterCell.insertAdjacentElement('afterend', emptyFooterCell);
-    }
+      if (firstFooterCell) {
+        const emptyFooterCell = document.createElement('td');
+        emptyFooterCell.className = '_border-right-none adv-table-count-col';
+        emptyFooterCell.setAttribute('tuitd', '');
+        firstFooterCell.insertAdjacentElement('afterend', emptyFooterCell);
+      }
 
-    const updatedFooterCells = clonedTable.querySelectorAll('tfoot td');
-    if (updatedFooterCells.length >= 5) {
-      updatedFooterCells[0].innerHTML = `<span cutext="s-bold" class="font-text-s-bold">Итог</span>`;
-      updatedFooterCells[3].textContent = `${Math.round(data.totalWeight * 100)}%`;
-      updatedFooterCells[4].querySelector('span').textContent = data.totalWeightedScore;
+      const updatedFooterCells = footerRow.querySelectorAll('td');
+      // В новой верстке колонок стало больше (иконки = и Х вынесены в отдельные td)
+      // Теперь всего 7 колонок (включая нашу новую):
+      // [0]-Итог, [1]-Кол-во(наша), [2]-СрБалл, [3]-Х, [4]-Вес, [5]-=, [6]-ИтоговаяСумма
+      if (updatedFooterCells.length >= 7) {
+        updatedFooterCells[0].innerHTML = `<span cutext="s-bold" class="font-text-s-bold">Итог</span>`;
+        updatedFooterCells[4].textContent = `${Math.round(data.totalWeight * 100)}%`; // Пишем сумму весов в пустую ячейку под колонкой "Вес"
+
+        const totalSpan = updatedFooterCells[6].querySelector('span');
+        if (totalSpan) {
+          totalSpan.textContent = data.totalWeightedScore;
+        } else {
+          updatedFooterCells[6].textContent = data.totalWeightedScore;
+        }
+      }
     }
 
     if (data.hasConfig) {
       const accumulationRow = document.createElement('tr');
+      accumulationRow.setAttribute('tuitr', ''); // Для Taiga UI
 
-      // Расчет процента
       const actual = parseFloat(data.totalWeightedScore);
       const max = parseFloat(data.totalMaxScoreSoFar);
       let percentageStr = '0%';
@@ -1865,16 +1897,16 @@
         percentageStr = Math.round((actual / max) * 100) + '%';
       }
 
+      // colspan 7, так как колонок теперь 7 (с учетом иконок в таблице)
       accumulationRow.innerHTML = `
-                <td colspan="5" style="text-align: center; padding: 12px; color: #aaa; font-size: 13px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <td colspan="7" tuitd style="text-align: center; padding: 12px; color: #aaa; font-size: 13px; border-top: 1px solid rgba(255,255,255,0.05);">
                     Накоплено на данный момент: <b>${data.totalWeightedScore}</b> / <b>${data.totalMaxScoreSoFar}</b> (${percentageStr})
                 </td>
             `;
       clonedTable.querySelector('tfoot').appendChild(accumulationRow);
     }
-    // -------------------------------------
-    // -------------------------------------
 
+    // Вставка на страницу
     const container = document.createElement('div');
     container.id = CONTAINER_ID;
 
