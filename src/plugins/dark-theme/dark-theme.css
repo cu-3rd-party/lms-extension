@@ -15968,3 +15968,11 @@ cu-pay-attention .rule span {
 .b24-form-control {
   color: var(--culms-dark-text-secondary) !important; /* Темно-серый цвет текста */
 }
+
+/* Добавляем фон при наведении на уроки */
+a.longread:hover {
+  /* Полупрозрачный серый: слегка затемняет в светлой теме и слегка осветляет в темной */
+  background-color: rgba(128, 128, 128, 0.15) !important;
+  border-radius: 8px !important; /* Чтобы углы подсветки были скругленными, как у других элементов */
+  transition: background-color 0.2s ease; /* Плавное появление */
+}

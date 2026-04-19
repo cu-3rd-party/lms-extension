@@ -77,11 +77,15 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     node.nodeValue = out;
   }
 
-  const EMOJI_REGEX = /[🔴🔵⚫️⚫❤️💙🖤]/g;
+  const EMOJI_REGEX = /(?:🔴|🔵|⚫️|⚫|❤️|💙|🖤)/g;
 
-  function stripEmojis(text) {
+  function normalizeText(text) {
     if (!text) return '';
-    return text.replace(EMOJI_REGEX, '').trim();
+    let out = text;
+    out = out.split('❤️').join('🔴');
+    out = out.split('💙').join('🔵');
+    out = out.split('🖤').join('⚫️');
+    return out.trim();
   }
 
   // --- ОБНОВЛЕННАЯ ЛОГИКА: Троттлинг для MutationObserver ---
@@ -339,8 +343,10 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
       const htmlNames = extractTaskAndCourseNamesFromElement(statusElement);
       const task = findMatchingTask(htmlNames, tasksData);
+
       const taskIdentifier = getTaskIdentifier(htmlNames.taskName, htmlNames.courseName);
-      const isSkipped = skippedTasks.has(taskIdentifier);
+      const legacyIdentifier = getLegacyTaskIdentifier(htmlNames.taskName, htmlNames.courseName);
+      const isSkipped = skippedTasks.has(taskIdentifier) || skippedTasks.has(legacyIdentifier);
 
       if (task) {
         if (lateDaysCell) {
@@ -423,7 +429,11 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   // --- ЛОГИКА ПРОПУСКА ЗАДАЧ И МОДАЛЬНОГО ОКНА ---
   function onSkipButtonClick(task, row, statusElement, button) {
     const taskIdentifier = getTaskIdentifier(task.exercise.name, task.course.name);
-    const isCurrentlySkipped = getSkippedTasks().has(taskIdentifier);
+    const legacyIdentifier = getLegacyTaskIdentifier(task.exercise.name, task.course.name);
+
+    // Проверяем по обоим форматам ID
+    const isCurrentlySkipped =
+      getSkippedTasks().has(taskIdentifier) || getSkippedTasks().has(legacyIdentifier);
 
     if (isCurrentlySkipped) {
       handleCancelSkipTask(task, row, statusElement, button);
@@ -444,8 +454,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       'Вы уверены, что хотите применить метод скипа(статус виден только вам)?',
       (confirmed) => {
         if (confirmed) {
-          const taskIdentifier = getTaskIdentifier(task.exercise.name, task.course.name);
-          addSkippedTask(taskIdentifier);
+          // Передаем task.name и course.name в явном виде
+          addSkippedTask(task.exercise.name, task.course.name);
           statusElement.textContent = SKIPPED_STATUS_TEXT;
           statusElement.setAttribute('data-culms-status', 'skipped');
           row.removeAttribute('data-culms-row-type');
@@ -457,8 +467,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   }
 
   function handleCancelSkipTask(task, row, statusElement, button) {
-    const taskIdentifier = getTaskIdentifier(task.exercise.name, task.course.name);
-    removeSkippedTask(taskIdentifier);
+    // Передаем task.name и course.name в явном виде, чтобы сработало удаление
+    removeSkippedTask(task.exercise.name, task.course.name);
 
     statusElement.textContent = statusElement.dataset.originalStatus;
     const originalCulmsStatus = statusElement.dataset.originalCulmsStatus;
@@ -524,39 +534,51 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
   function getTaskIdentifier(taskName, courseName) {
     if (!taskName || !courseName) return null;
-    return `${stripEmojis(courseName.toLowerCase())}::${stripEmojis(taskName.toLowerCase())}`;
+    return `${normalizeText(courseName).toLowerCase()}::${normalizeText(taskName).toLowerCase()}`;
   }
+
+  // Для поддержки ранее скипнутых заданий, которые сохранились в localStorage без эмодзи
+  function getLegacyTaskIdentifier(taskName, courseName) {
+    if (!taskName || !courseName) return null;
+    const strip = (t) => t.replace(EMOJI_REGEX, '').trim().toLowerCase();
+    return `${strip(courseName)}::${strip(taskName)}`;
+  }
+
   function getSkippedTasks() {
     try {
       const skipped = localStorage.getItem(SKIPPED_TASKS_KEY);
       return skipped ? new Set(JSON.parse(skipped)) : new Set();
-    } catch (e) {
+    } catch (_e) {
       return new Set();
     }
   }
+
   function saveSkippedTasks(skippedSet) {
     localStorage.setItem(SKIPPED_TASKS_KEY, JSON.stringify(Array.from(skippedSet)));
   }
-  function addSkippedTask(taskIdentifier) {
-    if (!taskIdentifier) return;
+
+  function addSkippedTask(taskName, courseName) {
+    if (!taskName || !courseName) return;
     const skipped = getSkippedTasks();
-    skipped.add(taskIdentifier);
-    saveSkippedTasks(skipped);
-  }
-  function removeSkippedTask(taskIdentifier) {
-    if (!taskIdentifier) return;
-    const skipped = getSkippedTasks();
-    skipped.delete(taskIdentifier);
+    skipped.add(getTaskIdentifier(taskName, courseName));
     saveSkippedTasks(skipped);
   }
 
+  function removeSkippedTask(taskName, courseName) {
+    if (!taskName || !courseName) return;
+    const skipped = getSkippedTasks();
+    skipped.delete(getTaskIdentifier(taskName, courseName));
+    // На всякий случай подчищаем и по старой логике
+    skipped.delete(getLegacyTaskIdentifier(taskName, courseName));
+    saveSkippedTasks(skipped);
+  }
   function findMatchingTask(htmlNames, tasksData) {
     if (!htmlNames?.taskName || !htmlNames?.courseName) return null;
-    const cleanHtmlTaskName = stripEmojis(htmlNames.taskName.toLowerCase());
-    const cleanHtmlCourseName = stripEmojis(htmlNames.courseName.toLowerCase());
+    const cleanHtmlTaskName = normalizeText(htmlNames.taskName).toLowerCase();
+    const cleanHtmlCourseName = normalizeText(htmlNames.courseName).toLowerCase();
     return tasksData.find((task) => {
-      const cleanApiTaskName = stripEmojis(task.exercise?.name?.toLowerCase());
-      const cleanApiCourseName = stripEmojis(task.course?.name?.toLowerCase());
+      const cleanApiTaskName = normalizeText(task.exercise?.name).toLowerCase();
+      const cleanApiCourseName = normalizeText(task.course?.name).toLowerCase();
       return cleanApiTaskName === cleanHtmlTaskName && cleanApiCourseName === cleanHtmlCourseName;
     });
   }
