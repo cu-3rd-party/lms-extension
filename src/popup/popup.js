@@ -56,6 +56,7 @@ const noStickerText = document.getElementById('no-sticker-text');
 const stickerResetBtn = document.getElementById('sticker-reset-btn');
 const reloadNotice = document.getElementById('reload-notice');
 const stickerFitSelect = document.getElementById('sticker-fit-select');
+const disableExtensionOnceBtn = document.getElementById('disable-extension-once-btn');
 
 const allKeys = [
   ...Object.keys(toggles),
@@ -355,6 +356,32 @@ browser.storage.onChanged.addListener((changes, area) => {
 });
 
 refreshToggleStates();
+
+if (disableExtensionOnceBtn) {
+  disableExtensionOnceBtn.addEventListener('click', () => {
+    if (isInsideIframe) {
+      window.parent.postMessage({ action: 'reloadWithoutExtension' }, '*');
+      return;
+    }
+
+    browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      const activeTabId = tabs[0]?.id;
+      if (typeof activeTabId !== 'number') {
+        alert('Не удалось определить активную вкладку.');
+        return;
+      }
+
+      browser.runtime
+        .sendMessage({ action: 'BYPASS_EXTENSION_ONCE', tabId: activeTabId })
+        .then(() => {
+          window.close();
+        })
+        .catch((error) => {
+          alert(error.message || 'Не удалось перезагрузить страницу без плагина.');
+        });
+    });
+  });
+}
 
 // Логика сброса настроек
 const resetBtn = document.getElementById('reset-all-settings-btn');

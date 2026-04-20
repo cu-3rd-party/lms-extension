@@ -15,6 +15,9 @@ const COOKIES_FILES = [
 ];
 const EXTENSION_PATH = resolve(__dirname, '../../dist/chrome');
 const EXTENSION_PROFILE_PREFIX = 'culms-playwright-';
+const EXTENSION_SERVICE_WORKER_TIMEOUT_MS = 20_000;
+const EXTENSION_POPUP_OPEN_ATTEMPTS = 3;
+const EXTENSION_POPUP_RETRY_DELAY_MS = 500;
 
 type StorageArea = 'local' | 'sync';
 
@@ -41,13 +44,18 @@ export function getExtensionPopupUrl(extensionId: string): string {
 export async function resolveExtensionId(context: BrowserContext): Promise<string> {
   let serviceWorker = context.serviceWorkers()[0];
   if (!serviceWorker) {
-    serviceWorker = await context
-      .waitForEvent('serviceworker', { timeout: 10_000 })
-      .catch(() => null);
-  }
-
-  if (!serviceWorker) {
-    throw new Error('Extension service worker is not available; Chrome did not load the extension');
+    try {
+      serviceWorker = await context.waitForEvent('serviceworker', {
+        timeout: EXTENSION_SERVICE_WORKER_TIMEOUT_MS,
+      });
+    } catch (error) {
+      throw new Error(
+        'Extension service worker is not available; Chrome did not load the extension',
+        {
+          cause: error,
+        }
+      );
+    }
   }
 
   return new URL(serviceWorker.url()).hostname;
@@ -55,17 +63,16 @@ export async function resolveExtensionId(context: BrowserContext): Promise<strin
 
 export async function launchAuthenticatedExtensionContext() {
   if (!existsSync(EXTENSION_PATH)) {
-    throw new Error(`Сборка расширения не найдена: ${EXTENSION_PATH}. Сначала выполни bun run build:chrome`);
+    throw new Error(
+      `Сборка расширения не найдена: ${EXTENSION_PATH}. Сначала выполни bun run build:chrome`
+    );
   }
 
   const cookies = JSON.parse(readFileSync(getCookiesFile(), 'utf-8'));
   const profileDir = mkdtempSync(join(tmpdir(), EXTENSION_PROFILE_PREFIX));
   const context = await chromium.launchPersistentContext(profileDir, {
     headless: false,
-    args: [
-      `--disable-extensions-except=${EXTENSION_PATH}`,
-      `--load-extension=${EXTENSION_PATH}`,
-    ],
+    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`],
   });
 
   try {
@@ -87,23 +94,26 @@ export async function launchAuthenticatedExtensionContext() {
 }
 
 async function openExtensionPopup(context: BrowserContext, extensionId: string) {
-  const extensionUrl = getExtensionPopupUrl(extensionId);
+  const popupUrl = getExtensionPopupUrl(extensionId);
   let lastError: unknown;
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < EXTENSION_POPUP_OPEN_ATTEMPTS; attempt += 1) {
     const page = await context.newPage();
 
     try {
-      await page.goto(extensionUrl, { waitUntil: 'domcontentloaded' });
+      await page.goto(popupUrl, { waitUntil: 'domcontentloaded' });
       return page;
     } catch (error) {
       lastError = error;
       await page.close();
-      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      if (attempt < EXTENSION_POPUP_OPEN_ATTEMPTS - 1) {
+        await new Promise((resolve) => setTimeout(resolve, EXTENSION_POPUP_RETRY_DELAY_MS));
+      }
     }
   }
 
-  throw lastError;
+  throw lastError ?? new Error(`Failed to open extension popup: ${popupUrl}`);
 }
 
 export async function setExtensionStorage(

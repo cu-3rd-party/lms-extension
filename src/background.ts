@@ -55,6 +55,7 @@ type IncomingMessage =
   | { action: 'ANALYZE_SUBJECTS'; email: string }
   | { action: 'GET_WEEKLY_SCHEDULE'; email: string; date?: string }
   | { action: 'GET_CALENDAR_LINK'; email: string }
+  | { action: 'BYPASS_EXTENSION_ONCE'; tabId?: number }
   | { action: string; [key: string]: unknown };
 
 // --- PLUGIN AUTO-DISCOVERY ---
@@ -65,6 +66,18 @@ const pluginModules = import.meta.glob<{ default: PluginManifest }>(
   { eager: true }
 );
 const plugins = Object.values(pluginModules).map((m) => m.default);
+const temporarilyDisabledTabs = new Map<number, ReturnType<typeof setTimeout>>();
+
+function disableExtensionOnceForTab(tabId: number): void {
+  const existingTimer = temporarilyDisabledTabs.get(tabId);
+  if (existingTimer) clearTimeout(existingTimer);
+
+  const cleanupTimer = setTimeout(() => {
+    temporarilyDisabledTabs.delete(tabId);
+  }, 15000);
+
+  temporarilyDisabledTabs.set(tabId, cleanupTimer);
+}
 
 // --- СПИСОК ПРЕДМЕТОВ ---
 const SUBJECTS_LIST = [
@@ -732,6 +745,7 @@ const AkhCheckServices = {
  */
 function handleNavigation(tabId: number, url: string): void {
   if (!url?.startsWith('https://my.centraluniversity.ru/')) return;
+  if (temporarilyDisabledTabs.has(tabId)) return;
 
   for (const plugin of plugins) {
     if (!plugin.matches(url)) continue;
@@ -762,6 +776,14 @@ browser.webNavigation.onHistoryStateUpdated.addListener((details) => {
 browser.webNavigation.onCompleted.addListener((details) => {
   if (details.frameId === 0) handleNavigation(details.tabId, details.url);
 }, navFilter);
+
+browser.tabs.onRemoved.addListener((tabId) => {
+  const cleanupTimer = temporarilyDisabledTabs.get(tabId);
+  if (!cleanupTimer) return;
+
+  clearTimeout(cleanupTimer);
+  temporarilyDisabledTabs.delete(tabId);
+});
 
 // --- ОБРАБОТЧИК СООБЩЕНИЙ (ЕДИНЫЙ ДЛЯ ВСЕГО) ---
 browser.runtime.onMessage.addListener(((
@@ -835,42 +857,27 @@ browser.runtime.onMessage.addListener(((
       .catch((e) => sendResponse({ success: false }));
     return true;
   }
-  if (request.action === 'AKH_FETCH_COURSE_DETAILS') {
-  const { courseId } = request as any;
-  // Добавляем / в конце: .../course/98/
-  AkhCheckServices.fetch(`https://back.akhcheck.ru/api/teaching/course/${courseId}`)
-    .then(data => sendResponse({ success: true, data }))
-    .catch(err => sendResponse({ success: false, error: err.message }));
-  return true;
-}
 
-if (request.action === 'AKH_FETCH_PROGRESS') {
-  const { taskId } = request as any;
-  // Здесь слэш уже есть: .../progress/924/
-  AkhCheckServices.fetch(`https://back.akhcheck.ru/api/teaching/progress/${taskId}`)
-    .then(data => sendResponse({ success: true, data }))
-    .catch(err => sendResponse({ success: false, error: err.message }));
-  return true;
-}
-if (request.action === 'AKH_FETCH_ALL_PROGRESS') {
-  AkhCheckServices.fetchAllProgress()
-    .then(data => sendResponse({ success: true, data }))
-    .catch(err => sendResponse({ success: false, error: err.message }));
-  return true;
-}
+  if (request.action === 'BYPASS_EXTENSION_ONCE') {
+    const requestedTabId =
+      typeof request.tabId === 'number'
+        ? request.tabId
+        : (sender as browser.Runtime.MessageSender).tab?.id;
 
-if (request.action === 'AKH_SAVE_TOKENS' || request.action === 'AKH_SAVE_TOKEN') {
-  const { token, access, refresh } = request as any;
-  // Поддержка и старого ключа token, и нового access
-  const actualAccess = access || token; 
-  
-  if (actualAccess) {
-    AkhCheckServices.saveTokens(actualAccess, refresh || null).then(() => {
-      console.log('[AKH] Tokens updated from tab (Access & Refresh)');
-    });
+    if (typeof requestedTabId !== 'number') {
+      sendResponse({ success: false, error: 'Не удалось определить вкладку для перезагрузки.' });
+      return false;
+    }
+
+    disableExtensionOnceForTab(requestedTabId);
+    browser.tabs
+      .reload(requestedTabId)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => {
+        temporarilyDisabledTabs.delete(requestedTabId);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true;
   }
-  return true;
-}
-
 }) as Parameters<typeof browser.runtime.onMessage.addListener>[0]);
 
