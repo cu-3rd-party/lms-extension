@@ -15976,3 +15976,112 @@ a.longread:hover {
   border-radius: 8px !important; /* Чтобы углы подсветки были скругленными, как у других элементов */
   transition: background-color 0.2s ease; /* Плавное появление */
 }
+
+/* new widgets. 21.04*/
+
+/* =========================================
+   ИСПРАВЛЕНИЯ ДЛЯ ТЕМНОЙ ТЕМЫ
+========================================= */
+/* 1. ИСПРАВЛЕНИЕ ЦВЕТА ВЕРХНЕГО И НИЖНЕГО ВИДЖЕТА */
+/* Задаем темный фон, убираем белый цвет и настраиваем текст */
+cu-navigation-widget.syllabus-widget,
+cu-navigation-widget.support-widget {
+  background-color: #222428; /* Цвет фона подстраиваем под центральные виджеты */
+  color: #ffffff; /* Белый текст для заголовков */
+}
+
+/* Исправляем цвет подзаголовков внутри этих виджетов */
+cu-navigation-widget.syllabus-widget .subtitle,
+cu-navigation-widget.support-widget .subtitle {
+  color: #a0a5ae; /* Светло-серый для второстепенного текста */
+}
+
+/* 2. НАСТРОЙКА BORDER ДЛЯ ВСЕХ ВИДЖЕТОВ */
+/* Делаем границы всех карточек в едином стиле */
+cu-navigation-widget.syllabus-widget,
+cu-navigation-widget.support-widget,
+cu-course-progress-widget.progress-widget,
+cu-deadline-widget.deadline-widget {
+  border: 1px solid rgba(255, 255, 255, 0.12) !important; /* Полупрозрачная белая рамка */
+  border-radius: 16px; /* Сохраняем скругления */
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* 3. HOVER ДЛЯ ИНТЕРАКТИВНЫХ КАРТОЧЕК */
+/* Верхний и нижний виджеты являются ссылками, им нужен hover */
+cu-navigation-widget.syllabus-widget:hover,
+cu-navigation-widget.support-widget:hover {
+  background-color: #2a2d33; /* Чуть светлее при наведении */
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  cursor: pointer;
+}
+
+/* 4. ИСПРАВЛЕНИЕ КНОПОК: BORDER И HOVER */
+
+/* Второстепенные кнопки ("Смотреть ведомость", "Открыть задание") */
+[tuibutton][appearance='secondary'] {
+  background-color: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  transition: all 0.2s ease;
+}
+
+[tuibutton][appearance='secondary']:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important; /* Легкое высветление фона */
+  border-color: rgba(255, 255, 255, 0.4) !important; /* Рамка становится ярче */
+}
+
+/* Третичная кнопка ("Перенести задание") */
+[tuibutton][appearance='tertiary'] {
+  background-color: transparent !important;
+  border: 1px solid transparent !important; /* Без видимой рамки в покое */
+  color: #a0a5ae !important;
+  transition: all 0.2s ease;
+}
+
+[tuibutton][appearance='tertiary']:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+}
+
+cu-deadline-widget .deadline-details.warning {
+  /* Убираем вырвиглазный желтый. 
+     Делаем фон темным с легким теплым/желтым подтоном (через rgba) */
+  background-color: rgba(250, 204, 21, 0.12) !important;
+  /* Альтернативный вариант сплошного цвета, если rgba не подходит: background-color: #2b2513 !important; */
+
+  border-radius: 8px; /* На всякий случай проверяем скругления */
+}
+
+cu-deadline-widget .deadline-details.warning .border {
+  background-color: #facc15 !important; /* Приятный, в меру яркий желтый */
+}
+
+/* Исправляем цвет текста внутри блока для контраста */
+cu-deadline-widget .deadline-details.warning .limited-lines-text {
+  color: #ffffff !important; /* Название предмета делаем белым для идеальной читаемости */
+}
+
+cu-deadline-widget .deadline-details.warning .deadline {
+  color: #facc15 !important; /* Дату делаем желтой в цвет левой полоски */
+}
+
+:root {
+  --potential-color: #fbbf24;
+}
+cu-course-progress-widget .progress-item.left-to-earn {
+  background-color: var(--potential-color) !important;
+}
+cu-course-progress-widget .legend-item.left-to-earn-score::before {
+  background-color: var(--potential-color) !important;
+}
+
+cu-course-progress-widget .progress-item.remains {
+  /* Используем полупрозрачный белый, чтобы он адаптивно выделялся на темном фоне */
+  background-color: rgba(255, 255, 255, 0.15) !important;
+
+  /* Либо можно использовать конкретный серый цвет, например:
+  background-color: #3f434a !important; */
+}

@@ -24,6 +24,10 @@ function applyPopupTheme(isEnabled) {
     document.body.classList.remove('dark-theme');
   }
 }
+browser.storage.sync.set({
+  advancedStatementsEnabled: true,
+  endOfCourseCalcEnabled: true,
+});
 
 // --- УПРАВЛЕНИЕ ПЕРЕКЛЮЧАТЕЛЯМИ И ЭЛЕМЕНТАМИ ---
 const toggles = {
