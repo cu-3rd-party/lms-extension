@@ -234,3 +234,17 @@ input[tuiRadio][data-status='primary']:checked {
   background-color: #3390ec !important;
   color: #ffffff !important;
 }
+
+cu-navigation-widget.syllabus-widget,
+cu-navigation-widget.support-widget {
+  background-color: var(
+    --culms-dark-bg-primary
+  ); /* Цвет фона подстраиваем под центральные виджеты */
+  color: #ffffff; /* Белый текст для заголовков */
+}
+
+/* Исправляем цвет подзаголовков внутри этих виджетов */
+cu-navigation-widget.syllabus-widget .subtitle,
+cu-navigation-widget.support-widget .subtitle {
+  color: #a0a5ae; /* Светло-серый для второстепенного текста */
+}

@@ -10,7 +10,7 @@
       text: '#333333',
       textSec: '#888888',
       border: '#e0e0e0',
-      shadow: '0 4px 20px rgba(0,0,0,0.1)',
+      shadow: '0 4px 20px rgba(0,0,0,0.05)',
       hover: '#f5f5f5',
     },
     dark: {
@@ -18,7 +18,7 @@
       text: '#E8EAED',
       textSec: '#BDC1C6',
       border: 'rgb(55, 56, 60)',
-      shadow: '0 4px 20px rgba(0,0,0,0.5)',
+      shadow: '0 4px 20px rgba(0,0,0,0.2)',
       hover: 'rgb(55, 56, 60)',
     },
     oled: {
@@ -32,16 +32,16 @@
   };
   let currentTheme = 'light';
 
-  // Определение API (browser для Firefox/Polyfill, chrome для Chromium)
+  // Флаг для предотвращения одновременного создания нескольких виджетов
+  let isInitializing = false;
+
+  // Определение API
   const api = typeof browser !== 'undefined' ? browser : chrome;
 
-  // Хелпер для получения настроек (устраняет ошибку "Expected at most 1 argument")
   function getStorageData(keys, callback) {
     if (typeof browser !== 'undefined') {
-      // Для Firefox / Polyfill используем Promise
       api.storage.sync.get(keys).then(callback, (err) => console.error(err));
     } else {
-      // Для чистого Chrome используем Callback
       api.storage.sync.get(keys, callback);
     }
   }
@@ -77,56 +77,43 @@
     if (!str) return '';
     let s = str.toLowerCase();
 
-    // 1. Унификация C++ (превращаем c++, с++, cpp, c ++ в единый токен "cpp")
-    // Это важно сделать ДО разбиения на слова
     s = s.replace(/[cс]\s*\+\+/g, ' cpp ');
-
-    // 2. Замена всей пунктуации на пробелы
     s = s.replace(/[.,:;()[\]]/g, ' ');
     s = s.replace(/[—–−-]/g, ' ');
 
-    // 3. Разбиваем строку на массив слов по любым пробелам
     const words = s.split(/\s+/);
 
-    // 4. Список слов-паразитов, которые нужно игнорировать при сравнении
     const stopWords = new Set([
       'на',
       'in',
       'of',
-      'for', // Предлоги
+      'for',
       'языке',
-      'программирования', // Контекст
+      'программирования',
       'часть',
       'part',
       'level',
-      'уровень', // Структура
+      'уровень',
       'module',
       'модуль',
       'course',
       'курс',
     ]);
 
-    // 5. Фильтруем: оставляем слово, только если это не мусор
     const meaningfulWords = words.filter((w) => {
       const clean = w.trim();
       return clean.length > 0 && !stopWords.has(clean);
     });
 
-    // 6. Склеиваем значимые слова обратно
     return meaningfulWords.join(' ');
   }
 
   function areCoursesSimilar(pageTitle, subject) {
     const p = normalizeSubjectName(pageTitle);
     const s = normalizeSubjectName(subject);
-    console.log(p, s);
     if (!p || !s) return false;
-    // Полное совпадение после очистки
     if (p === s) return true;
-
-    // Вхождение одной строки в другую
     if (p.includes(s) || s.includes(p)) return true;
-
     return false;
   }
 
@@ -134,7 +121,6 @@
   async function initTheme() {
     try {
       if (api && api.storage) {
-        // Используем наш безопасный хелпер
         getStorageData(['themeEnabled', 'oledEnabled'], (data) => {
           updateWidgetTheme(!!data.themeEnabled, !!data.oledEnabled);
         });
@@ -159,32 +145,31 @@
       currentTheme = 'light';
     }
 
-    const widget = document.getElementById(WIDGET_ID);
-    if (!widget) return;
+    const widgets = document.querySelectorAll(`#${WIDGET_ID}`);
+    widgets.forEach((widget) => {
+      const colors = THEME[currentTheme];
+      widget.style.backgroundColor = colors.bg;
+      widget.style.color = colors.text;
+      widget.style.borderColor = colors.border;
+      widget.style.boxShadow = colors.shadow;
 
-    const colors = THEME[currentTheme];
-    widget.style.backgroundColor = colors.bg;
-    widget.style.color = colors.text;
-    widget.style.borderColor = colors.border;
-    widget.style.boxShadow = colors.shadow;
+      const header = widget.querySelector('.cw-header');
+      if (header) header.style.borderBottomColor = colors.border;
 
-    const header = widget.querySelector('.cw-header');
-    if (header) header.style.borderBottomColor = colors.border;
+      const items = widget.querySelectorAll('.cw-item');
+      items.forEach((item) => {
+        item.style.borderBottomColor = colors.border;
+        item.onmouseenter = () => (item.style.backgroundColor = colors.hover);
+        item.onmouseleave = () => (item.style.backgroundColor = 'transparent');
+        item.style.backgroundColor = 'transparent';
 
-    const items = widget.querySelectorAll('.cw-item');
-    items.forEach((item) => {
-      item.style.borderBottomColor = colors.border;
-      // Сбрасываем и переназначаем обработчики
-      item.onmouseenter = () => (item.style.backgroundColor = colors.hover);
-      item.onmouseleave = () => (item.style.backgroundColor = 'transparent');
-      item.style.backgroundColor = 'transparent'; // Сброс текущего цвета при смене темы
+        const email = item.querySelector('.cw-email');
+        if (email) email.style.color = colors.textSec;
+      });
 
-      const email = item.querySelector('.cw-email');
-      if (email) email.style.color = colors.textSec;
+      const empty = widget.querySelector('.cw-empty');
+      if (empty) empty.style.color = colors.textSec;
     });
-
-    const empty = widget.querySelector('.cw-empty');
-    if (empty) empty.style.color = colors.textSec;
   }
 
   // --- ЛОГИКА ВИДЖЕТА ---
@@ -192,47 +177,24 @@
   function createWidget() {
     const widget = document.createElement('div');
     widget.id = WIDGET_ID;
+
+    // Убрали margin-top и margin-bottom, чтобы сайт сам выставил родной отступ
     widget.style.cssText = `
-            position: fixed;
-            top: 110px;
-            right: 70px;
-            width: 260px;
-            max-height: calc(100vh - 130px);
+            position: relative; 
+            width: 100%;
+            max-height: 400px;
             overflow-y: auto;
-            border-radius: 12px;
+            border-radius: 20px;
             border: 1px solid #ccc;
             z-index: 1;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             transition: background-color 0.3s, color 0.3s, border-color 0.3s, opacity 0.2s ease-in-out;
             display: none;
             opacity: 1;
+            box-sizing: border-box;
         `;
-    document.body.appendChild(widget);
+
     return widget;
-  }
-
-  function checkOverlays() {
-    const widget = document.getElementById(WIDGET_ID);
-    if (!widget || widget.style.display === 'none') return;
-
-    const isNotifOpen = document.querySelector('cu-notification-sidebar-header');
-    const isProfileOpen = document.querySelector('.user-profile-menu__content');
-
-    // Добавляем селекторы для модальных окон.
-    // Учитывая, что это Центральный Университет (связь с Т-Банком),
-    // там скорее всего используется Taiga UI (tui-dialog) или Angular (cdk-overlay).
-    // Также добавлен универсальный селектор [role="dialog"].
-    const isModalOpen = document.querySelector(
-      'tui-dialog, tui-wrapper, .cdk-overlay-container, [role="dialog"]'
-    );
-
-    if (isNotifOpen || isProfileOpen || isModalOpen) {
-      widget.style.opacity = '0';
-      widget.style.pointerEvents = 'none';
-    } else {
-      widget.style.opacity = '1';
-      widget.style.pointerEvents = 'auto';
-    }
   }
 
   function renderFriendsList(widget, courseName) {
@@ -247,15 +209,14 @@
 
     widget.innerHTML = '';
 
-    // Шапка
     const header = document.createElement('div');
     header.className = 'cw-header';
     header.innerHTML = `
-            <span style="font-weight: 600; font-size: 14px;">Друзья на курсе</span>
-            <span style="font-size: 18px; line-height: 1; opacity: 0.7; cursor: pointer;" id="cw-close">×</span>
+            <span style="font-weight: 600; font-size: 16px;">Друзья на курсе</span>
+            <span style="font-size: 18px; line-height: 1; opacity: 0.7; cursor: pointer; display:none;" id="cw-close">×</span>
         `;
     header.style.cssText = `
-            padding: 12px 16px;
+            padding: 16px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -266,7 +227,6 @@
     };
     widget.appendChild(header);
 
-    // Список
     const content = document.createElement('div');
 
     if (classmates.length === 0) {
@@ -274,7 +234,7 @@
       empty.className = 'cw-empty';
       empty.innerText = 'Никого нет (или данные о предметах не обновлены)';
       empty.style.cssText = `
-                padding: 16px;
+                padding: 16px 20px;
                 text-align: center;
                 font-size: 13px;
                 opacity: 0.8;
@@ -287,7 +247,7 @@
         item.className = 'cw-item';
         item.title = 'Открыть календарь';
         item.style.cssText = `
-                    padding: 10px 16px;
+                    padding: 12px 20px;
                     border-bottom: 1px solid transparent;
                     cursor: pointer;
                     transition: background-color 0.2s;
@@ -324,111 +284,138 @@
 
         item.innerHTML = `
                     <div style="font-size: 14px; font-weight: 500;">${displayName}</div>
-                    <div class="cw-email" style="font-size: 11px; margin-top: 2px;">${friend.email}</div>
+                    <div class="cw-email" style="font-size: 12px; margin-top: 2px;">${friend.email}</div>
                 `;
         list.appendChild(item);
       });
       content.appendChild(list);
     }
     widget.appendChild(content);
-
-    checkOverlays();
   }
 
-  function isValidCoursePage() {
-    return /\/learn\/courses\/view\/(actual|archived)\/\d+/.test(location.href);
+  function isExactCourseMainPage() {
+    return /\/learn\/courses\/view\/(actual|archived)\/\d+\/?(\?.*)?$/.test(location.href);
   }
 
   async function initCourseFriends() {
-    if (!isValidCoursePage()) {
-      const w = document.getElementById(WIDGET_ID);
-      if (w) w.style.display = 'none';
-      return;
-    }
+    // Если функция уже работает, не запускаем ее повторно
+    if (isInitializing) return;
+    isInitializing = true;
 
-    const urlMatch = location.href.match(/\/courses\/view\/(?:actual|archived)\/(\d+)/);
-    const courseId = urlMatch ? urlMatch[1] : null;
-
-    if (!courseId) return;
-
-    await waitForElement('.breadcrumbs__item');
-
-    const allBreadcrumbs = document.querySelectorAll('.breadcrumbs__item');
-    let courseName = '';
-
-    for (const item of allBreadcrumbs) {
-      const href = item.getAttribute('href');
-      if (href && new RegExp(`/${courseId}$`).test(href)) {
-        courseName = item.innerText.trim();
-        break;
+    try {
+      if (!isExactCourseMainPage()) {
+        const w = document.getElementById(WIDGET_ID);
+        if (w) w.style.display = 'none';
+        return;
       }
-    }
 
-    if (!courseName) {
-      const isMainCoursePage = new RegExp(`/${courseId}$`).test(location.pathname);
-      if (isMainCoursePage) {
-        const lastBreadcrumb = document.querySelector('.breadcrumbs__item.breadcrumbs__item_last');
-        if (lastBreadcrumb) {
-          courseName = lastBreadcrumb.innerText.trim();
+      const urlMatch = location.href.match(/\/courses\/view\/(?:actual|archived)\/(\d+)/);
+      const courseId = urlMatch ? urlMatch[1] : null;
+
+      if (!courseId) return;
+
+      await waitForElement('.breadcrumbs__item');
+
+      const allBreadcrumbs = document.querySelectorAll('.breadcrumbs__item');
+      let courseName = '';
+
+      for (const item of allBreadcrumbs) {
+        const href = item.getAttribute('href');
+        if (href && new RegExp(`/${courseId}$`).test(href)) {
+          courseName = item.innerText.trim();
+          break;
         }
       }
+
+      if (!courseName) {
+        const isMainCoursePage = new RegExp(`/${courseId}$`).test(location.pathname);
+        if (isMainCoursePage) {
+          const lastBreadcrumb = document.querySelector(
+            '.breadcrumbs__item.breadcrumbs__item_last'
+          );
+          if (lastBreadcrumb) {
+            courseName = lastBreadcrumb.innerText.trim();
+          }
+        }
+      }
+
+      if (!courseName) return;
+
+      // Удаляем дубликаты, если они вдруг образовались
+      const existingWidgets = document.querySelectorAll(`#${WIDGET_ID}`);
+      if (existingWidgets.length > 1) {
+        for (let i = 1; i < existingWidgets.length; i++) {
+          existingWidgets[i].remove();
+        }
+      }
+
+      let widget = document.getElementById(WIDGET_ID);
+      if (!widget) {
+        widget = createWidget();
+      }
+
+      const targetContainerSelector = 'cu-widgets-panel .widgets-container.second-section';
+      const fallbackContainerSelector = 'cu-widgets-panel .widgets-container';
+
+      let targetContainer = await waitForElement(targetContainerSelector);
+      if (!targetContainer) {
+        targetContainer = await waitForElement(fallbackContainerSelector);
+      }
+
+      if (targetContainer) {
+        if (widget.parentElement !== targetContainer) {
+          targetContainer.appendChild(widget);
+        }
+      } else {
+        if (widget.parentElement !== document.body) {
+          document.body.appendChild(widget);
+        }
+      }
+
+      renderFriendsList(widget, courseName);
+
+      getStorageData(['themeEnabled', 'oledEnabled'], (data) => {
+        updateWidgetTheme(!!data.themeEnabled, !!data.oledEnabled);
+      });
+
+      widget.style.display = 'block';
+    } finally {
+      // Освобождаем блокировку, когда закончили отрисовку
+      isInitializing = false;
     }
-
-    if (!courseName) return;
-
-    let widget = document.getElementById(WIDGET_ID);
-    if (!widget) {
-      widget = createWidget();
-    }
-
-    renderFriendsList(widget, courseName);
-
-    // Применяем тему через хелпер
-    getStorageData(['themeEnabled', 'oledEnabled'], (data) => {
-      updateWidgetTheme(!!data.themeEnabled, !!data.oledEnabled);
-    });
-
-    widget.style.display = 'block';
   }
 
   // --- ЗАПУСК ---
 
   function startWidget() {
-    // Инициализируем тему
     initTheme();
 
-    // Пытаемся инициализировать список друзей
-    if (isValidCoursePage()) {
+    if (isExactCourseMainPage()) {
       initCourseFriends();
     }
 
-    // Запускаем Observer, если он еще не запущен
     if (!window.cuFriendsObserver) {
-      let lastUrl = location.href;
+      let initTimeout = null;
 
       window.cuFriendsObserver = new MutationObserver(() => {
-        // Внутри observer снова проверяем флаг через замыкание или просто полагаемся на то,
-        // что при выключении мы скроем виджет, а observer пусть крутится (он легкий)
-        // Но лучше проверять DOM
+        if (isExactCourseMainPage()) {
+          const widget = document.getElementById(WIDGET_ID);
+          const inCorrectContainer = widget && widget.closest('cu-widgets-panel');
 
-        const url = location.href;
-        if (url !== lastUrl) {
-          lastUrl = url;
-          if (isValidCoursePage()) {
-            setTimeout(() => {
-              // Проверяем наличие виджета перед ре-инитом
-              const w = document.getElementById(WIDGET_ID);
-              if (!w || w.style.display === 'none') {
-                initCourseFriends();
-              }
-            }, 800);
+          if (!widget || !inCorrectContainer) {
+            // Очищаем предыдущий таймаут (дебаунс)
+            clearTimeout(initTimeout);
+            // Ждем 500мс после последней мутации DOM
+            initTimeout = setTimeout(() => {
+              initCourseFriends();
+            }, 500);
           } else {
-            const w = document.getElementById(WIDGET_ID);
-            if (w) w.style.display = 'none';
+            widget.style.display = 'block';
           }
+        } else {
+          const w = document.getElementById(WIDGET_ID);
+          if (w) w.style.display = 'none';
         }
-
-        checkOverlays();
       });
 
       window.cuFriendsObserver.observe(document.body, { childList: true, subtree: true });
@@ -439,36 +426,30 @@
     const w = document.getElementById(WIDGET_ID);
     if (w) {
       w.style.display = 'none';
-      // Можно удалить DOM элемент, если нужно
-      // w.remove();
     }
-    // Observer можно не отключать, но виджет просто не будет показываться
   }
 
   // --- MAIN ENTRY POINT ---
 
   if (api && api.storage) {
-    // 1. Initial check
     getStorageData(['friendsEnabled'], (data) => {
-      const isEnabled = data.friendsEnabled !== false; // Default true
+      const isEnabled = data.friendsEnabled !== false;
       if (isEnabled) {
         startWidget();
       }
     });
 
-    // 2. Runtime listener
     api.storage.onChanged.addListener((changes, area) => {
       if (area === 'sync' && changes.friendsEnabled) {
         if (changes.friendsEnabled.newValue) {
           startWidget();
-          if (isValidCoursePage()) initCourseFriends(); // Force render immediately
+          if (isExactCourseMainPage()) initCourseFriends();
         } else {
           stopWidget();
         }
       }
     });
   } else {
-    // Fallback without extension API
     startWidget();
   }
 })();
