@@ -38,7 +38,6 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   // --- КОНСТАНТЫ СТАТУСОВ ---
   const SKIPPED_STATUS_TEXT = 'Метод скипа';
-  const REVISION_STATUS_TEXT = 'Доработка';
 
   // --- КЭШ ДЛЯ ЗАГРУЖЕННЫХ ИКОНОК ---
   const svgIconCache = {};
@@ -86,6 +85,17 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     out = out.split('💙').join('🔵');
     out = out.split('🖤').join('⚫️');
     return out.trim();
+  }
+
+  // --- БЕЗОПАСНАЯ ЗАМЕНА ТЕКСТА СТАТУСА ---
+  // Чтобы не затирать кружочки платформы, меняем только span внутри
+  function setStatusText(badgeElement, text) {
+    const span = badgeElement.querySelector('span');
+    if (span) {
+      span.textContent = text;
+    } else {
+      badgeElement.textContent = text;
+    }
   }
 
   // --- ОБНОВЛЕННАЯ ЛОГИКА: Троттлинг для MutationObserver ---
@@ -167,9 +177,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     const isDarkTheme = !!document.getElementById('culms-dark-theme-style-base');
     const seminarRowBg = isDarkTheme ? 'rgb(20,20,20)' : '#E0E0E0';
     const seminarChipBg = '#000000';
-    const solvedChipBg = '#28a745';
     const skippedChipBg = '#b516d7';
-    const revisionChipBg = '#FE456A';
     const modalBgColor = `var(--tui-base-01, ${isDarkTheme ? '#2d2d2d' : 'white'})`;
     const modalTextColor = `var(--tui-text-01, ${isDarkTheme ? '#e0e0e0' : '#333'})`;
     const iconColor = isDarkTheme ? '#FFFFFF' : 'var(--tui-status-attention, #000000)';
@@ -185,17 +193,45 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         `
       : '';
 
+    // Цвета статусов для темной и светлой темы
+    const customStatusStyles = isDarkTheme
+      ? `
+            cu-task-state-badge.task-state_custom_in-progress {
+                background-color: rgba(249, 171, 0, 0.56) !important;
+                color: var(--culms-dark-text-primary, #fff) !important;
+                border: none !important;
+            }
+            cu-task-state-badge.task-state_custom_assigned {
+                background-color: var(--culms-dark-status-backlog, #444) !important;
+                color: var(--culms-dark-text-primary, #fff) !important;
+                border: none !important;
+            }
+        `
+      : `
+            cu-task-state-badge.task-state_custom_in-progress {
+                background-color: rgba(249, 171, 0, 0.2) !important; 
+            }
+            cu-task-state-badge.task-state_custom_assigned {
+                /* Оставляем дефолтным для светлой темы или добавьте свой */
+            }
+        `;
+
     const cssRules = `
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
             /* --- Стили таблицы --- */
             tr[data-culms-row-type="seminar"] { background-color: ${seminarRowBg} !important; }
-            .state-chip[data-culms-status="seminar"] { background-color: ${seminarChipBg} !important; color: white !important; ${isDarkTheme ? 'border: 1px solid #444;' : ''} }
-              
-            html body tui-chip.state-chip[data-culms-status="solved"][data-culms-status="solved"] { background-color: ${solvedChipBg} !important; color: white !important; border: none !important; }
-            html body tui-chip.state-chip[data-culms-status="skipped"][data-culms-status="skipped"] { background-color: ${skippedChipBg} !important; color: white !important; border: none !important; }
-            html body tui-chip.state-chip[data-culms-status="revision"][data-culms-status="revision"] { background-color: ${revisionChipBg} !important; color: white !important; border: none !important; }
+            
+            /* Новые стили для cu-task-state-badge */
+            cu-task-state-badge[data-culms-status="seminar"] { background-color: ${seminarChipBg} !important; color: white !important; ${isDarkTheme ? 'border: 1px solid #444;' : ''} }
+            cu-task-state-badge[data-culms-status="skipped"] { background-color: ${skippedChipBg} !important; color: white !important; border: none !important; }
+            
+            /* Убираем родной кружочек для кастомных бейджей, чтобы смотрелось красиво */
+            cu-task-state-badge[data-culms-status="seminar"] .circle,
+            cu-task-state-badge[data-culms-status="skipped"] .circle { display: none !important; }
 
+            /* --- СТИЛИ ДЛЯ РАЗДЕЛЕНИЯ СТАТУСОВ --- */
+            ${customStatusStyles}
 
             .task-table__late-days {
                 min-width: 120px !important;
@@ -326,22 +362,24 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     const rows = document.querySelectorAll('tr[class*="task-table__task"]');
 
     const processingPromises = Array.from(rows).map(async (row) => {
-      const statusElement = row.querySelector('.state-chip');
+      // Ищем по новому тегу
+      const statusBadge = row.querySelector('cu-task-state-badge');
       const weightCell = row.querySelector('[data-culms-weight-cell]');
       const lateDaysCell = row.querySelector('.task-table__late-days');
 
-      if (!statusElement || !weightCell) return;
+      if (!statusBadge || !weightCell) return;
 
-      if (!statusElement.dataset.originalStatus) {
-        statusElement.dataset.originalStatus = statusElement.textContent.trim();
-        statusElement.dataset.originalCulmsStatus =
-          statusElement.getAttribute('data-culms-status') || '';
+      if (!statusBadge.dataset.originalStatus) {
+        // Текст статуса теперь безопасно достаем так
+        statusBadge.dataset.originalStatus = statusBadge.textContent.trim();
+        statusBadge.dataset.originalCulmsStatus =
+          statusBadge.getAttribute('data-culms-status') || '';
       }
 
-      statusElement.removeAttribute('data-culms-status');
+      statusBadge.removeAttribute('data-culms-status');
       row.removeAttribute('data-culms-row-type');
 
-      const htmlNames = extractTaskAndCourseNamesFromElement(statusElement);
+      const htmlNames = extractTaskAndCourseNamesFromElement(statusBadge);
       const task = findMatchingTask(htmlNames, tasksData);
 
       const taskIdentifier = getTaskIdentifier(htmlNames.taskName, htmlNames.courseName);
@@ -367,41 +405,50 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             container.prepend(skipButton);
             skipButton.addEventListener('click', (e) => {
               e.stopPropagation();
-              onSkipButtonClick(task, row, statusElement, skipButton);
+              onSkipButtonClick(task, row, statusBadge, skipButton);
             });
           }
           await updateButtonIcon(skipButton, isSkipped);
         }
 
         if (isSkipped) {
-          statusElement.textContent = SKIPPED_STATUS_TEXT;
-          statusElement.setAttribute('data-culms-status', 'skipped');
+          setStatusText(statusBadge, SKIPPED_STATUS_TEXT);
+          statusBadge.setAttribute('data-culms-status', 'skipped');
+          statusBadge.classList.remove(
+            'task-state_custom_in-progress',
+            'task-state_custom_assigned'
+          );
         } else {
-          statusElement.textContent = statusElement.dataset.originalStatus;
+          setStatusText(statusBadge, statusBadge.dataset.originalStatus);
 
-          const submitTime = task.submitAt ? new Date(task.submitAt).getTime() : 0;
-          const rejectTime = task.rejectAt ? new Date(task.rejectAt).getTime() : 0;
+          // ДОБАВЛЕНА ЛОГИКА ДЛЯ "В РАБОТЕ" И "ЗАДАНО"
+          const originalText = statusBadge.dataset.originalStatus;
+          statusBadge.classList.remove(
+            'task-state_custom_in-progress',
+            'task-state_custom_assigned'
+          );
+
+          if (originalText === 'В работе') {
+            statusBadge.classList.add('task-state_custom_in-progress');
+          } else if (originalText === 'Задано') {
+            statusBadge.classList.add('task-state_custom_assigned');
+          }
 
           const activityName = task.exercise?.activity?.name || '';
-
           // Список слов-триггеров, которые считаем "Семинаром/Аудиторной"
           const seminarKeywords = ['Аудиторная', 'Семинар', 'Активность'];
 
           if (seminarKeywords.some((keyword) => activityName.includes(keyword))) {
-            statusElement.textContent = 'Аудиторная';
-            statusElement.setAttribute('data-culms-status', 'seminar');
+            setStatusText(statusBadge, 'Аудиторная');
+            statusBadge.setAttribute('data-culms-status', 'seminar');
             row.setAttribute('data-culms-row-type', 'seminar');
-          } else if (rejectTime > submitTime && task.state === 'inProgress') {
-            statusElement.textContent = REVISION_STATUS_TEXT;
-            statusElement.setAttribute('data-culms-status', 'revision');
-          } else if (
-            submitTime > rejectTime &&
-            (statusElement.textContent.includes('В работе') ||
-              statusElement.textContent.includes('Есть решение'))
-          ) {
-            statusElement.textContent = 'Есть решение';
-            statusElement.setAttribute('data-culms-status', 'solved');
+            // Убираем кастомные классы, если это Семинар
+            statusBadge.classList.remove(
+              'task-state_custom_in-progress',
+              'task-state_custom_assigned'
+            );
           }
+          // Остальные статусы теперь отрисовываются сайтом нативно
         }
 
         const weight = task.exercise?.activity?.weight;
@@ -427,7 +474,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   }
 
   // --- ЛОГИКА ПРОПУСКА ЗАДАЧ И МОДАЛЬНОГО ОКНА ---
-  function onSkipButtonClick(task, row, statusElement, button) {
+  function onSkipButtonClick(task, row, statusBadge, button) {
     const taskIdentifier = getTaskIdentifier(task.exercise.name, task.course.name);
     const legacyIdentifier = getLegacyTaskIdentifier(task.exercise.name, task.course.name);
 
@@ -436,9 +483,9 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       getSkippedTasks().has(taskIdentifier) || getSkippedTasks().has(legacyIdentifier);
 
     if (isCurrentlySkipped) {
-      handleCancelSkipTask(task, row, statusElement, button);
+      handleCancelSkipTask(task, row, statusBadge, button);
     } else {
-      handleSkipTask(task, row, statusElement, button);
+      handleSkipTask(task, row, statusBadge, button);
     }
   }
 
@@ -449,15 +496,19 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     button.dataset.isSkipped = isSkipped;
   }
 
-  function handleSkipTask(task, row, statusElement, button) {
+  function handleSkipTask(task, row, statusBadge, button) {
     showConfirmationModal(
       'Вы уверены, что хотите применить метод скипа(статус виден только вам)?',
       (confirmed) => {
         if (confirmed) {
           // Передаем task.name и course.name в явном виде
           addSkippedTask(task.exercise.name, task.course.name);
-          statusElement.textContent = SKIPPED_STATUS_TEXT;
-          statusElement.setAttribute('data-culms-status', 'skipped');
+          setStatusText(statusBadge, SKIPPED_STATUS_TEXT);
+          statusBadge.setAttribute('data-culms-status', 'skipped');
+          statusBadge.classList.remove(
+            'task-state_custom_in-progress',
+            'task-state_custom_assigned'
+          );
           row.removeAttribute('data-culms-row-type');
           updateButtonIcon(button, true);
           applyCombinedFilter();
@@ -466,40 +517,37 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     );
   }
 
-  function handleCancelSkipTask(task, row, statusElement, button) {
+  function handleCancelSkipTask(task, row, statusBadge, button) {
     // Передаем task.name и course.name в явном виде, чтобы сработало удаление
     removeSkippedTask(task.exercise.name, task.course.name);
 
-    statusElement.textContent = statusElement.dataset.originalStatus;
-    const originalCulmsStatus = statusElement.dataset.originalCulmsStatus;
-    if (originalCulmsStatus) {
-      statusElement.setAttribute('data-culms-status', originalCulmsStatus);
-    } else {
-      statusElement.removeAttribute('data-culms-status');
+    setStatusText(statusBadge, statusBadge.dataset.originalStatus);
+
+    // ВОЗВРАЩАЕМ ЦВЕТА СТАТУСА ПРИ ОТМЕНЕ СКИПА
+    const originalText = statusBadge.dataset.originalStatus;
+    statusBadge.classList.remove('task-state_custom_in-progress', 'task-state_custom_assigned');
+    if (originalText === 'В работе') {
+      statusBadge.classList.add('task-state_custom_in-progress');
+    } else if (originalText === 'Задано') {
+      statusBadge.classList.add('task-state_custom_assigned');
     }
 
-    const submitTime = task.submitAt ? new Date(task.submitAt).getTime() : 0;
-    const rejectTime = task.rejectAt ? new Date(task.rejectAt).getTime() : 0;
+    const originalCulmsStatus = statusBadge.dataset.originalCulmsStatus;
+    if (originalCulmsStatus) {
+      statusBadge.setAttribute('data-culms-status', originalCulmsStatus);
+    } else {
+      statusBadge.removeAttribute('data-culms-status');
+    }
 
     const activityName = task.exercise?.activity?.name || '';
-
     // Список слов-триггеров, которые считаем "Семинаром/Аудиторной"
     const seminarKeywords = ['Аудиторная', 'Семинар', 'Активность'];
 
     if (seminarKeywords.some((keyword) => activityName.includes(keyword))) {
-      statusElement.textContent = 'Аудиторная';
-      statusElement.setAttribute('data-culms-status', 'seminar');
+      setStatusText(statusBadge, 'Аудиторная');
+      statusBadge.setAttribute('data-culms-status', 'seminar');
       row.setAttribute('data-culms-row-type', 'seminar');
-    } else if (rejectTime > submitTime && task.state === 'inProgress') {
-      statusElement.textContent = REVISION_STATUS_TEXT;
-      statusElement.setAttribute('data-culms-status', 'revision');
-    } else if (
-      submitTime > rejectTime &&
-      (statusElement.textContent.includes('В работе') ||
-        statusElement.textContent.includes('Есть решение'))
-    ) {
-      statusElement.textContent = 'Есть решение';
-      statusElement.setAttribute('data-culms-status', 'solved');
+      statusBadge.classList.remove('task-state_custom_in-progress', 'task-state_custom_assigned');
     }
 
     updateButtonIcon(button, false);
@@ -572,6 +620,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     skipped.delete(getLegacyTaskIdentifier(taskName, courseName));
     saveSkippedTasks(skipped);
   }
+
   function findMatchingTask(htmlNames, tasksData) {
     if (!htmlNames?.taskName || !htmlNames?.courseName) return null;
     const cleanHtmlTaskName = normalizeText(htmlNames.taskName).toLowerCase();
@@ -585,7 +634,10 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   async function fetchTasksData() {
     try {
-      const response = await fetch('https://my.centraluniversity.ru/api/micro-lms/tasks/student');
+      // Обновленная ссылка с фильтрацией по статусам
+      const response = await fetch(
+        'https://my.centraluniversity.ru/api/micro-lms/tasks/student?state=inProgress&state=backlog&state=submitted&state=review&state=reworking'
+      );
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       return await response.json();
     } catch (error) {
@@ -624,12 +676,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   // --- ЛОГИКА ФИЛЬТРОВ (С СОХРАНЕНИЕМ ПАРАМЕТРОВ) ---
   const HARDCODED_STATUSES = [
     'В работе',
-    'Есть решение',
+    'Задано',
+    'Решение прикреплено',
     'На проверке',
-    'Не начато',
+    'Можно доработать',
     'Аудиторная',
     SKIPPED_STATUS_TEXT,
-    REVISION_STATUS_TEXT,
   ];
   const masterCourseList = new Set();
   let selectedStatuses = new Set(HARDCODED_STATUSES);
@@ -698,10 +750,11 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   function applyCombinedFilter() {
     document.querySelectorAll('tr[class*="task-table__task"]').forEach((row) => {
-      const statusEl = row.querySelector('.state-chip');
+      // Ищем по новому тегу
+      const statusBadge = row.querySelector('cu-task-state-badge');
       const courseEl = row.querySelector('.task-table__course-name');
-      if (statusEl && courseEl) {
-        const isStatusVisible = selectedStatuses.has(statusEl.textContent.trim());
+      if (statusBadge && courseEl) {
+        const isStatusVisible = selectedStatuses.has(statusBadge.textContent.trim());
         const isCourseVisible = selectedCourses.has(courseEl.textContent.trim());
         row.style.display = isStatusVisible && isCourseVisible ? '' : 'none';
       }
