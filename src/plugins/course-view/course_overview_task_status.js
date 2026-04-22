@@ -33,6 +33,54 @@ function getSkippedTasks() {
   }
 }
 
+// Внедряем стили для светлой темы. Они без !important, поэтому ваша темная тема легко их перекроет.
+function injectBadgeStyles() {
+  if (document.getElementById('apricot-badge-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'apricot-badge-styles';
+  style.textContent = `
+    /* Общая геометрия плашки в точности как на платформе */
+    cu-task-state-badge.state-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 16px;
+        border: 1px solid transparent;
+        flex: 0 0 auto;
+    }
+    cu-task-state-badge.state-chip .circle {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+        flex-shrink: 0;
+        /* ИДЕАЛЬНО: Кружок всегда автоматически наследует цвет текста! */
+        background-color: currentColor; 
+    }
+
+    /* --- ЦВЕТА СВЕТЛОЙ ТЕМЫ --- */
+    /* На проверке */
+    cu-task-state-badge.state-chip.task-state_base { background-color: #E6F7F8; color: #0093A8; }
+    
+    /* В работе */
+    cu-task-state-badge.state-chip.task-state_warning { background-color: #FDF2D5; color: #B45309; } 
+    
+    /* Решение прикреплено / Оценка */
+    cu-task-state-badge.state-chip.task-state_positive { background-color: #E8F5E9; color: #28A745; }
+    
+    /* Можно доработать / Не сдано */
+    cu-task-state-badge.state-chip.task-state_negative { background-color: #FFEBF0; color: #FE456A; }
+    
+    /* Задано */
+    cu-task-state-badge.state-chip.task-state_neutral { background-color: #F4F4F5; color: #6B7280; }
+  `;
+  document.head.appendChild(style);
+}
+
 // eslint-disable-next-line no-unused-vars
 async function activateCourseOverviewTaskStatus() {
   const match = window.location.pathname.match(/(?:actual|archived)\/(\d+)/);
@@ -41,30 +89,20 @@ async function activateCourseOverviewTaskStatus() {
   const courseId = parseInt(match[1]);
 
   try {
-    const [exercisesResponse, performanceResponse, allTasksResponse] = await Promise.all([
+    injectBadgeStyles(); // Добавляем стили на страницу
+
+    const [exercisesResponse, performanceResponse] = await Promise.all([
       fetch(`https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/exercises`),
       fetch(
         `https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/student-performance`
       ),
-      fetch(`https://my.centraluniversity.ru/api/micro-lms/tasks/student`),
     ]);
 
     const exercisesData = await exercisesResponse.json();
     const performanceData = await performanceResponse.json();
-    const allTasksData = await allTasksResponse.json();
 
     const skippedTasks = getSkippedTasks();
     const courseName = exercisesData.name;
-
-    const tasksDatesMap = {};
-    allTasksData.forEach((task) => {
-      if (task.exercise && task.exercise.id) {
-        tasksDatesMap[task.exercise.id] = {
-          submitAt: task.submitAt ? new Date(task.submitAt).getTime() : 0,
-          rejectAt: task.rejectAt ? new Date(task.rejectAt).getTime() : 0,
-        };
-      }
-    });
 
     const exercisesByLongread = {};
     exercisesData.exercises.forEach((exercise) => {
@@ -85,6 +123,7 @@ async function activateCourseOverviewTaskStatus() {
       if (taskPerf) {
         const taskIdentifier = getTaskIdentifier(targetExercise.name, courseName);
         const legacyTaskIdentifier = getLegacyTaskIdentifier(targetExercise.name, courseName);
+
         let state = taskPerf.state;
         const score = Number(
           Math.min((taskPerf.score || 0) + (taskPerf.extraScore || 0), 10).toFixed(2)
@@ -92,16 +131,6 @@ async function activateCourseOverviewTaskStatus() {
 
         if (skippedTasks.has(taskIdentifier) || skippedTasks.has(legacyTaskIdentifier)) {
           state = 'skipped';
-        } else if (state === 'inProgress') {
-          const times = tasksDatesMap[targetExercise.id] || { submitAt: 0, rejectAt: 0 };
-
-          if (times.rejectAt > times.submitAt) {
-            state = 'revision';
-          } else if (times.submitAt > times.rejectAt) {
-            state = 'hasSolution';
-          } else if (score > 0 && score < 10) {
-            state = 'revision';
-          }
         }
 
         longreadToTaskMap[longreadId] = { state: state, score: score };
@@ -135,10 +164,6 @@ async function activateCourseOverviewTaskStatus() {
 function addStatusChips(container, longreadToTaskMap) {
   const longreadLinks = container.querySelectorAll('a.longread');
 
-  const SOLVED_COLOR = '#28a745';
-  const SKIPPED_COLOR = '#b516d7';
-  const REVISION_COLOR = '#FE456A';
-
   longreadLinks.forEach(function (link) {
     const hrefMatch = link.getAttribute('href').match(/longreads\/(\d+)/);
     if (!hrefMatch) return;
@@ -148,8 +173,6 @@ function addStatusChips(container, longreadToTaskMap) {
 
     const existingChip = link.querySelector('.state-chip');
 
-    // ИСПРАВЛЕНИЕ #226: Если данных для лонгрида нет (или больше нет), обязательно вычищаем старую плашку,
-    // которая могла остаться из-за переиспользования DOM-узла фреймворком.
     if (!taskData) {
       if (existingChip) existingChip.remove();
       return;
@@ -158,54 +181,67 @@ function addStatusChips(container, longreadToTaskMap) {
     const state = taskData.state;
     const score = taskData.score;
 
-    // Если плашка уже есть, проверяем, актуальна ли она.
-    // Если она от другого лонгрида (переиспользование узла), удаляем и рисуем заново.
     if (existingChip) {
       if (
         existingChip.dataset.longreadId === String(longreadId) &&
         existingChip.dataset.state === state
       ) {
-        return; // Плашка актуальна
+        return;
       }
       existingChip.remove();
     }
-    let customBgColor = '';
+
+    let hasCircle = true;
+    let customStyle = '';
 
     switch (state) {
       case 'backlog':
-        chipHTML = `<tui-chip data-appearance="support-neutral" data-original-status="Не начато">Не начато</tui-chip>`;
+        badgeClass = 'task-state_neutral';
+        badgeText = 'Задано';
         break;
       case 'inProgress':
-        chipHTML = `<tui-chip data-appearance="support-categorical-12-pale" data-original-status="В работе">В работе</tui-chip>`;
+        badgeClass = 'task-state_warning';
+        badgeText = 'В работе';
         break;
+      case 'submitted':
       case 'hasSolution':
-        customBgColor = SOLVED_COLOR;
-        chipHTML = `<tui-chip data-original-status="Есть решение">Есть решение</tui-chip>`;
+        badgeClass = 'task-state_positive';
+        badgeText = 'Решение прикреплено';
         break;
+      case 'reworking':
       case 'revision':
-        customBgColor = REVISION_COLOR;
-        chipHTML = `<tui-chip data-original-status="Доработка">Доработка</tui-chip>`;
+        badgeClass = 'task-state_negative';
+        badgeText = 'Можно доработать';
         break;
       case 'review':
-        chipHTML = `<tui-chip data-appearance="support-categorical-13-pale" data-original-status="На проверке">На проверке</tui-chip>`;
+        badgeClass = 'task-state_base';
+        badgeText = 'На проверке';
         break;
       case 'failed':
-        chipHTML = `<tui-chip data-appearance="negative-pale">Не сдано</tui-chip>`;
+        badgeClass = 'task-state_negative';
+        badgeText = 'Не сдано';
+        hasCircle = false; // У "Не сдано" кружка нет
         break;
       case 'evaluated':
-        chipHTML = `<tui-chip data-appearance="positive-pale">${score}/10</tui-chip>`;
+        badgeClass = 'task-state_positive';
+        badgeText = `${score}/10`;
+        hasCircle = false; // У оценки кружка нет
         break;
       case 'skipped':
-        customBgColor = SKIPPED_COLOR;
-        chipHTML = `<tui-chip data-original-status="Метод скипа">Метод скипа</tui-chip>`;
+        badgeClass = 'task-state_neutral';
+        badgeText = 'Метод скипа';
+        hasCircle = false;
+        // Для кастомного скипа оставляем жесткий фиолетовый
+        customStyle =
+          'background-color: #b516d7 !important; color: white !important; border: none !important;';
         break;
       default:
         return;
     }
 
-    if (!chipHTML) return;
+    if (!badgeText) return;
 
-    // --- ИСПРАВЛЕНИЕ ЛЕЙАУТА ---
+    // --- ЛЕЙАУТ ---
     link.style.display = 'flex';
     link.style.justifyContent = 'space-between';
     link.style.alignItems = 'center';
@@ -218,28 +254,20 @@ function addStatusChips(container, longreadToTaskMap) {
       h3.style.minWidth = '0';
     }
 
+    // Собираем HTML плашки
+    const circleHTML = hasCircle ? `<div class="circle"></div>` : '';
+
+    const badgeHTML = `
+      <cu-task-state-badge data-size="xs" class="${badgeClass} state-chip" data-longread-id="${longreadId}" data-state="${state}" style="${customStyle}">
+        ${circleHTML}
+        <span>${badgeText}</span>
+      </cu-task-state-badge>
+    `;
+
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = chipHTML;
-    const chipElement = tempDiv.firstElementChild;
+    tempDiv.innerHTML = badgeHTML;
+    const badgeElement = tempDiv.firstElementChild;
 
-    chipElement.setAttribute('_ngcontent-ng-c869453584', '');
-    chipElement.setAttribute('tuiappearance', '');
-    chipElement.setAttribute('tuiicons', '');
-    chipElement.setAttribute('size', 's');
-    chipElement.classList.add('state-chip');
-    chipElement.setAttribute('data-size', 's');
-    chipElement.setAttribute('data-original-culms-status', '');
-
-    // Привязываем мета-данные лонгрида к плашке для предотвращения багов при DOM Recycling
-    chipElement.setAttribute('data-longread-id', String(longreadId));
-    chipElement.setAttribute('data-state', state);
-
-    const colorStyles = customBgColor
-      ? `background-color: ${customBgColor} !important; color: white !important; border: none !important;`
-      : '';
-
-    chipElement.style.cssText = `flex: 0 0 auto; padding: 4px 10px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; line-height: 1; ${colorStyles}`;
-
-    link.appendChild(chipElement);
+    link.appendChild(badgeElement);
   });
 }
