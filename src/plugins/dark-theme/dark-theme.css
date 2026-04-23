@@ -16138,3 +16138,49 @@ cu-task-state-badge.task-state_warning .circle,
 cu-task-state-badge.task-state_custom_in-progress .circle {
   background-color: #f9ab00 !important;
 }
+
+cu-deadline-widget .deadline-details.negative {
+  /* Делаем фон темным с легким красным подтоном */
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  border-radius: 8px !important;
+}
+
+cu-deadline-widget .deadline-details.negative .border {
+  /* Красная полоска слева */
+  background-color: #ef4444 !important;
+}
+
+cu-deadline-widget .deadline-details.negative .limited-lines-text {
+  /* Название предмета (ДЗ 11) делаем белым */
+  color: #ffffff !important;
+}
+
+cu-deadline-widget .deadline-details.negative .deadline {
+  /* Дату и время делаем в цвет левой полоски (красным) */
+  color: #ef4444 !important;
+}
+
+/* =========================================================
+   2. ИСПРАВЛЕНИЕ ЖЕЛТОГО ВИДЖЕТА "ЧАТ КУРСА" (time-widget)
+   ========================================================= */
+cu-navigation-widget.time-widget {
+  /* Убираем вырвиглазный желтый фон, делаем цвет карточки как у всего интерфейса */
+  background-color: #242528 !important;
+  /* Если у других карточек есть рамка, раскомментируйте строку ниже: */
+  /* border: 1px solid #37383c !important; */
+}
+
+cu-navigation-widget.time-widget .information .subtitle {
+  /* Текст "Общение" делаем приглушенно-серым */
+  color: #bdc1c6 !important;
+}
+
+cu-navigation-widget.time-widget .information .title {
+  /* Текст "Чат курса" делаем белым */
+  color: #ffffff !important;
+}
+
+/* Чтобы стрелочка в кнопке чата тоже стала белой (если она SVG) */
+cu-navigation-widget.time-widget .information .title tui-icon {
+  color: #ffffff !important;
+}
