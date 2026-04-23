@@ -176,8 +176,6 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
     const isDarkTheme = !!document.getElementById('culms-dark-theme-style-base');
     const seminarRowBg = isDarkTheme ? 'rgb(20,20,20)' : '#E0E0E0';
-    const seminarChipBg = '#000000';
-    const skippedChipBg = '#b516d7';
     const modalBgColor = `var(--tui-base-01, ${isDarkTheme ? '#2d2d2d' : 'white'})`;
     const modalTextColor = `var(--tui-text-01, ${isDarkTheme ? '#e0e0e0' : '#333'})`;
     const iconColor = isDarkTheme ? '#FFFFFF' : 'var(--tui-status-attention, #000000)';
@@ -193,26 +191,74 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         `
       : '';
 
-    // Цвета статусов для темной и светлой темы
+    // --- НОВЫЙ ДИЗАЙН СТАТУСОВ (ПЛАШКА + КРУЖОЧЕК) ---
     const customStatusStyles = isDarkTheme
       ? `
+            /* В работе */
             cu-task-state-badge.task-state_custom_in-progress {
                 background-color: rgba(249, 171, 0, 0.56) !important;
                 color: var(--culms-dark-text-primary, #fff) !important;
                 border: none !important;
             }
+            /* Задано */
             cu-task-state-badge.task-state_custom_assigned {
                 background-color: var(--culms-dark-status-backlog, #444) !important;
                 color: var(--culms-dark-text-primary, #fff) !important;
                 border: none !important;
             }
+            
+            /* Метод скипа (Темная тема) */
+            cu-task-state-badge[data-culms-status="skipped"] {
+                background-color: rgba(181, 22, 215, 0.35) !important;
+                color: var(--culms-dark-text-primary, #fff) !important;
+                border: none !important;
+            }
+            cu-task-state-badge[data-culms-status="skipped"] .circle {
+                background-color: #d633ff !important; /* Яркий фиолетовый кружок */
+                display: block !important;
+            }
+
+            /* Аудиторная (Темная тема) */
+            cu-task-state-badge[data-culms-status="seminar"] {
+                background-color: rgba(255, 255, 255, 0.15) !important;
+                color: var(--culms-dark-text-primary, #fff) !important;
+                border: none !important;
+            }
+            cu-task-state-badge[data-culms-status="seminar"] .circle {
+                background-color: #e0e0e0 !important; /* Светло-серый кружок */
+                display: block !important;
+            }
         `
       : `
+            /* В работе */
             cu-task-state-badge.task-state_custom_in-progress {
                 background-color: rgba(249, 171, 0, 0.2) !important; 
             }
+            /* Задано */
             cu-task-state-badge.task-state_custom_assigned {
-                /* Оставляем дефолтным для светлой темы или добавьте свой */
+                /* Дефолт платформы */
+            }
+
+            /* Метод скипа (Светлая тема) */
+            cu-task-state-badge[data-culms-status="skipped"] {
+                background-color: rgba(181, 22, 215, 0.15) !important;
+                color: #000 !important;
+                border: none !important;
+            }
+            cu-task-state-badge[data-culms-status="skipped"] .circle {
+                background-color: #b516d7 !important; /* Насыщенный фиолетовый кружок */
+                display: block !important;
+            }
+
+            /* Аудиторная (Светлая тема) */
+            cu-task-state-badge[data-culms-status="seminar"] {
+                background-color: rgba(0, 0, 0, 0.08) !important;
+                color: #000 !important;
+                border: none !important;
+            }
+            cu-task-state-badge[data-culms-status="seminar"] .circle {
+                background-color: #333333 !important; /* Темный кружок */
+                display: block !important;
             }
         `;
 
@@ -222,14 +268,6 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             /* --- Стили таблицы --- */
             tr[data-culms-row-type="seminar"] { background-color: ${seminarRowBg} !important; }
             
-            /* Новые стили для cu-task-state-badge */
-            cu-task-state-badge[data-culms-status="seminar"] { background-color: ${seminarChipBg} !important; color: white !important; ${isDarkTheme ? 'border: 1px solid #444;' : ''} }
-            cu-task-state-badge[data-culms-status="skipped"] { background-color: ${skippedChipBg} !important; color: white !important; border: none !important; }
-            
-            /* Убираем родной кружочек для кастомных бейджей, чтобы смотрелось красиво */
-            cu-task-state-badge[data-culms-status="seminar"] .circle,
-            cu-task-state-badge[data-culms-status="skipped"] .circle { display: none !important; }
-
             /* --- СТИЛИ ДЛЯ РАЗДЕЛЕНИЯ СТАТУСОВ --- */
             ${customStatusStyles}
 
