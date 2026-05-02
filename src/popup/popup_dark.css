@@ -20,6 +20,14 @@ body.dark-theme .notice {
   color: #e0e0e0;
 }
 
+body.dark-theme .status-text {
+  color: #c7c9cc;
+}
+
+body.dark-theme .action-button:disabled {
+  background-color: #385f7d;
+}
+
 /* Фон переключателя в ВЫКЛЮЧЕННОМ состоянии */
 body.dark-theme .slider {
   background-color: #5f6368;
