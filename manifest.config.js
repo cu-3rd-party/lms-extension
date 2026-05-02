@@ -1,10 +1,10 @@
-import { defineManifest } from '@crxjs/vite-plugin'
-import { createRequire } from 'module'
+import { defineManifest } from '@crxjs/vite-plugin';
+import { createRequire } from 'module';
 
-const require = createRequire(import.meta.url)
-const pkg = require('./package.json')
+const require = createRequire(import.meta.url);
+const pkg = require('./package.json');
 
-const BROWSER = process.env.BROWSER ?? 'chrome'
+const BROWSER = process.env.BROWSER ?? 'chrome';
 
 export default defineManifest({
   manifest_version: 3,
@@ -12,7 +12,7 @@ export default defineManifest({
   version: pkg.version,
   description:
     'Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий',
-  permissions: ['storage', 'scripting', 'webNavigation', 'cookies'],
+  permissions: ['storage', 'scripting', 'webNavigation', 'cookies', 'activeTab'],
   host_permissions: [
     'https://my.centraluniversity.ru/*',
     'https://id.centraluniversity.ru/*',
@@ -20,8 +20,8 @@ export default defineManifest({
     'https://mail.yandex.ru/*',
     'https://calendar.yandex.ru/*',
     'https://passport.yandex.ru/*',
-    "https://akhcheck.ru/*",
-    "https://back.akhcheck.ru/*"
+    'https://akhcheck.ru/*',
+    'https://back.akhcheck.ru/*',
   ],
   background:
     BROWSER === 'firefox'
@@ -42,9 +42,9 @@ export default defineManifest({
       run_at: 'document_start',
     },
     {
-      matches: ["https://akhcheck.ru/*"],
-      js: ["plugins/_shared/token_grabber.js"],
-      run_at: "document_idle",
+      matches: ['https://akhcheck.ru/*'],
+      js: ['plugins/_shared/token_grabber.js'],
+      run_at: 'document_idle',
     },
     {
       matches: [
@@ -114,4 +114,4 @@ export default defineManifest({
       },
     },
   }),
-})
+});

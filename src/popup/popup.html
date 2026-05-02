@@ -134,6 +134,36 @@
         background-position: right 12px center;
         padding-right: 32px;
       }
+
+      .action-button {
+        width: 100%;
+        padding: 9px 12px;
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        color: white;
+        background-color: #2196f3;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .action-button:hover {
+        background-color: #1976d2;
+      }
+
+      .action-button:disabled {
+        cursor: wait;
+        background-color: #90caf9;
+      }
+
+      .status-text {
+        margin-top: 8px;
+        min-height: 18px;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #666;
+      }
     </style>
   </head>
 
@@ -201,6 +231,14 @@
         </label>
       </div> -->
       <!-- === ИЗМЕНЕННЫЙ БЛОК КОНЕЦ === -->
+    </div>
+
+    <div class="section">
+      <h3>Экспорт оценок</h3>
+      <button id="grades-export-btn" class="action-button">Скачать Excel с прогнозом</button>
+      <div id="grades-export-status" class="status-text">
+        Открой my.centraluniversity.ru и нажми кнопку
+      </div>
     </div>
     <div class="section">
       <h3>Социальное</h3>
