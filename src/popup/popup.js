@@ -693,8 +693,8 @@ function generateGradesWorkbook(courses) {
   const summaryRows = [
     ['Курс', 'Накопленный балл', 'Категорий', 'Заданий'],
     ...courseSheets.map(({ course, sheetName }) => [
-      course.name,
-      { t: 'n', f: `${quoteSheetName(sheetName)}!B1` },
+      { t: 's', f: `HYPERLINK("#${quoteSheetName(sheetName)}!A1","${course.name}")` },
+      { t: 'n', f: `${quoteSheetName(sheetName)}!C1` },
       groupTasksByActivity(course.tasks).length,
       getPlannedTasksCount(groupTasksByActivity(course.tasks)),
     ]),
@@ -709,10 +709,12 @@ function generateGradesWorkbook(courses) {
     const maxTasks = getMaxTasksInGroups(groups);
     const rows = [
       [
+        { t: 's', v: 'Перейти к сводке', f: `HYPERLINK("#'Сводка'!A1","Сводка")` },
         'НАКОПЛЕННЫЙ БАЛЛ:',
         { t: 'n', f: makeCourseTotalFormula(groups.length) },
         '',
         'Меняй значения в строках "Баллы", чтобы увидеть прогноз.',
+        { t: 's', v: 'Сводка', f: `HYPERLINK("#'Сводка'!A1","Сводка")` },
       ],
       ['Курс:', course.name],
       [
@@ -931,6 +933,7 @@ function makeCourseRowHeights(rowCount, groupMeta) {
 }
 
 function applySummarySheetStyles(sheet, rowCount) {
+  // 4 columns: Курс, Накопленный балл, Категорий, Заданий
   for (let column = 0; column < 4; column += 1) {
     applyCellStyle(sheet, `${toColumnName(column)}1`, STYLES.header);
   }
