@@ -508,7 +508,7 @@ async function handleGradesExportClick() {
 
     setGradesExportStatus(`Генерирую Excel: ${result.courses.length} курсов...`);
     generateGradesWorkbook(result.courses);
-    setGradesExportStatus('Готово: Central_University_Grades_Forecast.xlsx скачан.', 'success');
+    setGradesExportStatus('Готово: grades.xlsx скачан.', 'success');
   } catch (error) {
     console.error('[CU LMS] Grades export failed:', error);
     setGradesExportStatus(error.message || 'Ошибка экспорта оценок.', 'error');
@@ -784,7 +784,7 @@ function generateGradesWorkbook(courses) {
     XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
   });
 
-  XLSX.writeFile(workbook, 'Central_University_Grades_Forecast.xlsx');
+  XLSX.writeFile(workbook, 'grades.xlsx');
 }
 
 function groupTasksByActivity(tasks) {
