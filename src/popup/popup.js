@@ -627,34 +627,36 @@ async function fetchAllGradesForExport() {
       const exerciseOnlyTasks = exercises
         .filter((exercise) => exercise.id && !taskExerciseIds.has(exercise.id))
         .map(makeExerciseOnlyTask);
-      // Build placeholders for зачёт activities if they exist in course activities but have no tasks yet
+      // Build placeholders for activities that exist in course activities but have no tasks yet
+      // This ensures that exams, зачёт, etc. appear in the export regardless of their names.
       const placeholders = [];
       if (Array.isArray(courseActivities)) {
         const existingActIds = new Set(tasks.map((t) => t.activity?.id).filter(Boolean));
         for (const act of courseActivities) {
           if (!act?.id) continue;
-          const nameLC = String(act.name || '').toLowerCase();
-          if (nameLC.includes('зачёт') || nameLC.includes('зачет')) {
-            if (
-              !existingActIds.has(act.id) &&
-              typeof act.maxExercisesCount === 'number' &&
-              act.maxExercisesCount > 0
-            ) {
-              placeholders.push({
+          if (
+            !existingActIds.has(act.id) &&
+            typeof act.maxExercisesCount === 'number' &&
+            act.maxExercisesCount > 0
+          ) {
+            placeholders.push({
+              id: null,
+              exerciseId: null,
+              state: 'planned',
+              score: null,
+              extraScore: null,
+              maxScore: 10,
+              activity: {
+                id: act.id,
+                name: act.name,
+                weight: act.weight,
+                maxExercisesCount: act.maxExercisesCount,
+              },
+              exercise: {
                 id: null,
-                exerciseId: null,
-                state: 'planned',
-                score: null,
-                maxScore: 10,
-                activity: {
-                  id: act.id,
-                  name: act.name,
-                  weight: act.weight,
-                  maxExercisesCount: act.maxExercisesCount,
-                },
-                exercise: null,
-              });
-            }
+                name: act.name,
+              },
+            });
           }
         }
       }
