@@ -1,6 +1,6 @@
 {
   "name": "lms-extension",
-  "version": "2.2.5",
+  "version": "2.2.8",
   "private": true,
   "type": "module",
   "scripts": {

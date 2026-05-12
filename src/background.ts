@@ -55,7 +55,172 @@ type IncomingMessage =
   | { action: 'ANALYZE_SUBJECTS'; email: string }
   | { action: 'GET_WEEKLY_SCHEDULE'; email: string; date?: string }
   | { action: 'GET_CALENDAR_LINK'; email: string }
+  | { action: 'TABS_QUERY'; options: browser.Tabs.QueryQueryInfoType }
+  | { action: 'TABS_UPDATE'; tabId: number; options: browser.Tabs.UpdateUpdatePropertiesType }
+  | { action: 'TABS_RELOAD'; tabId: number; options: browser.Tabs.ReloadReloadPropertiesType }
+  | { action: 'TABS_SEND_MESSAGE'; tabId: number; message: unknown }
+  | { action: 'GRADES_EXPORT_EXECUTE' }
   | { action: string; [key: string]: unknown };
+
+// --- ФУНКЦИЯ СБОРА ОЦЕНОК ДЛЯ ЭКСПОРТА ---
+async function fetchAllGradesForExport() {
+  const normalizeFetchedNumber = (value: any, fallback: number) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  };
+
+  const enrichPerformanceTask = (task: any, exercisesById: Map<any, any>) => {
+    const exercise = exercisesById.get(task.exerciseId) || task.exercise || null;
+    const activity = task.activity || exercise?.activity || null;
+
+    return {
+      id: task.id,
+      exerciseId: task.exerciseId,
+      state: task.state,
+      score: task.score,
+      extraScore: task.extraScore,
+      maxScore: normalizeFetchedNumber(task.maxScore ?? exercise?.maxScore, 10),
+      activity: activity
+        ? {
+            id: activity.id,
+            name: activity.name,
+            weight: activity.weight,
+            maxExercisesCount: activity.maxExercisesCount,
+          }
+        : null,
+      exercise: exercise
+        ? {
+            id: exercise.id,
+            name: exercise.name,
+          }
+        : null,
+    };
+  };
+
+  const makeExerciseOnlyTask = (exercise: any) => ({
+    id: null,
+    exerciseId: exercise.id,
+    state: 'planned',
+    score: null,
+    extraScore: null,
+    maxScore: normalizeFetchedNumber(exercise.maxScore, 10),
+    activity: exercise.activity
+      ? {
+          id: exercise.activity.id,
+          name: exercise.activity.name,
+          weight: exercise.activity.weight,
+          maxExercisesCount: exercise.activity.maxExercisesCount,
+        }
+      : null,
+    exercise: {
+      id: exercise.id,
+      name: exercise.name,
+    },
+  });
+
+  const fetchJson = async (url: string) => {
+    const response = await fetch(url, {
+      headers: { accept: 'application/json, text/plain, */*' },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`LMS API вернул ${response.status} для ${url}`);
+    }
+
+    return response.json();
+  };
+
+  try {
+    const coursesData = await fetchJson(
+      'https://my.centraluniversity.ru/api/micro-lms/performance/student?isArchived=false'
+    );
+
+    const courses = Array.isArray(coursesData?.courses)
+      ? coursesData.courses
+      : Array.isArray(coursesData?.items)
+        ? coursesData.items
+        : [];
+
+    const activeCourses = courses.filter((course: any) => {
+      const status = course.courseStudentsStatus || course.courseStudentStatus || course.status;
+      return course.id && status !== 'listener' && status !== 'слушатель';
+    });
+
+    const exportedCourses = [];
+    for (const course of activeCourses) {
+      const [performance, exercisesData] = await Promise.all([
+        fetchJson(
+          `https://my.centraluniversity.ru/api/micro-lms/courses/${course.id}/student-performance`
+        ),
+        fetchJson(`https://my.centraluniversity.ru/api/micro-lms/courses/${course.id}/exercises`),
+      ]);
+      const exercises = Array.isArray(exercisesData?.exercises) ? exercisesData.exercises : [];
+      let courseActivities = [];
+      try {
+        const activitiesResp = await fetchJson(
+          `https://my.centraluniversity.ru/api/micro-lms/courses/${course.id}/activities`
+        );
+        if (Array.isArray(activitiesResp)) courseActivities = activitiesResp;
+      } catch (e) {
+        courseActivities = [];
+      }
+      const exercisesById = new Map(exercises.map((exercise: any) => [exercise.id, exercise]));
+      const tasks = Array.isArray(performance?.tasks) ? performance.tasks : [];
+      const taskExerciseIds = new Set(tasks.map((task: any) => task.exerciseId));
+      const exerciseOnlyTasks = exercises
+        .filter((exercise: any) => exercise.id && !taskExerciseIds.has(exercise.id))
+        .map(makeExerciseOnlyTask);
+
+      const placeholders = [];
+      if (Array.isArray(courseActivities)) {
+        const existingActIds = new Set(tasks.map((t: any) => t.activity?.id).filter(Boolean));
+        for (const act of courseActivities) {
+          if (!act?.id) continue;
+          if (
+            !existingActIds.has(act.id) &&
+            typeof act.maxExercisesCount === 'number' &&
+            act.maxExercisesCount > 0
+          ) {
+            placeholders.push({
+              id: null,
+              exerciseId: null,
+              state: 'planned',
+              score: null,
+              extraScore: null,
+              maxScore: 10,
+              activity: {
+                id: act.id,
+                name: act.name,
+                weight: act.weight,
+                maxExercisesCount: act.maxExercisesCount,
+              },
+              exercise: {
+                id: null,
+                name: act.name,
+              },
+            });
+          }
+        }
+      }
+
+      exportedCourses.push({
+        id: course.id,
+        name: course.name || `Курс ${course.id}`,
+        tasks: [
+          ...tasks.map((task: any) => enrichPerformanceTask(task, exercisesById)),
+          ...placeholders,
+          ...exerciseOnlyTasks,
+        ],
+      });
+    }
+
+    return { success: true, courses: exportedCourses };
+  } catch (error: any) {
+    console.error('[CU LMS] Grades export fetch failed:', error);
+    return { success: false, error: error.message || 'Ошибка запроса к LMS API.' };
+  }
+}
 
 // --- PLUGIN AUTO-DISCOVERY ---
 // All index.manifest.ts files are picked up automatically at build time.
@@ -867,6 +1032,55 @@ browser.runtime.onMessage.addListener(((
         console.log('[AKH] Tokens updated from tab (Access & Refresh)');
       });
     }
+    return true;
+  }
+
+  // 3. ПРОКСИ ДЛЯ TABS И SCRIPTING (Для Firefox iframes)
+  if (request.action === 'TABS_QUERY') {
+    browser.tabs
+      .query(request.options as browser.Tabs.QueryQueryInfoType)
+      .then((tabs) => sendResponse(tabs))
+      .catch((err) => sendResponse([]));
+    return true;
+  }
+  if (request.action === 'TABS_UPDATE') {
+    browser.tabs
+      .update(request.tabId as number, request.options as browser.Tabs.UpdateUpdatePropertiesType)
+      .then((tab) => sendResponse(tab))
+      .catch((err) => sendResponse(null));
+    return true;
+  }
+  if (request.action === 'TABS_RELOAD') {
+    browser.tabs
+      .reload(request.tabId as number, request.options as browser.Tabs.ReloadReloadPropertiesType)
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+  if (request.action === 'TABS_SEND_MESSAGE') {
+    browser.tabs
+      .sendMessage(request.tabId as number, request.message)
+      .then((res) => sendResponse(res))
+      .catch((err) => sendResponse(null));
+    return true;
+  }
+  if (request.action === 'GRADES_EXPORT_EXECUTE') {
+    browser.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.id) {
+        sendResponse({ success: false, error: 'Активная вкладка не найдена.' });
+        return;
+      }
+      try {
+        const results = await browser.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: fetchAllGradesForExport,
+        });
+        sendResponse({ success: true, result: results[0]?.result });
+      } catch (err: any) {
+        sendResponse({ success: false, error: err.message });
+      }
+    });
     return true;
   }
 }) as Parameters<typeof browser.runtime.onMessage.addListener>[0]);

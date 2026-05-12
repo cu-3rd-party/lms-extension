@@ -4,6 +4,63 @@
 // --- ОПРЕДЕЛЕНИЕ КОНТЕКСТА ---
 const isInsideIframe = window.self !== window.top;
 
+// --- ПРОКСИ ДЛЯ API (ДЛЯ ПОДДЕРЖКИ FIREFOX IFRAME) ---
+const browserApi = {
+  tabs: {
+    async query(options) {
+      try {
+        if (typeof browser !== 'undefined' && browser.tabs && browser.tabs.query) {
+          return await browser.tabs.query(options);
+        }
+      } catch (e) {}
+      return await browser.runtime.sendMessage({ action: 'TABS_QUERY', options });
+    },
+    async update(tabId, options) {
+      try {
+        if (typeof browser !== 'undefined' && browser.tabs && browser.tabs.update) {
+          return await browser.tabs.update(tabId, options);
+        }
+      } catch (e) {}
+      return await browser.runtime.sendMessage({ action: 'TABS_UPDATE', tabId, options });
+    },
+    async reload(tabId, options) {
+      try {
+        if (typeof browser !== 'undefined' && browser.tabs && browser.tabs.reload) {
+          return await browser.tabs.reload(tabId, options);
+        }
+      } catch (e) {}
+      return await browser.runtime.sendMessage({ action: 'TABS_RELOAD', tabId, options });
+    },
+    async sendMessage(tabId, message) {
+      try {
+        if (typeof browser !== 'undefined' && browser.tabs && browser.tabs.sendMessage) {
+          return await browser.tabs.sendMessage(tabId, message);
+        }
+      } catch (e) {}
+      return await browser.runtime.sendMessage({ action: 'TABS_SEND_MESSAGE', tabId, message });
+    },
+  },
+  scripting: {
+    async executeScript(options) {
+      if (options.func && options.func.name === 'fetchAllGradesForExport') {
+        const resp = await browser.runtime.sendMessage({ action: 'GRADES_EXPORT_EXECUTE' });
+        if (resp.success) return [{ result: resp.result }];
+        throw new Error(resp.error || 'Ошибка выполнения скрипта экспорта');
+      }
+      try {
+        if (
+          typeof browser !== 'undefined' &&
+          browser.scripting &&
+          browser.scripting.executeScript
+        ) {
+          return await browser.scripting.executeScript(options);
+        }
+      } catch (e) {}
+      throw new Error('API scripting недоступно в этом контексте');
+    },
+  },
+};
+
 // Настройки, которые применяются "на лету" без перезагрузки (можно сохранять сразу)
 const LIVE_SETTINGS = ['themeEnabled', 'oledEnabled'];
 
@@ -249,9 +306,9 @@ if (openEditorBtn) {
       }, 50);
     } else {
       browser.storage.sync.set({ stickerEnabled: true }).then(() => {
-        browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+        browserApi.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
           if (tabs.length > 0) {
-            browser.tabs.update(tabs[0].id, { url: targetUrl });
+            browserApi.tabs.update(tabs[0].id, { url: targetUrl });
             window.close();
           }
         });
@@ -379,9 +436,9 @@ if (resetBtn) {
     if (isInsideIframe) {
       window.parent.postMessage({ action: 'RESET_LMS_LOCAL_STORAGE_IFRAME' }, '*');
     } else {
-      browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      browserApi.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
         if (tabs.length > 0) {
-          browser.tabs
+          browserApi.tabs
             .sendMessage(tabs[0].id, { action: 'RESET_LMS_LOCAL_STORAGE_FROM_POPUP' })
             .catch(() => {});
         }
@@ -451,9 +508,9 @@ if (resetCourseIconsBtn) {
         if (isInsideIframe) {
           window.parent.location.reload();
         } else {
-          browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+          browserApi.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
             if (tabs.length > 0) {
-              browser.tabs.reload(tabs[0].id);
+              browserApi.tabs.reload(tabs[0].id);
               window.close();
             }
           });
@@ -486,13 +543,13 @@ async function handleGradesExportClick() {
       throw new Error('Модуль Excel не загрузился. Пересобери расширение и открой popup заново.');
     }
 
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id || !tab.url?.startsWith('https://my.centraluniversity.ru/')) {
       throw new Error('Открой вкладку my.centraluniversity.ru перед экспортом.');
     }
 
     setGradesExportStatus('Собираю оценки через API LMS...');
-    const [injectionResult] = await browser.scripting.executeScript({
+    const [injectionResult] = await browserApi.scripting.executeScript({
       target: { tabId: tab.id },
       func: fetchAllGradesForExport,
     });
