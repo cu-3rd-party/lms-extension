@@ -13,7 +13,9 @@ const oledCss = readFileSync(
 );
 
 test('dark theme preserves custom course cover colors for without-category cards', () => {
-  expect(darkThemeCss).toContain("body .course-card.withoutCategory[style*='--cu-island-cover-bg']");
+  expect(darkThemeCss).toContain(
+    "body .course-card.withoutCategory[style*='--cu-island-cover-bg']"
+  );
   expect(darkThemeCss).toContain('background-color: var(--cu-island-cover-bg) !important;');
   expect(oledCss).toContain("body .course-card.withoutCategory[style*='--cu-island-cover-bg']");
 });

@@ -1,6 +1,6 @@
 {
   "name": "lms-extension",
-  "version": "2.2.1",
+  "version": "2.2.5",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,8 +11,8 @@
     "build:firefox": "cross-env BROWSER=firefox vite build",
     "release:chrome": "cross-env BROWSER=chrome vite build && bun --bun scripts/pack.ts chrome",
     "release:firefox": "cross-env BROWSER=firefox vite build && bun --bun scripts/pack.ts firefox",
-    "lint": "eslint src/ scripts/ vite.config.js",
-    "lint:fix": "eslint src/ scripts/ vite.config.js --fix",
+    "lint": "eslint src/ vite.config.js",
+    "lint:fix": "eslint src/ vite.config.js --fix",
     "format": "prettier --write .",
     "prepare": "husky",
     "test": "playwright test",
@@ -53,6 +53,7 @@
     ]
   },
   "dependencies": {
+    "pdf-lib": "^1.17.1",
     "webextension-polyfill": "^0.12.0",
     "xlsx-js-style": "^1.2.0"
   }

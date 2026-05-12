@@ -3,7 +3,7 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**', 'build/**', 'node_modules/**'],
+    ignores: ['dist/**', 'build/**', 'node_modules/**', 'src/plugins/_shared/**'],
   },
   // Extension source scripts (content scripts, background, popup)
   {
@@ -25,14 +25,21 @@ export default [
     },
     rules: {
       ...js.configs.recommended.rules,
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       'no-console': 'off',
       // Scripts share state via window.* flags — redeclaring globals is intentional
       'no-redeclare': 'off',
       // Empty catch blocks are common in extension code to silently swallow errors
       'no-empty': ['error', { allowEmptyCatch: true }],
       // Emoji regexes in course_overview_task_status.js are intentional
-      'no-misleading-character-class': 'warn',
+      'no-misleading-character-class': 'off',
       // Cross-script globals are intentional until proper imports are added
       'no-undef': 'warn',
     },
@@ -40,7 +47,7 @@ export default [
   // Node.js scripts (pack.js, vite.config.js)
   {
     ...js.configs.recommended,
-    files: ['scripts/**/*.js', 'vite.config.js'],
+    files: ['vite.config.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -50,7 +57,14 @@ export default [
     },
     rules: {
       ...js.configs.recommended.rules,
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       'no-console': 'off',
     },
   },

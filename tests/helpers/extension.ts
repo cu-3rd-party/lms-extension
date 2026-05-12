@@ -55,17 +55,16 @@ export async function resolveExtensionId(context: BrowserContext): Promise<strin
 
 export async function launchAuthenticatedExtensionContext() {
   if (!existsSync(EXTENSION_PATH)) {
-    throw new Error(`Сборка расширения не найдена: ${EXTENSION_PATH}. Сначала выполни bun run build:chrome`);
+    throw new Error(
+      `Сборка расширения не найдена: ${EXTENSION_PATH}. Сначала выполни bun run build:chrome`
+    );
   }
 
   const cookies = JSON.parse(readFileSync(getCookiesFile(), 'utf-8'));
   const profileDir = mkdtempSync(join(tmpdir(), EXTENSION_PROFILE_PREFIX));
   const context = await chromium.launchPersistentContext(profileDir, {
     headless: false,
-    args: [
-      `--disable-extensions-except=${EXTENSION_PATH}`,
-      `--load-extension=${EXTENSION_PATH}`,
-    ],
+    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`],
   });
 
   try {

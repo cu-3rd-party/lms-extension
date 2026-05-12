@@ -38,8 +38,12 @@ test.describe('Issue #190: task status chip colors in dark theme', () => {
       .poll(async () => {
         return page.evaluate((hostId) => {
           const host = document.getElementById(hostId);
-          const work = host?.querySelector("tui-chip[data-appearance='support-categorical-13-pale']");
-          const review = host?.querySelector("tui-chip[data-appearance='support-categorical-12-pale']");
+          const work = host?.querySelector(
+            "tui-chip[data-appearance='support-categorical-13-pale']"
+          );
+          const review = host?.querySelector(
+            "tui-chip[data-appearance='support-categorical-12-pale']"
+          );
 
           return {
             workBg: work ? getComputedStyle(work).backgroundColor : '',

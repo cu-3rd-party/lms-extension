@@ -26,9 +26,12 @@ async function openActivityPageWithTooltips(page) {
     await expect(page).toHaveURL(/\/learn\/reports\/student-performance\/actual\/\d+\/activity/);
 
     const tooltipCount = await expect
-      .poll(async () => {
-        return page.locator('cu-tooltip tui-icon').count();
-      }, { timeout: 15_000 })
+      .poll(
+        async () => {
+          return page.locator('cu-tooltip tui-icon').count();
+        },
+        { timeout: 15_000 }
+      )
       .toBeGreaterThan(0)
       .then(() => page.locator('cu-tooltip tui-icon').count())
       .catch(() => 0);

@@ -12,7 +12,7 @@ export default defineManifest({
   version: pkg.version,
   description:
     'Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий',
-  permissions: ['storage', 'scripting', 'webNavigation', 'cookies', 'activeTab'],
+  permissions: ['storage', 'scripting', 'webNavigation', 'cookies', 'activeTab', 'downloads'],
   host_permissions: [
     'https://my.centraluniversity.ru/*',
     'https://id.centraluniversity.ru/*',
@@ -22,6 +22,7 @@ export default defineManifest({
     'https://passport.yandex.ru/*',
     'https://akhcheck.ru/*',
     'https://back.akhcheck.ru/*',
+    'https://storage.yandexcloud.net/*',
   ],
   background:
     BROWSER === 'firefox'
@@ -90,6 +91,7 @@ export default defineManifest({
         'plugins/course-view/course_overview_autoscroll.js',
         'plugins/course-view/course_friends_list.js',
         'plugins/course-view/future_exams_view.js',
+        'plugins/course-view/course_exporter.js',
         'plugins/_shared/lms_materials_api.js',
         'plugins/_shared/apricot_api.js',
         'plugins/longreads/homework_weight_fix.js',
@@ -97,6 +99,8 @@ export default defineManifest({
         'plugins/longreads/task_status_adaptation.js',
         'plugins/longreads/rename_hw.js',
         'plugins/statements/advanced_statements.js',
+        'plugins/_shared/fflate.umd.min.js',
+        'plugins/_shared/pdf-lib.min.js',
       ],
       matches: ['https://my.centraluniversity.ru/*'],
     },

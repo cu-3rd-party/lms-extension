@@ -604,32 +604,31 @@ const YandexServices = {
   },
 };
 
-
 const AkhCheckServices = {
   _cachedToken: null as string | null,
   _cachedRefresh: null as string | null,
-  
+
   // Обещание (Promise) рефреша, чтобы параллельные запросы ждали один общий ответ,
   // а не спамили сервер кучей попыток обновить токен одновременно
   _refreshPromise: null as Promise<string | null> | null,
 
   async getTokens(): Promise<{ access: string | null; refresh: string | null }> {
     if (this._cachedToken) return { access: this._cachedToken, refresh: this._cachedRefresh };
-    
+
     const res = await browser.storage.local.get(['akh_token', 'akh_refresh_token']);
     this._cachedToken = res.akh_token || null;
     this._cachedRefresh = res.akh_refresh_token || null;
-    
+
     return { access: this._cachedToken, refresh: this._cachedRefresh };
   },
 
   async saveTokens(access: string, refresh: string | null) {
     this._cachedToken = access;
     if (refresh) this._cachedRefresh = refresh;
-    
+
     const dataToSave: Record<string, string> = { akh_token: access };
     if (refresh) dataToSave.akh_refresh_token = refresh;
-    
+
     await browser.storage.local.set(dataToSave);
   },
 
@@ -650,10 +649,10 @@ const AkhCheckServices = {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            Accept: 'application/json',
           },
           // Передаем токен в body, как требует API
-          body: JSON.stringify({ refresh: refreshToken })
+          body: JSON.stringify({ refresh: refreshToken }),
         });
 
         if (!response.ok) throw new Error('Refresh token is invalid or expired');
@@ -661,11 +660,11 @@ const AkhCheckServices = {
         const data = await response.json();
         const newAccess = data.access;
         // Некоторые API возвращают и новый refresh токен. Если его нет — оставляем старый
-        const newRefresh = data.refresh || refreshToken; 
+        const newRefresh = data.refresh || refreshToken;
 
         await this.saveTokens(newAccess, newRefresh);
         console.log('[AKH] Token successfully refreshed');
-        
+
         return newAccess;
       } catch (error) {
         console.error('[AKH] Token refresh error:', error);
@@ -682,21 +681,21 @@ const AkhCheckServices = {
   // Добавлен флаг isRetry, чтобы избежать бесконечного цикла, если новый токен тоже сломан
   async fetch(url: string, isRetry = false): Promise<any> {
     const tokens = await this.getTokens();
-    
+
     if (!tokens.access) {
       throw new Error('AUTH_REQUIRED_AKH');
     }
 
     console.log(`[AKH-DEBUG] Fetching with token: ${url}`);
 
-    const res = await fetch(url, { 
+    const res = await fetch(url, {
       method: 'GET',
-      credentials: 'omit', 
+      credentials: 'omit',
       headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${tokens.access}`,
-        'X-Requested-With': 'XMLHttpRequest'
-      }
+        Accept: 'application/json',
+        Authorization: `Bearer ${tokens.access}`,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
     });
 
     if (res.status === 401 || res.status === 403) {
@@ -704,13 +703,13 @@ const AkhCheckServices = {
       if (!isRetry && tokens.refresh) {
         console.log('[AKH] Token expired (401/403), initiating refresh flow...');
         const newAccess = await this.refreshToken(tokens.refresh);
-        
+
         if (newAccess) {
           // Если обновление прошло успешно, повторяем оригинальный запрос с новым токеном!
           return this.fetch(url, true);
         }
       }
-      
+
       // Если рефреш не помог или его не было — разлогиниваем окончательно
       await this.clearTokens();
       throw new Error('AUTH_EXPIRED_AKH');
@@ -722,9 +721,8 @@ const AkhCheckServices = {
 
   async fetchAllProgress() {
     return this.fetch('https://back.akhcheck.ru/api/teaching/progress/');
-  }
+  },
 };
-
 
 /**
  * Центральный обработчик навигации.
@@ -836,41 +834,39 @@ browser.runtime.onMessage.addListener(((
     return true;
   }
   if (request.action === 'AKH_FETCH_COURSE_DETAILS') {
-  const { courseId } = request as any;
-  // Добавляем / в конце: .../course/98/
-  AkhCheckServices.fetch(`https://back.akhcheck.ru/api/teaching/course/${courseId}`)
-    .then(data => sendResponse({ success: true, data }))
-    .catch(err => sendResponse({ success: false, error: err.message }));
-  return true;
-}
-
-if (request.action === 'AKH_FETCH_PROGRESS') {
-  const { taskId } = request as any;
-  // Здесь слэш уже есть: .../progress/924/
-  AkhCheckServices.fetch(`https://back.akhcheck.ru/api/teaching/progress/${taskId}`)
-    .then(data => sendResponse({ success: true, data }))
-    .catch(err => sendResponse({ success: false, error: err.message }));
-  return true;
-}
-if (request.action === 'AKH_FETCH_ALL_PROGRESS') {
-  AkhCheckServices.fetchAllProgress()
-    .then(data => sendResponse({ success: true, data }))
-    .catch(err => sendResponse({ success: false, error: err.message }));
-  return true;
-}
-
-if (request.action === 'AKH_SAVE_TOKENS' || request.action === 'AKH_SAVE_TOKEN') {
-  const { token, access, refresh } = request as any;
-  // Поддержка и старого ключа token, и нового access
-  const actualAccess = access || token; 
-  
-  if (actualAccess) {
-    AkhCheckServices.saveTokens(actualAccess, refresh || null).then(() => {
-      console.log('[AKH] Tokens updated from tab (Access & Refresh)');
-    });
+    const { courseId } = request as any;
+    // Добавляем / в конце: .../course/98/
+    AkhCheckServices.fetch(`https://back.akhcheck.ru/api/teaching/course/${courseId}`)
+      .then((data) => sendResponse({ success: true, data }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
   }
-  return true;
-}
 
+  if (request.action === 'AKH_FETCH_PROGRESS') {
+    const { taskId } = request as any;
+    // Здесь слэш уже есть: .../progress/924/
+    AkhCheckServices.fetch(`https://back.akhcheck.ru/api/teaching/progress/${taskId}`)
+      .then((data) => sendResponse({ success: true, data }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+  if (request.action === 'AKH_FETCH_ALL_PROGRESS') {
+    AkhCheckServices.fetchAllProgress()
+      .then((data) => sendResponse({ success: true, data }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (request.action === 'AKH_SAVE_TOKENS' || request.action === 'AKH_SAVE_TOKEN') {
+    const { token, access, refresh } = request as any;
+    // Поддержка и старого ключа token, и нового access
+    const actualAccess = access || token;
+
+    if (actualAccess) {
+      AkhCheckServices.saveTokens(actualAccess, refresh || null).then(() => {
+        console.log('[AKH] Tokens updated from tab (Access & Refresh)');
+      });
+    }
+    return true;
+  }
 }) as Parameters<typeof browser.runtime.onMessage.addListener>[0]);
-

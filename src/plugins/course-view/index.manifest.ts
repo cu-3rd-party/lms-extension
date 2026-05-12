@@ -10,6 +10,9 @@ const manifest = {
     'plugins/course-view/course_overview_autoscroll.js',
     'plugins/course-view/course_friends_list.js',
     'plugins/course-view/future_exams_view.js',
+    'plugins/_shared/fflate.umd.min.js',
+    'plugins/_shared/pdf-lib.min.js',
+    'plugins/course-view/course_exporter.js',
   ],
 } satisfies PluginManifest;
 
