@@ -8,9 +8,7 @@ const darkThemeCss = readFileSync(
 );
 
 test('dark theme does not invert custom task action buttons on row hover', () => {
-  expect(darkThemeCss).toContain(
-    '.task-table__task:hover button:not(.culms-action-button)'
-  );
+  expect(darkThemeCss).toContain('.task-table__task:hover button:not(.culms-action-button)');
   expect(darkThemeCss).toContain('.task-table__task:hover .culms-action-button');
   expect(darkThemeCss).toContain('filter: none !important;');
 });

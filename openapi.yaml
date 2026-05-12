@@ -1,0 +1,3369 @@
+# everything goes to https://github.com/cu-devs-collective/open-cu-services-sdk
+# thanks for giving our agents ability to see it
+
+# yamllint disable-line rule:line-length
+# yaml-language-server: $schema=https://raw.githubusercontent.com/API-RE/api-re-standard/master/schemas/v0.1.0/oas_3.0_schema_2024-10-18.yaml
+openapi: 3.0.3
+info:
+  title: CU LMS API
+  description: >
+    Reverse engineered OpenAPI specification for the CU LMS API.
+  version: 0.1.0
+  x-re:
+    releaseDate: 2026-05-01
+  license:
+    name: MIT
+    # yamllint disable-line rule:line-length
+    url: https://github.com/cu-devs-collective/open-cu-services-sdk/blob/master/LICENSE
+servers:
+  - url: https://my.centraluniversity.ru/api
+    description: Production CU LMS API server.
+  - url: '{proto}://{host}:{port}/api'
+    description: Custom CU LMS API server.
+    variables:
+      proto:
+        description: Server protocol.
+        default: 'http'
+      host:
+        description: Server host.
+        default: '127.0.0.1'
+      port:
+        description: Server port.
+        default: '8080'
+security:
+  - BffCookie: []
+tags:
+  - name: student
+    description: Endpoints for accessing data for authenticated student.
+  - name: courses
+    description: Endpoints for accessing courses data.
+  - name: tasks
+    description: Endpoints for accessing tasks data.
+paths:
+  /micro-lms/students/me:
+    get:
+      operationId: currentStudent
+      summary: Get current student.
+      description: Returns authenticated student data.
+      x-re:
+        safety:
+          replayability: safe
+          dataKinds: [personalData, accountData]
+        operation:
+          stability: stable
+          categories: [read]
+          notes: This operation appears to be used only by student accounts.
+      security:
+        - BffCookie: []
+      tags: [student]
+      responses:
+        '200':
+          description: Successful response with the authenticated student data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentStudentResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /micro-lms/courses/student:
+    get:
+      operationId: listStudentCourses
+      summary: List courses for the current student.
+      description: >
+        Returns courses summary the authenticated student is enrolled in.
+      x-re:
+        safety:
+          replayability: safe
+          dataKinds: [accountData, internalData]
+        operation:
+          categories: [read]
+      security:
+        - BffCookie: []
+      tags: [courses]
+      parameters:
+        - $ref: '#/components/parameters/LimitQuery'
+        - $ref: '#/components/parameters/OffsetQuery'
+        - $ref: '#/components/parameters/PublicationStateFilterQuery'
+      responses:
+        '200':
+          description: >
+            Successful response with a list of courses summary for the
+            authenticated student.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListStudentCoursesResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /micro-lms/courses/{courseId}:
+    get:
+      operationId: courseSummaryById
+      summary: Get course summary by its ID.
+      description: Returns summary information about a course by courseId.
+      x-re:
+        safety:
+          replayability: safe
+          dataKinds: [internalData]
+        operation:
+          categories: [read]
+      security:
+        - BffCookie: []
+      tags: [courses]
+      parameters:
+        - $ref: '#/components/parameters/CourseIdPath'
+      responses:
+        '200':
+          description: Successful response with course summary by its ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseSummaryByIdResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /micro-lms/courses/{courseId}/overview:
+    get:
+      operationId: courseOverviewById
+      summary: Get course overview by its ID.
+      description: >
+        Returns course overview by courseId. Overview consists of unit items
+        called as themes, which are typically weekly modules of longread IDs
+        and exercise items.
+      x-re:
+        safety:
+          replayability: safe
+          dataKinds: [internalData]
+        operation:
+          categories: [read]
+      security:
+        - BffCookie: []
+      tags: [courses]
+      parameters:
+        - $ref: '#/components/parameters/CourseIdPath'
+      responses:
+        '200':
+          description: Successful response with course overview by its ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseOverviewByIdResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /micro-lms/themes/{themeId}:
+    get:
+      operationId: courseThemeSummaryById
+      summary: Get course theme summary by its ID.
+      description: Returns summary information about a course theme by themeId.
+      x-re:
+        safety:
+          replayability: safe
+          dataKinds: [internalData]
+        operation:
+          categories: [read]
+      security:
+        - BffCookie: []
+      tags: [courses]
+      parameters:
+        - $ref: '#/components/parameters/ThemeIdPath'
+      responses:
+        '200':
+          description: Successful response with course theme summary by its ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseThemeSummaryByIdResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /micro-lms/longreads/{longreadId}:
+    get:
+      operationId: longreadSummaryById
+      summary: Get longread summary by its ID.
+      description: >
+        Returns summary information about a longread item by longreadId.
+      x-re:
+        safety:
+          replayability: safe
+          dataKinds: [internalData]
+        operation:
+          categories: [read]
+      security:
+        - BffCookie: []
+      tags: [courses]
+      parameters:
+        - $ref: '#/components/parameters/LongreadIdPath'
+      responses:
+        '200':
+          description: >
+            Successful response with longread item summary by its ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LongreadSummaryByIdResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /micro-lms/longreads/{longreadId}/materials:
+    get:
+      operationId: longreadMaterialsById
+      summary: Get longread materials by its ID.
+      description: >
+        Returns longread materials by longreadId.
+        Materials are blocks like markdown, files and exercises.
+        Blocks are declared for each longread.
+      x-re:
+        safety:
+          replayability: safe
+          dataKinds: [accountData, internalData]
+        operation:
+          categories: [read]
+      security:
+        - BffCookie: []
+      tags: [courses]
+      parameters:
+        - $ref: '#/components/parameters/LongreadIdPath'
+        - $ref: '#/components/parameters/LimitQuery'
+        - $ref: '#/components/parameters/OffsetQuery'
+      responses:
+        '200':
+          description: Successful response with longread materials by its ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LongreadMaterialsByIdResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /micro-lms/tasks/{taskId}:
+    get:
+      operationId: taskById
+      summary: Get task by its ID.
+      description: Returns task by taskId.
+      x-re:
+        safety:
+          replayability: safe
+          dataKinds: [accountData, internalData]
+        operation:
+          categories: [read]
+      security:
+        - BffCookie: []
+      tags: [tasks]
+      parameters:
+        - $ref: '#/components/parameters/TaskIdPath'
+      responses:
+        '200':
+          description: Successful response with task by its ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskByIdResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /micro-lms/content/download-link:
+    get:
+      operationId: generateContentDownloadLink
+      summary: Generate content download link.
+      description: Returns generated content download link by filename.
+      x-re:
+        replayability: safe
+        dataKinds: [internalData]
+        operation:
+          categories: [read, generate]
+          notes: >
+            There is no 404 response, so link is generated for unexistent
+            content too.
+      security:
+        - BffCookie: []
+      tags: [tasks]
+      parameters:
+        - $ref: '#/components/parameters/FileNameQuery'
+        - $ref: '#/components/parameters/VersionQuery'
+      responses:
+        '200':
+          description: Successful response generated content download link.
+          content:
+            application/json:
+              schema:
+                # yamllint disable-line rule:line-length
+                $ref: '#/components/schemas/GenerateContentDownloadLinkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+components:
+  securitySchemes:
+    BffCookie:
+      type: apiKey
+      in: cookie
+      name: bff.cookie
+      description: >
+        Session cookie used to authenticate the user when calling the LMS API.
+  parameters:
+    LimitQuery:
+      name: limit
+      in: query
+      description: Maximum number of items to return.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        default: 25
+    OffsetQuery:
+      name: offset
+      in: query
+      description: Number of items to skip before collecting result items.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    PublicationStateFilterQuery:
+      name: state
+      in: query
+      style: form
+      explode: true
+      description: >
+        Include only courses whose state matches any of the specified values.
+      schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/PublicationState'
+    FileNameQuery:
+      name: filename
+      in: query
+      required: true
+      description: File object path in storage specified in URL query.
+      schema:
+        $ref: '#/components/schemas/FileNameObjectPath'
+    VersionQuery:
+      name: version
+      in: query
+      required: false
+      description: Material content revision identifier specified in URL query.
+      x-re:
+        notes: Schema is nullable, but parameter is non-required so it's ok.
+      schema:
+        $ref: '#/components/schemas/LongreadMaterialVersion'
+    CourseIdPath:
+      name: courseId
+      in: path
+      required: true
+      description: Numeric identifier of the course specified in URL path.
+      schema:
+        $ref: '#/components/schemas/CourseId'
+      example: 897
+    ThemeIdPath:
+      name: themeId
+      in: path
+      required: true
+      description: Numeric identifier of the course theme specified in URL path.
+      schema:
+        $ref: '#/components/schemas/CourseThemeId'
+      example: 8653
+    LongreadIdPath:
+      name: longreadId
+      in: path
+      required: true
+      description: >
+        Numeric identifier of the longread item specified in URL path.
+      schema:
+        $ref: '#/components/schemas/LongreadId'
+      example: 12707
+    TaskIdPath:
+      name: taskId
+      in: path
+      required: true
+      description: Numeric identifier of the task item specified in URL path.
+      schema:
+        $ref: '#/components/schemas/TaskId'
+      example: 1355301
+  schemas:
+    BaseErrorType:
+      type: string
+      x-re:
+        notes: Website in the URL seems to be abandoned.
+      example: 'https://httpstatuscodes.io/401'
+    BaseErrorTitle:
+      type: string
+      description: Short, human-readable summary of the problem type.
+      example: 'Unauthorized'
+    BaseErrorStatus:
+      type: integer
+      format: int32
+      minimum: 100
+      maximum: 599
+      description: HTTP status code.
+      example: 401
+    BaseErrorDetail:
+      type: string
+      description: Details of the error.
+      example: 'Ресурс с идентификатором 1 не найден'
+    BaseErrorInstance:
+      type: string
+      description: >
+        Relative request path without service prefix where error occurred.
+      example: '/courses/1'
+    BaseProblemError:
+      type: object
+      description: Base problem JSON error based from RFC 9457 with trace ID.
+      additionalProperties: true
+      required: [title, status]
+      properties:
+        type: # non-required
+          $ref: '#/components/schemas/BaseErrorType'
+        title:
+          $ref: '#/components/schemas/BaseErrorTitle'
+        status:
+          $ref: '#/components/schemas/BaseErrorStatus'
+        traceId: # non-required
+          $ref: '#/components/schemas/BaseErrorTraceId'
+    BaseErrorTraceId:
+      type: string
+      pattern: '^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+      description: >
+        W3C Trace Context traceparent value for backend to correlate requests
+        across services.
+      example: '00-00000000000000000000000000000000-0000000000000000-01'
+    BaseBadRequestError:
+      type: object
+      description: Base error for Bad Request status.
+      additionalProperties: false
+      required: [title, status, errors]
+      properties:
+        title:
+          $ref: '#/components/schemas/BaseErrorTitle'
+        status:
+          $ref: '#/components/schemas/BaseErrorStatus'
+        errors:
+          type: object
+          description: Field-level validation errors keyed by property name.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example: { 'courseId': ["The value 'invalid-value-example' is not valid."] }
+      example:
+        {
+          'title': 'One or more validation errors occurred.',
+          'status': 400,
+          'errors': { 'courseId': ["The value 'invalid-value-example' is not valid."] },
+        }
+    BaseUnauthorizedError:
+      type: object
+      description: Base error for Unauthorized status.
+      x-re:
+        observation:
+          notes: >
+            `type` property is sometimes specified, e.g. for
+            notification-hub service, while for micro-lms it is not.
+        notes: Based on BaseProblemError.
+      additionalProperties: false
+      required: [title, status, traceId]
+      properties:
+        # Inherited from BaseProblemError.
+        type: # non-required
+          $ref: '#/components/schemas/BaseErrorType'
+        title:
+          $ref: '#/components/schemas/BaseErrorTitle'
+        status:
+          $ref: '#/components/schemas/BaseErrorStatus'
+        # Other.
+        traceId:
+          $ref: '#/components/schemas/BaseErrorTraceId'
+      example:
+        {
+          'type': 'https://httpstatuscodes.io/401',
+          'title': 'Unauthorized',
+          'status': 401,
+          'traceId': '00-00000000000000000000000000000000-0000000000000000-01',
+        }
+    BaseForbiddenError:
+      type: object
+      description: Base error for Forbidden error.
+      additionalProperties: false
+      required: [title, status, traceId]
+      properties:
+        # Inherited from BaseProblemError.
+        type: # non-required
+          $ref: '#/components/schemas/BaseErrorType'
+        title:
+          $ref: '#/components/schemas/BaseErrorTitle'
+        status:
+          $ref: '#/components/schemas/BaseErrorStatus'
+        # Other.
+        detail: # non-required
+          $ref: '#/components/schemas/BaseErrorDetail'
+        instance: # non-required
+          $ref: '#/components/schemas/BaseErrorInstance'
+        traceId:
+          $ref: '#/components/schemas/BaseErrorTraceId'
+      example:
+        {
+          'title': 'Forbidden',
+          'status': 403,
+          'detail': 'Нет доступа к ресурсу ',
+          'instance': '/content/download-link?filename=example',
+          'traceId': '00-00000000000000000000000000000000-0000000000000000-01',
+        }
+    BaseNotFoundError:
+      type: object
+      description: Base error for Not Found status.
+      additionalProperties: false
+      required: [title, status, traceId]
+      properties:
+        title:
+          $ref: '#/components/schemas/BaseErrorTitle'
+        status:
+          $ref: '#/components/schemas/BaseErrorStatus'
+        detail: # non-required
+          $ref: '#/components/schemas/BaseErrorDetail'
+        instance: # non-required
+          $ref: '#/components/schemas/BaseErrorInstance'
+        entityId: # non-required
+          type: integer
+          description: ID of the entity that was not found.
+          example: 1
+        traceId:
+          $ref: '#/components/schemas/BaseErrorTraceId'
+      example:
+        {
+          'title': 'NotFound',
+          'status': 404,
+          'detail': 'Ресурс с идентификатором 1 не найден',
+          'instance': '/courses/1',
+          'entityId': 1,
+          'traceId': '00-00000000000000000000000000000000-0000000000000000-01',
+        }
+    _x_re_propertyIncomplete_OnlyNullObserved:
+      type: string
+      nullable: true
+      description: Value only seen as null.
+      x-re:
+        schema:
+          modeled: stub
+          typing: full
+        analysis:
+          needsAnalysis: true
+          priority: medium
+          reasons:
+            - only-null-observed
+      enum: [null]
+      example: null
+    _x_re_propertyIncomplete_OnlyEmptyArrayObserved:
+      type: array
+      minItems: 0
+      maxItems: 0
+      description: Value only seen as empty array.
+      x-re:
+        schema:
+          modeled: stub
+          typing: full
+        analysis:
+          needsAnalysis: true
+          priority: medium
+          reasons:
+            - only-empty-array-observed
+      items:
+        type: object
+        additionalProperties: true
+    NullOnly:
+      type: string
+      nullable: true
+      description: Value only expected to be null.
+      x-re:
+        schema:
+          typing: full
+        notes: >
+          Not to be confused with _x_re_propertyIncomplete_OnlyNullObserved.
+      enum: [null]
+      example: null
+    PublicationState:
+      type: string
+      description: Publication state of an item.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-04-26
+          notes: Frontend defines only those values.
+        enum:
+          descriptions:
+            'published': Filters non-archived non-draft items.
+            'archived': Filters archived items.
+            'draft': >
+              Filters draft items (those are items which were
+              not published yet, this option is almost useless as such items
+              are hidden for regular students).
+      enum:
+        - published
+        - archived
+        - draft
+      example: 'published'
+    CourseId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of the course.
+      example: 897
+    CourseSkillLevel:
+      type: string
+      description: Skill level label configured for the course.
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: low
+          reasons:
+            - usage-unknown
+          notes: This field appears to be inactive/unused for now.
+      enum:
+        - none
+      example: 'none'
+    CourseIsSkillLevelEnabled:
+      type: boolean
+      description: Indicates if skill level is enabled for the course.
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: low
+          reasons:
+            - usage-unknown
+          notes: >
+            Observed only value "none" for `skillLevel` property, so this
+            flag currently appears to have no effect.
+            This field is sometimes set to true, sometimes to false across
+            courses without any relation.
+      example: false
+    CourseSyllabusUrl:
+      type: string
+      nullable: true
+      description: External syllabus URL of the course.
+      x-re:
+        schema:
+          typing: full
+        analysis:
+          needsAnalysis: true
+          priority: medium
+          reasons:
+            - only-null-observed
+          notes: >
+            Observed only as null, but it seems in the future it will be used
+            to set external syllabus URL of the course.
+      example: null
+    CourseTimeChannelUrl:
+      type: string
+      nullable: true
+      description: TiMe channel of the course.
+      x-re:
+        schema:
+          typing: full
+        analysis:
+          needsAnalysis: true
+          priority: medium
+          reasons:
+            - only-null-observed
+          notes: >
+            Observed only as null, but it seems in the future it will be used
+            to set TiMe channel of the course.
+    CourseSettings:
+      type: object
+      description: Course settings.
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: low
+          reasons:
+            - usage-unknown
+          notes: >
+            Values seem to be incorrect for now (they mismatch with their
+            expected bahavior), in the future this can change.
+      additionalProperties: false
+      required: [skillLevel, isSkillLevelEnabled, syllabusUrl, timeChannelUrl]
+      properties:
+        skillLevel:
+          $ref: '#/components/schemas/CourseSkillLevel'
+        isSkillLevelEnabled:
+          $ref: '#/components/schemas/CourseIsSkillLevelEnabled'
+        syllabusUrl:
+          $ref: '#/components/schemas/CourseSyllabusUrl'
+        timeChannelUrl:
+          $ref: '#/components/schemas/CourseTimeChannelUrl'
+    CourseName:
+      type: string
+      description: Course name.
+      example: 'Английский язык 204S4'
+    CourseIsArchived:
+      type: boolean
+      description: Indicates if the course is archived.
+      x-re:
+        observation:
+          notes: >
+            Typically set at the end of a semester to mark
+            the course as finished.
+      example: false
+    PublishDate:
+      type: string
+      format: date-time
+      nullable: true
+      description: Scheduled item publication timestamp, if value is not null.
+      x-re:
+        observation:
+          notes: >
+            Can be unset, also can be earlier or later than `publishedAt` value.
+      example: '2026-01-26T07:00:00+00:00'
+    PublishedAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Actual item publication timestamp.
+      x-re:
+        observation:
+          notes: >
+            It looks like this field is null for items with `state` "draft".
+      example: '2026-01-26T07:00:44.919045+00:00'
+    CourseCategory:
+      type: string
+      description: Category to which the course belongs to.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-04-26
+          notes: Frontend defines only those values.
+        enum:
+          descriptions:
+            'withoutCategory': Not categorized stuff.
+            'general': General courses, e.g. English.
+            'mathematics': Math courses.
+            'business': Courses for business guys.
+            'development': Courses for devs.
+            'stem': STEM courses.
+            'softSkills': Soft skills category courses.
+            'ml': Courses for ML guys.
+            'design': Courses for design guys.
+            'analytics': Analytics category.
+            'career': Career stuff, e.g. Mock Interview intensive.
+            'management': Management category.
+      enum:
+        - withoutCategory
+        - general
+        - mathematics
+        - business
+        - development
+        - stem
+        - softSkills
+        - ml
+        - design
+        - analytics
+        - career
+        - management
+      example: 'general'
+    CourseCategoryCover:
+      type: string
+      description: Course card icon style identifier.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-04-26
+          notes: >
+            Frontend defines only those values.
+            It seems there is some algorithm on frontend which decides
+            which color to use for the course card.
+        enum:
+          descriptions: {} # This is not needed.
+      enum:
+        - sineWave
+        - curvesGrid
+        - ellipsesOverlap
+        - geometricTriangle
+        - verticalLines
+        - gridPlanes
+        - spiralLoops
+        - symmetricCircles
+      example: 'symmetricCircles'
+    SubjectId:
+      type: integer
+      nullable: true
+      description: >
+        Identifier of the subject this course belongs to, if value is not null.
+      x-re:
+        observation:
+          notes: >
+            Courses covering the same subject typically share the same
+            `subjectId`, e.g. courses with names
+            "Архитектура компьютера и операционные системы I"
+            and "Архитектура компьютера и операционные системы 2"
+            have the same value.
+            This field is not guaranteed to be set: e.g. courses with names
+            "English 104" and "English 104. Semester 2" have `subjectId` unset.
+      example: 32
+    CourseSummaryItem:
+      type: object
+      description: Summary information about a course, used for course listing.
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          state,
+          publishDate,
+          publishedAt,
+          settings,
+          subjectId,
+          isArchived,
+          category,
+          categoryCover,
+        ]
+      properties:
+        id:
+          $ref: '#/components/schemas/CourseId'
+        name:
+          $ref: '#/components/schemas/CourseName'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+        settings:
+          $ref: '#/components/schemas/CourseSettings'
+        subjectId:
+          $ref: '#/components/schemas/SubjectId'
+        isArchived:
+          $ref: '#/components/schemas/CourseIsArchived'
+        category:
+          $ref: '#/components/schemas/CourseCategory'
+        categoryCover:
+          $ref: '#/components/schemas/CourseCategoryCover'
+    Paging:
+      type: object
+      additionalProperties: false
+      required: [limit, offset, totalCount]
+      properties:
+        limit:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 25
+        offset:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 0
+        totalCount:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 1
+    ListStudentCoursesResponse:
+      type: object
+      additionalProperties: false
+      required: [items, paging]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourseSummaryItem'
+        paging:
+          $ref: '#/components/schemas/Paging'
+    UserId:
+      type: string
+      format: uuid
+      description: Unique identifier of the user.
+      x-re:
+        observation:
+          notes: >
+            "00000000-0000-0000-0000-000000000000" is reserved
+            for the System user.
+        notes: >
+          This UUID is the primary identifier used to reference the user
+          on backend DB.
+      example: '00000000-0000-0000-0000-000000000000'
+    UniversityEmail:
+      type: string
+      format: email
+      x-re:
+        observation:
+          notes: >
+            Most student emails use the edu.centraluniversity.ru domain,
+            but other domains may occur (e.g., gmail.com) in rare cases.
+            University staff emails use centraluniversity.ru domain.
+      example: 'i.ivanov@edu.centraluniversity.ru'
+    TimeAccount:
+      type: string
+      minLength: 3
+      maxLength: 22
+      pattern: '^[a-z][a-z0-9._-]{2,21}$'
+      description: Username in TiMe messenger (T-Bank's fork of Mattermost).
+      externalDocs:
+        # yamllint disable-line rule:line-length
+        url: https://docs.mattermost.com/end-user-guide/preferences/manage-your-profile.html#:~:text=message%2E-,Username
+        description: Username constraints from Official Mattermost docs.
+      example: 'i.ivanov'
+    StudyLevel:
+      type: string
+      description: Student’s current education level.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-04-26
+          notes: Frontend defines only those values.
+        enum:
+          descriptions:
+            'none': Non-enrolled user.
+            'bachelor': Bachelor student.
+            'master': Master student.
+            'dpo': Supplementary vocational education student.
+            'dpoMaster': Supplementary master vocational education student.
+      enum:
+        - none
+        - bachelor
+        - master
+        - dpo
+        - dpoMaster
+      example: 'bachelor'
+    CurrentStudentResponse:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          lastName,
+          firstName,
+          middleName,
+          universityEmail,
+          timeAccount,
+          studyStartYear,
+          studyLevel,
+          lateDaysBalance,
+        ]
+      properties:
+        id:
+          $ref: '#/components/schemas/UserId'
+        lastName:
+          type: string
+          example: 'Иванов'
+        firstName:
+          type: string
+          example: 'Иван'
+        middleName:
+          type: string
+          nullable: true
+          x-re:
+            observation:
+              notes: This value is nullable.
+          example: 'Иванович'
+        universityEmail:
+          nullable: false
+          x-re:
+            observation:
+              notes: This field appears to be non-nullable.
+          allOf:
+            - $ref: '#/components/schemas/UniversityEmail'
+        timeAccount:
+          nullable: false
+          x-re:
+            observation:
+              notes: This field appears to be non-nullable.
+          allOf:
+            - $ref: '#/components/schemas/TimeAccount'
+        studyStartYear:
+          type: integer
+          minimum: 1970
+          nullable: true
+          description: Year the student enrolled at the university.
+          x-re:
+            observation:
+              notes: It seems that null indicates the student was not enrolled.
+          example: 2024
+        studyLevel:
+          $ref: '#/components/schemas/StudyLevel'
+        lateDaysBalance:
+          type: integer
+          minimum: 0
+          description: Number of late days remaining for the student.
+          example: 50
+    CourseSummaryByIdResponse:
+      allOf:
+        - $ref: '#/components/schemas/CourseSummaryItem'
+    CourseThemeId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of the course theme.
+      example: 6663
+    LongreadId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of the longread item.
+      example: 12707
+    LongreadType:
+      type: string
+      description: Longread item type.
+      x-re:
+        observation:
+          notes: This field appears to be inactive/unused for now.
+        analysis:
+          needsAnalysis: true
+          priority: low
+          reasons:
+            - usage-unknown
+            - other
+          notes: >
+            Needs further analysis, as the only seen value is "common".
+            "handout" value is guessed to exist.
+      enum:
+        - common
+        - handout
+      example: 'common'
+    ExerciseId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of the exercise item.
+      example: 48139
+    ActivityId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of the activity item.
+      example: 2161
+    ActivityName:
+      type: string
+      description: Activity name.
+      example: 'Аудиторная работа на семинарах'
+    ActivityWeight:
+      type: number
+      format: double
+      description: >
+        Weight coefficient for every single activity by activity name,
+        used in the course grade formula to calculate the overall semester
+        score.
+      minimum: 0
+      maximum: 1
+      example: 0.25
+    ActivityDefinition:
+      type: object
+      description: >
+        Activity definition shared across exercises. Multiple exercises
+        reference the same activity definition.
+      additionalProperties: false
+      required: [id, name, weight]
+      properties:
+        id:
+          $ref: '#/components/schemas/ActivityId'
+        name:
+          $ref: '#/components/schemas/ActivityName'
+        weight:
+          $ref: '#/components/schemas/ActivityWeight'
+    Deadline:
+      type: string
+      format: date-time
+      nullable: false
+      description: Deadline timestamp by which the item must be completed.
+      example: '2026-02-15T19:00:00+00:00'
+    MaxScore:
+      type: number
+      format: double
+      minimum: 0
+      description: Maximum possible score for completing exercise.
+      example: 10
+    ExerciseName:
+      type: string
+      description: Exercise name shown as the header is LMS.
+      x-re:
+        observation:
+          notes: >
+            Example values:
+            - "Seminar 1. Week 2"
+            - "HW. Week 6"
+      example: 'Seminar 1. Week 2'
+    ExerciseItem:
+      type: object
+      description: An exercise item within a longread item.
+      additionalProperties: false
+      required: [id, name, maxScore, activity, deadline]
+      properties:
+        id:
+          $ref: '#/components/schemas/ExerciseId'
+        name:
+          $ref: '#/components/schemas/ExerciseName'
+        maxScore:
+          $ref: '#/components/schemas/MaxScore'
+        activity:
+          $ref: '#/components/schemas/ActivityDefinition'
+        deadline:
+          $ref: '#/components/schemas/Deadline'
+    LongreadName:
+      type: string
+      description: Longread name shown as the header in LMS.
+      x-re:
+        observation:
+          notes: >
+            Example values:
+            - "Lesson 1A: Duolingo"
+            - "Homework"
+      example: 'Ссылка на силлабус'
+    LongreadItem:
+      type: object
+      description: >
+        A longread list item within a course theme. It may be self-contained
+        content or include one or more associated exercises.
+      additionalProperties: false
+      required: [id, type, name, state, publishDate, publishedAt, exercises]
+      properties:
+        id:
+          $ref: '#/components/schemas/LongreadId'
+        type:
+          $ref: '#/components/schemas/LongreadType'
+        name:
+          $ref: '#/components/schemas/LongreadName'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+        exercises:
+          type: array
+          minItems: 0
+          description: Exercises associated with this longread.
+          items:
+            $ref: '#/components/schemas/ExerciseItem'
+    CourseThemeName:
+      type: string
+      description: >
+        Course theme name shown on the course view in LMS.
+      example: 'Силлабус'
+    ListingOrder:
+      type: integer
+      minimum: 0
+      description: >
+        Listing order determining the item's line position in the LMS,
+        lower values come first.
+      x-re:
+        observation:
+          notes: >
+            Seen minimum value as 1 e.g. for course theme and longread item,
+            but 0 for longread material.
+      example: 1
+    CourseThemeItem:
+      type: object
+      description: >
+        Course theme is a unit, which is typically a weekly module of
+        longread IDs and exercise items.
+      additionalProperties: false
+      required: [id, name, order, state, publishDate, publishedAt, longreads]
+      properties:
+        id:
+          $ref: '#/components/schemas/CourseThemeId'
+        name:
+          $ref: '#/components/schemas/CourseThemeName'
+        order:
+          $ref: '#/components/schemas/ListingOrder'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+        longreads:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongreadItem'
+    CourseOverviewByIdResponse:
+      type: object
+      additionalProperties: false
+      required: [id, name, isArchived, state, publishDate, publishedAt, settings, themes]
+      properties:
+        id:
+          $ref: '#/components/schemas/CourseId'
+        name:
+          $ref: '#/components/schemas/CourseName'
+        isArchived:
+          $ref: '#/components/schemas/CourseIsArchived'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+        settings:
+          $ref: '#/components/schemas/CourseSettings'
+        themes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourseThemeItem'
+    CourseThemeSummaryByIdResponse:
+      type: object
+      description: Summary information about a course theme by its ID.
+      additionalProperties: false
+      required: [id, name, state, publishDate, publishedAt, order, category, categoryCover]
+      properties:
+        id:
+          $ref: '#/components/schemas/CourseThemeId'
+        name:
+          $ref: '#/components/schemas/CourseThemeName'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+        order:
+          $ref: '#/components/schemas/ListingOrder'
+        category:
+          $ref: '#/components/schemas/CourseCategory'
+        categoryCover:
+          type: integer
+          minimum: 0
+          description: Numeric identifier of the category cover.
+          x-re:
+            observation:
+              notes: >
+                It is guessed that the category cover means icon shown in LMS
+                when the theme summary item is opened.
+          example: 0
+    LongreadSummaryByIdResponse:
+      type: object
+      additionalProperties: false
+      required: [id, type, name, order, state, publishDate, publishedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/LongreadId'
+        type:
+          $ref: '#/components/schemas/LongreadType'
+        name:
+          $ref: '#/components/schemas/LongreadName'
+        order:
+          $ref: '#/components/schemas/ListingOrder'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+    LongreadMaterialId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of a longread material block.
+      example: 54041
+    LongreadMaterialType:
+      type: string
+      description: Material block type identifier.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-03-27
+        enum:
+          descriptions:
+            'markdown': Markdown block.
+            'content': Some attachment.
+            'coding': Basically exercise where something should be attached.
+            'image': Image block.
+            'questions': Exercise with multiple questions.
+            'videoPlatform': Embedded video by link.
+      enum:
+        - markdown
+        - content
+        - coding
+        - image
+        - questions
+        - videoPlatform
+      example: 'markdown'
+    LongreadMaterialDiscriminator:
+      type: string
+      description: Material block discriminator used by LMS frontend.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-03-27
+        enum:
+          descriptions:
+            'markdown': => "markdown".
+            'file': => "content".
+            'coding': => "coding".
+            'image': => "image".
+            'questions': => "questions".
+            'videoPlatform': => "videoPlatform".
+            'video': => "content".
+            'audio': => "content".
+          notes: All of the values translate to LongreadMaterialType type.
+      enum:
+        - markdown
+        - file
+        - coding
+        - image
+        - questions
+        - videoPlatform
+        - video
+        - audio
+      example: 'markdown'
+    LongreadMaterialViewType:
+      type: string
+      description: View renderer type used by LMS frontend.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-03-27
+        enum:
+          descriptions:
+            'ngxMarkdown': Markdown rendered with ngx-markdown.
+            'file': File attachment that is downloadable.
+            'exerciseCoding': Exercise that needs attachment for completion.
+            'image': Rendered image.
+            'exerciseQuestions': Exercise that has questions to complete.
+            'videoPlatform': Embedded video by link.
+            'video': Embedded video by file.
+            'audio': Embedded audio by file.
+      enum:
+        - ngxMarkdown
+        - file
+        - exerciseCoding
+        - image
+        - exerciseQuestions
+        - videoPlatform
+        - video
+        - audio
+      example: 'ngxMarkdown'
+    FileMediaType:
+      type: string
+      description: Media type attachment identifier.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-03-27
+        enum:
+          descriptions:
+            'file': File attachment.
+            'image': Image attachment.
+            'video': Video attachment.
+            'audio': Audio attachment.
+      enum:
+        - file
+        - image
+        - video
+        - audio
+      example: 'file'
+    LongreadMaterialMediaTypeUpper:
+      type: string
+      description: Media type identifier in upper.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-03-27
+        analysis:
+          needsAnalysis: true
+          priority: medium
+          reasons:
+            - usage-unknown
+          notes: >
+            This value correlation with the real media type of
+            FileMediaType should be investigated.
+            The guess is that this value is just the upper-case version of it,
+            cuz else it makes no actual sense.
+        enum:
+          descriptions:
+            'File': => "file".
+            'Image': => "image".
+            'Video': => "video".
+            'Audio': => "audio".
+          notes: All of the values translate to FileMediaType type.
+      enum:
+        - File
+        - Image
+        - Video
+        - Audio
+      example: 'File'
+    LongreadMaterialVersion:
+      type: string
+      pattern: '^[0-9a-f]{8}$'
+      nullable: true
+      description: Material content revision identifier.
+      x-re:
+        observation:
+          notes: >
+            At first longread materials didn't have a version, so for backward
+            compatibility this value can be null.
+      example: '0104f8da'
+    LongreadMaterialLength:
+      type: integer
+      minimum: 0
+      description: Material payload size in bytes.
+      example: 1701642
+    FileAttachmentName:
+      type: string
+      description: File attachment display name shown in LMS.
+      example: 'English_204S4-C_SW_Week 6.pdf'
+    FileNameObjectPath:
+      type: string
+      description: File object path in storage.
+      example: 'longreads/16770/English_204S4-C_SW_Week 6.pdf'
+    LongreadMaterialContent:
+      type: object
+      additionalProperties: false
+      required: [name, filename, mediaType, version, length]
+      properties:
+        name:
+          $ref: '#/components/schemas/FileAttachmentName'
+        filename:
+          $ref: '#/components/schemas/FileNameObjectPath'
+        mediaType:
+          $ref: '#/components/schemas/LongreadMaterialMediaTypeUpper'
+        version:
+          $ref: '#/components/schemas/LongreadMaterialVersion'
+        length:
+          $ref: '#/components/schemas/LongreadMaterialLength'
+    LongreadMaterialViewContent:
+      type: string
+      nullable: true
+      description: JSON-serialized markdown content rendered in LMS.
+      x-re:
+        observation:
+          notes: >
+            Seen 2 different versions of JSON content:
+              1. `value`, `isTuiEditor`
+              2. `description`
+            Seems to be nullable in places where can be omitted, e.g. in coding
+            exercises there can be no description.
+      example: '{"value":"<p>...</p>","isTuiEditor":true}'
+    LongreadMaterialAttachmentItem:
+      type: object
+      additionalProperties: false
+      required: [name, filename, mediaType, length, version]
+      properties:
+        name:
+          allOf:
+            - $ref: '#/components/schemas/FileAttachmentName'
+          example: 'English_204S4_C_HW_2e_Week _6.pdf'
+        filename:
+          allOf:
+            - $ref: '#/components/schemas/FileNameObjectPath'
+          example: 'exercises/54045/English_204S4_C_HW_2e_Week _6.pdf'
+        mediaType:
+          $ref: '#/components/schemas/FileMediaType'
+        length:
+          $ref: '#/components/schemas/LongreadMaterialLength'
+        version:
+          $ref: '#/components/schemas/LongreadMaterialVersion'
+    TaskId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of the task.
+      example: 1468065
+    ExerciseUrl:
+      type: string
+      nullable: true
+      description: URL of coding exercise if configured.
+      x-re:
+        observation:
+          notes: This URL is shown on frontend labeled as "Подробное условие".
+      example: null
+    LongreadMaterialCoding:
+      type: object
+      additionalProperties: false
+      required: [exerciseUrl]
+      properties:
+        exerciseUrl:
+          $ref: '#/components/schemas/ExerciseUrl'
+    ActivityIsLateDaysEnabled:
+      type: boolean
+      description: Indicates if late days can be used for this activity.
+      example: true
+    LongreadMaterialActivity:
+      type: object
+      description: Activity configuration for a longread exercise.
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: Based on ActivityDefinition.
+      additionalProperties: false
+      required: [id, name, weight, maxExercisesCount, averageScoreThreshold, isLateDaysEnabled]
+      properties:
+        # Inherited from ActivityDefinition.
+        id:
+          $ref: '#/components/schemas/ActivityId'
+        name:
+          $ref: '#/components/schemas/ActivityName'
+        weight:
+          $ref: '#/components/schemas/ActivityWeight'
+        # Other.
+        maxExercisesCount:
+          type: number
+          minimum: 1
+          description: Max exercises count.
+          x-re:
+            schema:
+              typing: full
+            analysis:
+              needsAnalysis: true
+              priority: low
+              reasons:
+                - meaning-unknown
+              notes: Meaning for the count is unknown.
+          example: 12
+        averageScoreThreshold:
+          type: number
+          minimum: 0
+          nullable: true
+          description: Average score threshold.
+          x-re:
+            analysis:
+              needsAnalysis: true
+              priority: low
+              reasons:
+                - meaning-unknown
+              notes: Unknown meaning and usage.
+          example: 0
+        isLateDaysEnabled:
+          $ref: '#/components/schemas/ActivityIsLateDaysEnabled'
+    LongreadMaterialTimer:
+      type: string
+      nullable: true
+      description: Timer by which exercise should be completed.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          notes: >
+            Observed for `discriminator` == "questions", sets timer value for
+            task to be completed.
+      example: '00:30:00'
+    StartDate:
+      type: string
+      format: date-time
+      description: Scheduled item start timestamp.
+      x-re:
+        observation:
+          notes: It seems that this can be the same as PublishDate.
+      example: '2026-01-26T07:00:00+00:00'
+    LongreadMaterialEstimation:
+      type: object
+      description: Estimation and grading constraints for exercise material.
+      x-re:
+        observation:
+          notes: >
+            There are rare cases when value of
+            `maxScore`, `deadline` and `activity` is null.
+      additionalProperties: false
+      required: [startDate, timer, maxScore, deadline, activity]
+      properties:
+        startDate:
+          $ref: '#/components/schemas/StartDate'
+        timer:
+          $ref: '#/components/schemas/LongreadMaterialTimer'
+        maxScore:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/MaxScore'
+        deadline:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Deadline'
+        activity:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/LongreadMaterialActivity'
+    BackloggedAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Timestamp when task was moved to backlog.
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: low
+          reasons:
+            - meaning-unknown
+          notes: >
+            The exact meaning of this property is unclear.
+            It does not affect the frontend, but it appears to represent
+            the date when the authors consider the exercise creation
+            to be complete?
+      example: '2026-03-07T07:00:05.991326+00:00'
+    LongreadExerciseQuestionsMode:
+      type: string
+      description: Questions mode.
+      x-re:
+        observation:
+          observedAsOf: 2026-04-26
+        analysis:
+          needsAnalysis: true
+          priority: low
+          reasons:
+            - usage-unknown
+          notes: Unknown usage, as the logic behind this value is unknown.
+      enum:
+        - atMoment
+        - byDeadline
+      example: 'atMoment'
+    QuestionsSettingsEvalStrategy:
+      type: string
+      description: Questions exercise evaluation strategy.
+      x-re:
+        notes: Frontend source defines 2 enum values, "last" and "best".
+      enum:
+        - last
+        - best
+      example: 'last'
+    ExerciseQuestionsSettings:
+      type: object
+      description: Settings for questions exercise behavior.
+      additionalProperties: false
+      required: [questionsPerAttempt, attemptsLimit, evaluationStrategy]
+      properties:
+        questionsPerAttempt:
+          $ref: '#/components/schemas/_x_re_propertyIncomplete_OnlyNullObserved'
+        attemptsLimit:
+          type: integer
+          minimum: 0
+          example: 1
+        evaluationStrategy:
+          $ref: '#/components/schemas/QuestionsSettingsEvalStrategy'
+    QuizId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of the quiz.
+      x-re:
+        observation:
+          notes: It seems that this is the same as TaskId or ExerciseId.
+      example: 841
+    QuestionId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of the question.
+      example: 766
+    QuestionOptionRecommendation:
+      type: string
+      nullable: true
+      description: Text rendered under the options on frontend.
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: low
+          reasons:
+            - other
+          notes: >
+            Need to investigate more what actual sense this has,
+            as only observed value was "-".
+      example: '-'
+    QuestionItemAutoEvaluation:
+      type: boolean
+      description: Indicates if the question is auto evaluated.
+      example: false
+    QuestionItemEvaluationBlock:
+      type: object
+      additionalProperties: false
+      required: [correctAnswer, autoEvaluation, recommendation]
+      properties:
+        correctAnswer:
+          $ref: '#/components/schemas/QuestionItemCorrectAnswer'
+        autoEvaluation:
+          $ref: '#/components/schemas/QuestionItemAutoEvaluation'
+        recommendation:
+          x-re:
+            schema:
+              typing: full
+              modeled: full
+            analysis:
+              needsAnalysis: true
+              priority: medium
+              reasons:
+                - other
+              notes: Only seen this exact value as null, so this is a guess.
+          allOf:
+            - $ref: '#/components/schemas/QuestionOptionRecommendation'
+    QuestionItemContent:
+      type: string
+      description: JSON-serialized markdown question content rendered in LMS.
+      x-re:
+        observation:
+          notes: >
+            Markdown blocks contain JSON with `description`.
+            Format is not the same as for LongreadMaterialViewContent.
+      example: '{"description": "..."}'
+    QuestionItemScore:
+      type: number
+      format: double
+      minimum: 0
+      description: Score (max possible) for answering the question correctly.
+      example: 5
+    QuestionOptionId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of the question option.
+      example: 471
+    QuestionOptionIsCorrect:
+      type: boolean
+      description: Indicates if the option is the correct answer.
+      x-re:
+        observation:
+          notes: >
+            Seen value to be true when there is only one possible option.
+      example: true
+    QuestionItemOption:
+      type: object
+      description: Option is a possible answer that can be chosen.
+      additionalProperties: false
+      required: [id, value, order, isCorrect, recommendation]
+      properties:
+        id:
+          $ref: '#/components/schemas/QuestionOptionId'
+        value:
+          type: string
+          description: The option value rendered on frontend.
+          example: 'Ознакомлен'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 0
+        isCorrect:
+          $ref: '#/components/schemas/QuestionOptionIsCorrect'
+        recommendation:
+          $ref: '#/components/schemas/QuestionOptionRecommendation'
+    QuestionItemOptions:
+      type: array
+      items:
+        $ref: '#/components/schemas/QuestionItemOption'
+    QuestionItemCorrectAnswerInputStringCorrectAnswer:
+      type: object
+      description: Shows correct string input answers.
+      additionalProperties: false
+      required: [type, variants]
+      properties:
+        type:
+          type: string
+          enum: [inputStringCorrectAnswer]
+          example: 'inputStringCorrectAnswer'
+        variants:
+          type: array
+          items:
+            type: string
+          example: ['АБББ', 'А Б Б Б', 'А, Б, Б, Б']
+    QuestionItemCorrectAnswerInputNumberCorrectAnswer:
+      type: object
+      description: Shows correct number input answers.
+      additionalProperties: false
+      required: [type, variants, showPrecisionHint, precision]
+      properties:
+        type:
+          type: string
+          enum: [inputNumberCorrectAnswer]
+          example: 'inputNumberCorrectAnswer'
+        variants:
+          type: array
+          items:
+            type: number
+          example: [2.5]
+        showPrecisionHint:
+          type: boolean
+          description: Indicates if precision hint should be shown on frontend.
+          example: true
+        autoEvaluationPrecision: # non-required
+          type: string
+          pattern: "^0(\\.0+)?"
+          nullable: true
+          example: '0.00'
+        precision:
+          type: integer
+          minimum: 0
+          nullable: true
+          example: 2
+    QuestionItemCorrectAnswer:
+      # yamllint disable rule:line-length
+      nullable: true
+      oneOf:
+        - $ref: '#/components/schemas/QuestionItemCorrectAnswerInputStringCorrectAnswer'
+        - $ref: '#/components/schemas/QuestionItemCorrectAnswerInputNumberCorrectAnswer'
+      discriminator:
+        propertyName: type
+        mapping:
+          inputStringCorrectAnswer: '#/components/schemas/QuestionItemCorrectAnswerInputStringCorrectAnswer'
+          inputNumberCorrectAnswer: '#/components/schemas/QuestionItemCorrectAnswerInputNumberCorrectAnswer'
+    # yamllint enable rule:line-length
+    QuestionitemAreOptionsShuffled:
+      type: boolean
+      description: Indicates if options need to be shuffled on frontend.
+      example: false
+    LongreadExerciseInputQuestionItem:
+      type: object
+      description: Question that needs input as answer.
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: >
+          Based on longreadExerciseQuestionBase
+          and QuestionItemEvaluationBlock.
+      additionalProperties: false
+      required:
+        [
+          type,
+          id,
+          order,
+          content,
+          score,
+          attachments,
+          correctAnswer,
+          autoEvaluation,
+          recommendation,
+          input,
+        ]
+      properties:
+        # Inherited from longreadExerciseQuestionBase.
+        type:
+          type: string
+          enum: [input]
+          example: 'input'
+        id:
+          $ref: '#/components/schemas/QuestionId'
+        order:
+          $ref: '#/components/schemas/ListingOrder'
+        content:
+          $ref: '#/components/schemas/QuestionItemContent'
+        score:
+          $ref: '#/components/schemas/QuestionItemScore'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongreadMaterialAttachmentItem'
+        # Inherited from QuestionItemEvaluationBlock.
+        correctAnswer:
+          $ref: '#/components/schemas/QuestionItemCorrectAnswer'
+        autoEvaluation:
+          $ref: '#/components/schemas/QuestionItemAutoEvaluation'
+        recommendation:
+          $ref: '#/components/schemas/QuestionOptionRecommendation'
+        # Other.
+        input:
+          $ref: '#/components/schemas/QuestionItemEvaluationBlock'
+    LongreadExerciseSingleChoiceQuestionitem:
+      type: object
+      description: Question that requires the right choice as answer.
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: Based on longreadExerciseQuestionBase.
+      additionalProperties: false
+      required:
+        [type, id, order, content, score, attachments, options, areOptionsShuffled, singleChoice]
+      properties:
+        # Inherited from longreadExerciseQuestionBase.
+        type:
+          type: string
+          enum: [singleChoice]
+          example: 'singleChoice'
+        id:
+          $ref: '#/components/schemas/QuestionId'
+        order:
+          $ref: '#/components/schemas/ListingOrder'
+        content:
+          $ref: '#/components/schemas/QuestionItemContent'
+        score:
+          $ref: '#/components/schemas/QuestionItemScore'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongreadMaterialAttachmentItem'
+        # Other.
+        options:
+          $ref: '#/components/schemas/QuestionItemOptions'
+        areOptionsShuffled:
+          $ref: '#/components/schemas/QuestionitemAreOptionsShuffled'
+        singleChoice:
+          type: object
+          additionalProperties: false
+          required: [options]
+          properties:
+            options:
+              $ref: '#/components/schemas/QuestionItemOptions'
+    LongreadExerciseMultipleChoiceQuestionItem:
+      type: object
+      description: Question that requires chosing multiple options as answer.
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: Based on longreadExerciseQuestionBase.
+      additionalProperties: false
+      required:
+        [type, id, order, content, score, attachments, options, areOptionsShuffled, multipleChoice]
+      properties:
+        # Inherited from longreadExerciseQuestionBase.
+        type:
+          type: string
+          enum: [multipleChoice]
+          example: 'multipleChoice'
+        id:
+          $ref: '#/components/schemas/QuestionId'
+        order:
+          $ref: '#/components/schemas/ListingOrder'
+        content:
+          $ref: '#/components/schemas/QuestionItemContent'
+        score:
+          $ref: '#/components/schemas/QuestionItemScore'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongreadMaterialAttachmentItem'
+        # Other.
+        options:
+          $ref: '#/components/schemas/QuestionItemOptions'
+        areOptionsShuffled:
+          $ref: '#/components/schemas/QuestionitemAreOptionsShuffled'
+        multipleChoice:
+          type: object
+          additionalProperties: false
+          required: [options]
+          properties:
+            options:
+              $ref: '#/components/schemas/QuestionItemOptions'
+    LongreadExerciseQuestionItem:
+      # yamllint disable rule:line-length
+      oneOf:
+        - $ref: '#/components/schemas/LongreadExerciseInputQuestionItem'
+        - $ref: '#/components/schemas/LongreadExerciseSingleChoiceQuestionitem'
+        - $ref: '#/components/schemas/LongreadExerciseMultipleChoiceQuestionItem'
+      discriminator:
+        propertyName: type
+        mapping:
+          input: '#/components/schemas/LongreadExerciseInputQuestionItem'
+          singleChoice: '#/components/schemas/LongreadExerciseSingleChoiceQuestionitem'
+          multipleChoice: '#/components/schemas/LongreadExerciseMultipleChoiceQuestionItem'
+    # yamllint enable rule:line-length
+    VideoId:
+      type: string
+      format: uuid
+      description: Video identifier in UUID format.
+      example: '89b9757f-3f1d-4e9b-8f50-4c7f99617ff4'
+    VideoPlatformState:
+      type: string
+      description: Video state.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-04-26
+        analysis:
+          needsAnalysis: true
+          priority: low
+          reasons:
+            - meaning-unknown
+          notes: >
+            Seems to somehow show the current video state.
+            But it's hard to get the sense of it.
+            It seems it shows KTalk's video status?
+        enum:
+          descriptions:
+            'empty': Video is empty? (meaning is unknown).
+            'ready': Video is ready.
+      enum:
+        - unspecified
+        - empty
+        - uploaded
+        - transcoding
+        - viewable
+        - ready
+        - partiallyReady
+        - error
+      example: 'ready'
+    LongreadExerciseMaterialReviewers:
+      type: array
+      minItems: 0
+      description: Reviewers assigned to this exercise task.
+      x-re:
+        observation:
+          notes: >
+            Reviewer is added to the list after being selected by the System.
+      items:
+        $ref: '#/components/schemas/UserId'
+    LongreadExerciseMaterialAssignees:
+      type: array
+      minItems: 0
+      description: Assignees linked to this exercise task.
+      x-re:
+        schema:
+          typing: full
+          modeled: full
+        analysis:
+          needsAnalysis: true
+          priority: low
+          reasons:
+            - only-empty-array-observed
+            - usage-unknown
+          notes: >
+            Never seen this array having items, so item type
+            is a guess.
+            Purpose is unknown, but a guess is that this property is
+            unused for now and in the future there would be a feature
+            of assigning multiple students to the same task?
+        observation:
+          observedAsOf: 2026-03-27
+      items:
+        $ref: '#/components/schemas/UserId'
+    LongreadExerciseMaterialIsTrackingStudents:
+      type: boolean
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: medium
+          reasons:
+            - meaning-unknown
+            - other
+          notes: Unknown meaning and usage.
+      example: false
+    AreQuestionsShuffled:
+      type: boolean
+      description: Indicates if questions need to be shuffled on frontend.
+      example: false
+    LongreadMarkdownMaterialItem:
+      type: object
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: Based on longreadMaterialBase.
+      additionalProperties: false
+      required:
+        [discriminator, state, viewType, type, id, order, viewContent, publishDate, publishedAt]
+      properties:
+        # Inherited from longreadMaterialBase.
+        discriminator:
+          $ref: '#/components/schemas/LongreadMaterialDiscriminator'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        viewType:
+          $ref: '#/components/schemas/LongreadMaterialViewType'
+        type:
+          $ref: '#/components/schemas/LongreadMaterialType'
+        id:
+          $ref: '#/components/schemas/LongreadMaterialId'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 0
+        # Other.
+        viewContent:
+          nullable: false
+          x-re:
+            notes: Logically this is never null for `type` "markdown".
+          allOf:
+            - $ref: '#/components/schemas/LongreadMaterialViewContent'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+    LongreadFileMaterialItem:
+      type: object
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: Based on longreadMaterialBase.
+      additionalProperties: false
+      required:
+        [
+          discriminator,
+          state,
+          viewType,
+          type,
+          id,
+          order,
+          mediaType,
+          filename,
+          version,
+          length,
+          publishDate,
+          publishedAt,
+          content,
+        ]
+      properties:
+        # Inherited from longreadMaterialBase.
+        discriminator:
+          $ref: '#/components/schemas/LongreadMaterialDiscriminator'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        viewType:
+          $ref: '#/components/schemas/LongreadMaterialViewType'
+        type:
+          $ref: '#/components/schemas/LongreadMaterialType'
+        id:
+          $ref: '#/components/schemas/LongreadMaterialId'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 0
+        # Other.
+        mediaType:
+          $ref: '#/components/schemas/FileMediaType'
+        filename:
+          $ref: '#/components/schemas/FileNameObjectPath'
+        version:
+          $ref: '#/components/schemas/LongreadMaterialVersion'
+        length:
+          $ref: '#/components/schemas/LongreadMaterialLength'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+        content:
+          $ref: '#/components/schemas/LongreadMaterialContent'
+    LongreadExerciseCodingMaterialItem:
+      type: object
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: Based in longreadExerciseMaterialBase.
+      additionalProperties: false
+      required:
+        [
+          discriminator,
+          state,
+          viewType,
+          type,
+          id,
+          order,
+          name,
+          viewContent,
+          estimation,
+          reviewers,
+          assignees,
+          attachments,
+          backloggedAt,
+          taskId,
+          isTrackingStudents,
+          exerciseUrl,
+          coding,
+        ]
+      properties:
+        # Inherited from longreadExerciseMaterialBase.
+        discriminator:
+          $ref: '#/components/schemas/LongreadMaterialDiscriminator'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        viewType:
+          $ref: '#/components/schemas/LongreadMaterialViewType'
+        type:
+          $ref: '#/components/schemas/LongreadMaterialType'
+        id:
+          $ref: '#/components/schemas/LongreadMaterialId'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 0
+        name:
+          $ref: '#/components/schemas/ExerciseName'
+        viewContent:
+          $ref: '#/components/schemas/LongreadMaterialViewContent'
+        estimation:
+          $ref: '#/components/schemas/LongreadMaterialEstimation'
+        reviewers:
+          $ref: '#/components/schemas/LongreadExerciseMaterialReviewers'
+        assignees:
+          $ref: '#/components/schemas/LongreadExerciseMaterialAssignees'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongreadMaterialAttachmentItem'
+        backloggedAt:
+          $ref: '#/components/schemas/BackloggedAt'
+        taskId:
+          $ref: '#/components/schemas/TaskId'
+        # Other.
+        isTrackingStudents:
+          # yamllint disable-line rule:line-length
+          $ref: '#/components/schemas/LongreadExerciseMaterialIsTrackingStudents'
+        exerciseUrl:
+          $ref: '#/components/schemas/ExerciseUrl'
+        coding:
+          $ref: '#/components/schemas/LongreadMaterialCoding'
+    LongreadImageMaterialItem:
+      type: object
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: Based on longreadMaterialBase.
+      additionalProperties: false
+      required:
+        [
+          discriminator,
+          state,
+          viewType,
+          type,
+          id,
+          order,
+          imageScale,
+          mediaType,
+          filename,
+          version,
+          length,
+          publishDate,
+          publishedAt,
+          content,
+        ]
+      properties:
+        # Inherited from longreadMaterialBase.
+        discriminator:
+          $ref: '#/components/schemas/LongreadMaterialDiscriminator'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        viewType:
+          $ref: '#/components/schemas/LongreadMaterialViewType'
+        type:
+          $ref: '#/components/schemas/LongreadMaterialType'
+        id:
+          $ref: '#/components/schemas/LongreadMaterialId'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 0
+        # Other.
+        imageScale:
+          type: integer
+          nullable: true
+          description: Image scale.
+          x-re:
+            analysis:
+              needsAnalysis: true
+              priority: low
+              reasons:
+                - usage-unknown
+              notes: >
+                Not exactly known how this scale works if value is not null.
+          example: 100
+        mediaType:
+          allOf:
+            - $ref: '#/components/schemas/FileMediaType'
+          example: 'image'
+        filename:
+          allOf:
+            - $ref: '#/components/schemas/FileNameObjectPath'
+          example: 'longreads/301/Снимок экрана 2024-08-12 в 11.10.59.png'
+        version:
+          $ref: '#/components/schemas/LongreadMaterialVersion'
+        length:
+          $ref: '#/components/schemas/LongreadMaterialLength'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+        content:
+          $ref: '#/components/schemas/LongreadMaterialContent'
+    LongreadExerciseQuestionsMaterialItem:
+      type: object
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: Based on longreadExerciseMaterialBase.
+      additionalProperties: false
+      required:
+        [
+          discriminator,
+          state,
+          viewType,
+          type,
+          id,
+          order,
+          name,
+          viewContent,
+          estimation,
+          reviewers,
+          assignees,
+          attachments,
+          backloggedAt,
+          taskId,
+          mode,
+          areQuestionsShuffled,
+          settings,
+          quizId,
+          questions,
+          isTrackingStudents,
+        ]
+      properties:
+        # Inherited from longreadExerciseMaterialBase.
+        discriminator:
+          $ref: '#/components/schemas/LongreadMaterialDiscriminator'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        viewType:
+          $ref: '#/components/schemas/LongreadMaterialViewType'
+        type:
+          $ref: '#/components/schemas/LongreadMaterialType'
+        id:
+          $ref: '#/components/schemas/LongreadMaterialId'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 0
+        name:
+          $ref: '#/components/schemas/ExerciseName'
+        viewContent:
+          $ref: '#/components/schemas/LongreadMaterialViewContent'
+        estimation:
+          $ref: '#/components/schemas/LongreadMaterialEstimation'
+        reviewers:
+          $ref: '#/components/schemas/LongreadExerciseMaterialReviewers'
+        assignees:
+          $ref: '#/components/schemas/LongreadExerciseMaterialAssignees'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongreadMaterialAttachmentItem'
+        backloggedAt:
+          $ref: '#/components/schemas/BackloggedAt'
+        taskId:
+          $ref: '#/components/schemas/TaskId'
+        # Other.
+        isTrackingStudents:
+          # yamllint disable-line rule:line-length
+          $ref: '#/components/schemas/LongreadExerciseMaterialIsTrackingStudents'
+        mode:
+          $ref: '#/components/schemas/LongreadExerciseQuestionsMode'
+        areQuestionsShuffled:
+          $ref: '#/components/schemas/AreQuestionsShuffled'
+        settings:
+          $ref: '#/components/schemas/ExerciseQuestionsSettings'
+        quizId:
+          $ref: '#/components/schemas/QuizId'
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongreadExerciseQuestionItem'
+    LongreadVideoPlatformMaterialItem:
+      type: object
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: Based on longreadMaterialBase.
+      additionalProperties: false
+      required:
+        [
+          discriminator,
+          state,
+          viewType,
+          type,
+          id,
+          order,
+          name,
+          description,
+          videoId,
+          timecodes,
+          publishDate,
+          videoState,
+          url,
+        ]
+      properties:
+        # Based on longreadMaterialBase.
+        discriminator:
+          $ref: '#/components/schemas/LongreadMaterialDiscriminator'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        viewType:
+          $ref: '#/components/schemas/LongreadMaterialViewType'
+        type:
+          $ref: '#/components/schemas/LongreadMaterialType'
+        id:
+          $ref: '#/components/schemas/LongreadMaterialId'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 0
+        # Other.
+        name:
+          type: string
+          description: Embedded video title.
+          x-re:
+            notes: For some reason not shown on frontend.
+          example: 'Прожарка резюме и HR-собеседования'
+        description:
+          type: string
+          description: Embedded video description.
+          x-re:
+            notes: >
+              Only seen as empty, so unknown if it is shown on frontend.
+          example: ''
+        videoId:
+          $ref: '#/components/schemas/VideoId'
+        timecodes:
+          # yamllint disable-line rule:line-length
+          $ref: '#/components/schemas/_x_re_propertyIncomplete_OnlyEmptyArrayObserved'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        videoState:
+          $ref: '#/components/schemas/VideoPlatformState'
+        url:
+          type: string
+          format: uri
+          example: 'https://vp-embed.example.com/?token=ey...'
+    LongreadVideoMaterialItem:
+      type: object
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: >
+          Based on longreadMaterialBase.
+          Internally is the same as LongreadFileMaterialItem, but schema
+          is recreated as ogen doesn't support "sum types with same names".
+      additionalProperties: false
+      required:
+        [
+          discriminator,
+          state,
+          viewType,
+          type,
+          id,
+          order,
+          mediaType,
+          filename,
+          version,
+          length,
+          publishDate,
+          publishedAt,
+          content,
+        ]
+      properties:
+        # Inherited from longreadMaterialBase.
+        discriminator:
+          $ref: '#/components/schemas/LongreadMaterialDiscriminator'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        viewType:
+          $ref: '#/components/schemas/LongreadMaterialViewType'
+        type:
+          $ref: '#/components/schemas/LongreadMaterialType'
+        id:
+          $ref: '#/components/schemas/LongreadMaterialId'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 0
+        # Other.
+        mediaType:
+          $ref: '#/components/schemas/FileMediaType'
+        filename:
+          $ref: '#/components/schemas/FileNameObjectPath'
+        version:
+          $ref: '#/components/schemas/LongreadMaterialVersion'
+        length:
+          $ref: '#/components/schemas/LongreadMaterialLength'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+        content:
+          $ref: '#/components/schemas/LongreadMaterialContent'
+    LongreadAudioMaterialItem:
+      type: object
+      x-re:
+        serialization:
+          propertyOrder:
+            source: unspecified
+        notes: >
+          Based on longreadMaterialBase.
+          Internally is the same as LongreadFileMaterialItem, but schema
+          is recreated as ogen doesn't support "sum types with same names".
+      additionalProperties: false
+      required:
+        [
+          discriminator,
+          state,
+          viewType,
+          type,
+          id,
+          order,
+          mediaType,
+          filename,
+          version,
+          length,
+          publishDate,
+          publishedAt,
+          content,
+        ]
+      properties:
+        # Inherited from longreadMaterialBase.
+        discriminator:
+          $ref: '#/components/schemas/LongreadMaterialDiscriminator'
+        state:
+          $ref: '#/components/schemas/PublicationState'
+        viewType:
+          $ref: '#/components/schemas/LongreadMaterialViewType'
+        type:
+          $ref: '#/components/schemas/LongreadMaterialType'
+        id:
+          $ref: '#/components/schemas/LongreadMaterialId'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 0
+        # Other.
+        mediaType:
+          $ref: '#/components/schemas/FileMediaType'
+        filename:
+          $ref: '#/components/schemas/FileNameObjectPath'
+        version:
+          $ref: '#/components/schemas/LongreadMaterialVersion'
+        length:
+          $ref: '#/components/schemas/LongreadMaterialLength'
+        publishDate:
+          $ref: '#/components/schemas/PublishDate'
+        publishedAt:
+          $ref: '#/components/schemas/PublishedAt'
+        content:
+          $ref: '#/components/schemas/LongreadMaterialContent'
+    LongreadMaterialItem:
+      # yamllint disable rule:line-length
+      oneOf:
+        - $ref: '#/components/schemas/LongreadMarkdownMaterialItem'
+        - $ref: '#/components/schemas/LongreadFileMaterialItem'
+        - $ref: '#/components/schemas/LongreadExerciseCodingMaterialItem'
+        - $ref: '#/components/schemas/LongreadImageMaterialItem'
+        - $ref: '#/components/schemas/LongreadExerciseQuestionsMaterialItem'
+        - $ref: '#/components/schemas/LongreadVideoPlatformMaterialItem'
+        - $ref: '#/components/schemas/LongreadVideoMaterialItem'
+        - $ref: '#/components/schemas/LongreadAudioMaterialItem'
+      discriminator:
+        propertyName: discriminator
+        mapping:
+          markdown: '#/components/schemas/LongreadMarkdownMaterialItem'
+          file: '#/components/schemas/LongreadFileMaterialItem'
+          coding: '#/components/schemas/LongreadExerciseCodingMaterialItem'
+          image: '#/components/schemas/LongreadImageMaterialItem'
+          questions: '#/components/schemas/LongreadExerciseQuestionsMaterialItem'
+          videoPlatform: '#/components/schemas/LongreadVideoPlatformMaterialItem'
+          video: '#/components/schemas/LongreadVideoMaterialItem'
+          audio: '#/components/schemas/LongreadAudioMaterialItem'
+    # yamllint enable rule:line-length
+    LongreadMaterialsByIdResponse:
+      type: object
+      additionalProperties: false
+      required: [items, paging]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongreadMaterialItem'
+        paging:
+          $ref: '#/components/schemas/Paging'
+    TaskType:
+      type: string
+      description: Task type.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-03-27
+        enum:
+          descriptions:
+            'coding': Coding exercise.
+            'questions': Questions exercise.
+      enum:
+        - coding
+        - questions
+      example: 'coding'
+    TaskState:
+      type: string
+      description: Task state.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-03-27
+        enum:
+          descriptions:
+            # yamllint disable rule:line-length
+            'backlog': Task was not started.
+            'inProgress': Task is in progress, not completed yet by student.
+            'submitted': Task was submitted and is waiting for review or evaluation.
+            'review': Task is being reviewed.
+            'evaluated': Task was evaluated.
+            'failed': Task was not completed.
+            # yamllint enable rule:line-length
+      enum:
+        - backlog
+        - inProgress
+        - submitted
+        - review
+        - evaluated
+        - failed
+      example: 'inProgress'
+    TaskScore:
+      type: number
+      format: double
+      nullable: true
+      description: Task score, if it was evaluated.
+      x-re:
+        schema:
+          typing: full
+    TaskScoreSkillLevel:
+      type: string
+      description: Task score translated to the course skill level.
+      x-re:
+        schema:
+          typing: full
+        observation:
+          observedAsOf: 2026-04-23
+        enum:
+          descriptions:
+            'none': No skill level assigned.
+            'basic': Basic task skill level.
+            'intermediate': Intermediate task skill level.
+            'advanced': Advanced task skill level.
+      enum:
+        - none
+        - basic
+        - intermediate
+        - advanced
+    TaskExtraScore:
+      type: number
+      format: double
+      nullable: true
+      description: Extra score for task, if not null.
+      example: 1
+    CreatedAt:
+      type: string
+      format: date-time
+      description: Task creation in LMS timestamp.
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: high
+          reasons:
+            - optionality-uncertain
+    StartedAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Task start timestamp.
+    SubmitAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Task submit timestamp.
+    RejectAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Task rejection timestamp.
+      x-re:
+        observation:
+          notes: This can be null even after `state` was set to "evaluated".
+    EvaluateAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Task evaluation by system timestamp.
+    TaskLateDays:
+      type: integer
+      minimum: 0
+      nullable: true
+      description: How many late days already been spent on task, if any.
+      example: 5
+    TaskExerciseViewContent:
+      type: string
+      nullable: true
+      x-re:
+        observation:
+          notes: This is null in rare cases.
+      description: JSON-serialized markdown content of task rendered in LMS.
+      # yamllint disable-line rule:line-length
+      example: '{"description": "<p>Заполни “Шаблон: моя мотивация” и прикрепи в поле ниже.</p>"}'
+    TaskExerciseActivity:
+      type: object
+      additionalProperties: false
+      required: [id, name, weight, isLateDaysEnabled]
+      properties:
+        id:
+          $ref: '#/components/schemas/ActivityId'
+        name:
+          $ref: '#/components/schemas/ActivityName'
+        weight:
+          $ref: '#/components/schemas/ActivityWeight'
+        isLateDaysEnabled:
+          $ref: '#/components/schemas/ActivityIsLateDaysEnabled'
+      example: { 'id': 1880, 'name': 'Домашние задания', 'weight': 0.2, 'isLateDaysEnabled': true }
+    TaskAttachment:
+      type: object
+      x-re:
+        notes: This is not the same as LongreadMaterialContent.
+      additionalProperties: false
+      required: [name, filename, mediaType, length, version]
+      properties:
+        name:
+          $ref: '#/components/schemas/FileAttachmentName'
+        filename:
+          $ref: '#/components/schemas/FileNameObjectPath'
+        mediaType:
+          $ref: '#/components/schemas/FileMediaType'
+        length:
+          $ref: '#/components/schemas/LongreadMaterialLength'
+        version:
+          $ref: '#/components/schemas/LongreadMaterialVersion'
+      example:
+        # yamllint disable rule:line-length
+        {
+          'name': '6 неделя_Стресс-менеджмент_Шаблон Моя Мотивация.xlsx',
+          'filename': 'exercises/60068/6 неделя_Стресс-менеджмент_Шаблон Моя Мотивация.xlsx',
+          'mediaType': 'file',
+          'length': 403448,
+          'version': '01175dc5',
+        }
+        # yamllint enable rule:line-length
+    TaskExerciseQuestionOrders:
+      type: array
+      nullable: true
+      items:
+        $ref: '#/components/schemas/TaskExerciseQuestionOrder'
+    TaskExerciseQuestionOrder:
+      type: object
+      additionalProperties: false
+      required: [questionId, order, optionOrders]
+      properties:
+        questionId:
+          $ref: '#/components/schemas/QuestionId'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 1
+        optionOrders:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskExerciseQuestionOrderOptionOrder'
+    TaskExerciseQuestionOrderOptionOrder:
+      type: object
+      additionalProperties: false
+      required: [optionId, order]
+      properties:
+        optionId:
+          $ref: '#/components/schemas/QuestionOptionId'
+        order:
+          allOf:
+            - $ref: '#/components/schemas/ListingOrder'
+          example: 0
+    TaskExercise:
+      type: object
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: high
+          reasons:
+            - optionality-uncertain
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          type,
+          maxScore,
+          startDate,
+          deadline,
+          timer,
+          activity,
+          questionOrders,
+          areQuestionsShuffled,
+          quizId,
+          mode,
+          viewContent,
+          exerciseUrl,
+          attachments,
+          settings,
+        ]
+      properties:
+        id:
+          $ref: '#/components/schemas/ExerciseId'
+        name:
+          $ref: '#/components/schemas/ExerciseName'
+        type:
+          x-re:
+            notes: It is a guess that this is the same as TaskType.
+          allOf:
+            - $ref: '#/components/schemas/TaskType'
+        maxScore:
+          $ref: '#/components/schemas/MaxScore'
+        startDate:
+          $ref: '#/components/schemas/StartDate'
+        deadline:
+          $ref: '#/components/schemas/Deadline'
+        timer:
+          $ref: '#/components/schemas/_x_re_propertyIncomplete_OnlyNullObserved'
+        activity:
+          $ref: '#/components/schemas/TaskExerciseActivity'
+        questionOrders:
+          $ref: '#/components/schemas/TaskExerciseQuestionOrders'
+        areQuestionsShuffled:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/AreQuestionsShuffled'
+        quizId:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/QuizId'
+        mode:
+          $ref: '#/components/schemas/_x_re_propertyIncomplete_OnlyNullObserved'
+        viewContent:
+          $ref: '#/components/schemas/TaskExerciseViewContent'
+        exerciseUrl:
+          $ref: '#/components/schemas/ExerciseUrl'
+        attachments:
+          type: array
+          nullable: true
+          x-re:
+            observation:
+              notes: This is observed to be null in rare cases.
+          items:
+            $ref: '#/components/schemas/TaskAttachment'
+        settings:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ExerciseQuestionsSettings'
+    TaskCourse:
+      type: object
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: high
+          reasons:
+            - optionality-uncertain
+      additionalProperties: false
+      required: [id, name, isArchived]
+      properties:
+        id:
+          $ref: '#/components/schemas/CourseId'
+        name:
+          $ref: '#/components/schemas/CourseName'
+        isArchived:
+          $ref: '#/components/schemas/CourseIsArchived'
+    TaskCourseTheme:
+      type: object
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: high
+          reasons:
+            - optionality-uncertain
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/CourseThemeId'
+        name:
+          $ref: '#/components/schemas/CourseThemeName'
+    TaskLongread:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id:
+          $ref: '#/components/schemas/LongreadId'
+        name:
+          $ref: '#/components/schemas/LongreadName'
+    TaskReviewer:
+      type: object
+      nullable: true
+      x-re:
+        observation:
+          notes: >
+            `identityEmail` and `email` seem to be the same, just as
+            `id` and `identityIdentifier`.
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          identityEmail,
+          email,
+          identityIdentifier,
+          timeAccount,
+          lastName,
+          firstName,
+          middleName,
+        ]
+      properties:
+        id:
+          $ref: '#/components/schemas/UserId'
+        name:
+          type: string
+          description: Reviewer's full name.
+          x-re:
+            observation:
+              notes: If middle name is not set, there is space in the end.
+          example: 'Иван Иванов '
+        identityEmail:
+          $ref: '#/components/schemas/UniversityEmail'
+        email:
+          $ref: '#/components/schemas/UniversityEmail'
+        identityIdentifier:
+          $ref: '#/components/schemas/UserId'
+        timeAccount:
+          $ref: '#/components/schemas/TimeAccount'
+        lastName:
+          type: string
+          example: 'Иван'
+        firstName:
+          type: string
+          example: 'Иванов'
+        middleName:
+          type: string
+          nullable: true
+          example: null
+    TaskSolutionAnswersQuestionInputAnswerValue:
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: medium
+          reasons:
+            - only-null-observed
+            - usage-unknown
+          notes: >
+            Usage unknown as only observed value is null, but it seems
+            this value is non-null for task authors?
+      allOf:
+        - $ref: '#/components/schemas/_x_re_propertyIncomplete_OnlyNullObserved'
+    TaskSolutionAnswersQuestionInputAnswerRecommendation:
+      type: string
+      description: >
+        Recommendation text in HTML shown under input box on frontend.
+      x-re:
+        analysis:
+          needsAnalysis: true
+          priority: high
+          reasons:
+            - optionality-uncertain
+      # yamllint disable-line rule:line-length
+      example: '<p><span style="color: black; font-size: 11pt">Data Dump/data dump/Дата дамп/дата дамп/База знаний/ база знаний / Дамп данных/ дамп данных</span></p>'
+    TaskSolutionAnswersQuestionInputAnswer:
+      type: object
+      nullable: true
+      description: >
+        Object representing information about answer string values expected
+        as valid by task authors.
+        Object is null if task authors decide not to show answers after
+        task evaluation.
+      x-re:
+        observation:
+          notes: This is often observed as null.
+      additionalProperties: false
+      required: [values, value, recommendation]
+      properties:
+        values:
+          type: array
+          minItems: 1
+          items:
+            type: string
+          # yamllint disable-line rule:line-length
+          example:
+            [
+              'Data Dump',
+              'data dump',
+              'Дата дамп',
+              'дата дамп',
+              'База знаний',
+              'база знаний',
+              'Дамп данных',
+              'дамп данных',
+            ]
+        value:
+          # yamllint disable-line rule:line-length
+          $ref: '#/components/schemas/TaskSolutionAnswersQuestionInputAnswerValue'
+        recommendation:
+          # yamllint disable-line rule:line-length
+          $ref: '#/components/schemas/TaskSolutionAnswersQuestionInputAnswerRecommendation'
+    TaskSolutionAnswersQuestionInputNumberAnswer:
+      type: object
+      nullable: true
+      description: >
+        Object representing information about answer number values expected
+        as valid by task authors.
+        Object is null if task authors decide not to show answers after
+        task evaluation.
+      x-re:
+        observation:
+          notes: This is often observed as null.
+      additionalProperties: false
+      required: [values, value, recommendation]
+      properties:
+        values:
+          type: array
+          minItems: 1
+          items:
+            type: number
+          example: [5.44]
+        value:
+          # yamllint disable-line rule:line-length
+          $ref: '#/components/schemas/TaskSolutionAnswersQuestionInputAnswerValue'
+        recommendation:
+          # yamllint disable-line rule:line-length
+          $ref: '#/components/schemas/TaskSolutionAnswersQuestionInputAnswerRecommendation'
+    TaskSolutionAnswersQuestionOptionsItem:
+      type: object
+      additionalProperties: false
+      required: [id, isCorrect, recommendation]
+      properties:
+        id:
+          $ref: '#/components/schemas/QuestionOptionId'
+        isCorrect:
+          $ref: '#/components/schemas/QuestionOptionIsCorrect'
+        recommendation:
+          $ref: '#/components/schemas/QuestionOptionRecommendation'
+    TaskSolutionAnswersQuestionOptionsQuestionItem:
+      type: object
+      additionalProperties: false
+      required: [id, type, answer, options]
+      properties:
+        id:
+          $ref: '#/components/schemas/QuestionId'
+        type:
+          type: string
+          enum: [singleChoice, multipleChoice]
+          example: 'singleChoice'
+        answer:
+          $ref: '#/components/schemas/NullOnly'
+        options:
+          type: array
+          x-re:
+            analysis:
+              needsAnalysis: true
+              priority: high
+              reasons:
+                - optionality-uncertain
+          items:
+            $ref: '#/components/schemas/TaskSolutionAnswersQuestionOptionsItem'
+    TaskSolutionAnswersQuestionInputQuestionItem:
+      type: object
+      additionalProperties: false
+      required: [id, type, answer, options]
+      properties:
+        id:
+          $ref: '#/components/schemas/QuestionId'
+        type:
+          type: string
+          enum: [input]
+          example: 'input'
+        answer:
+          $ref: '#/components/schemas/TaskSolutionAnswersQuestionInputAnswer'
+        options:
+          $ref: '#/components/schemas/NullOnly'
+    TaskSolutionAnswersQuestionInputNumberQuestionItem:
+      type: object
+      additionalProperties: false
+      required: [id, type, answer, options]
+      properties:
+        id:
+          $ref: '#/components/schemas/QuestionId'
+        type:
+          type: string
+          enum: [inputNumber]
+          example: 'inputNumber'
+        answer:
+          # yamllint disable-line rule:line-length
+          $ref: '#/components/schemas/TaskSolutionAnswersQuestionInputNumberAnswer'
+        options:
+          $ref: '#/components/schemas/NullOnly'
+    TaskSolutionAnswersQuestion:
+      # yamllint disable rule:line-length
+      oneOf:
+        - $ref: '#/components/schemas/TaskSolutionAnswersQuestionOptionsQuestionItem'
+        - $ref: '#/components/schemas/TaskSolutionAnswersQuestionInputQuestionItem'
+        - $ref: '#/components/schemas/TaskSolutionAnswersQuestionInputNumberQuestionItem'
+      discriminator:
+        propertyName: type
+        mapping:
+          singleChoice: '#/components/schemas/TaskSolutionAnswersQuestionOptionsQuestionItem'
+          multipleChoice: '#/components/schemas/TaskSolutionAnswersQuestionOptionsQuestionItem'
+          input: '#/components/schemas/TaskSolutionAnswersQuestionInputQuestionItem'
+          inputNumber: '#/components/schemas/TaskSolutionAnswersQuestionInputNumberQuestionItem'
+    # yamllint enable rule:line-length
+    TaskSolutionAnswersItem:
+      type: object
+      additionalProperties: false
+      required: [answer, question]
+      properties:
+        answer:
+          description: Answer given by student.
+          x-re:
+            observation:
+              notes: >
+                QuestionOptionId is used to mark correct answer for options.
+            notes: >
+              This property lacks discriminator cuz in this exact case OpenAPI
+              has no option for setting one.
+              Because of this QuestionOptionId schema can't be used.
+          oneOf:
+            # - $ref: "#/components/schemas/QuestionOptionId"
+            - type: string
+            - type: number
+        question:
+          $ref: '#/components/schemas/TaskSolutionAnswersQuestion'
+    TaskSolution:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required: [type, solutionUrl, answers, attachments]
+      properties:
+        type:
+          $ref: '#/components/schemas/TaskType'
+        solutionUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: URL for solution, if value is not null.
+          example: 'https://my.centraluniversity.ru'
+        answers:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TaskSolutionAnswersItem'
+        attachments:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TaskAttachment'
+    TaskScoresItem:
+      type: object
+      additionalProperties: false
+      required: [questionId, score]
+      properties:
+        questionId:
+          $ref: '#/components/schemas/QuestionId'
+        score:
+          $ref: '#/components/schemas/TaskScore'
+    TaskScores:
+      type: array
+      nullable: true
+      items:
+        $ref: '#/components/schemas/TaskScoresItem'
+    QuizSessionId:
+      nullable: true
+      description: Quiz session ID, null if task type is not "questions".
+      x-re:
+        observation:
+          notes: This is observed to be the same as TaskId.
+      allOf:
+        - $ref: '#/components/schemas/TaskId'
+    AttemptId:
+      type: integer
+      minimum: 0
+      description: Numeric identifier of the "questions" task attempt.
+      example: 48750
+    TaskEvaluatedAttemptId:
+      nullable: true
+      description: Evaluated attempt ID, null if task type is not "questions".
+      allOf:
+        - $ref: '#/components/schemas/AttemptId'
+    TaskCurrentAttemptId:
+      nullable: true
+      description: >
+        Identifier of the current attempt ID,
+        null if task type is not "questions" and value is not set.
+      x-re:
+        analysis:
+          needsAnalysis: true
+          reasons:
+            - only-null-observed
+            - other
+          notes: It is not really know what current means, as seen null only.
+      allOf:
+        - $ref: '#/components/schemas/AttemptId'
+    TaskLastAttemptId:
+      nullable: true
+      description: Last attempt ID, null if task type is not "questions".
+      allOf:
+        - $ref: '#/components/schemas/AttemptId'
+    TaskByIdResponse:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          type,
+          state,
+          score,
+          scoreSkillLevel,
+          isSkillLevelEnabled,
+          isLateDaysEnabled,
+          extraScore,
+          createdAt,
+          startedAt,
+          submitAt,
+          rejectAt,
+          evaluateAt,
+          deadline,
+          lateDays,
+          exercise,
+          course,
+          theme,
+          longread,
+          student,
+          reviewer,
+          solution,
+          scores,
+          quizSessionId,
+          evaluatedAttemptId,
+          currentAttemptId,
+          lastAttemptId,
+        ]
+      properties:
+        id:
+          $ref: '#/components/schemas/TaskId'
+        type:
+          $ref: '#/components/schemas/TaskType'
+        state:
+          $ref: '#/components/schemas/TaskState'
+        score:
+          $ref: '#/components/schemas/TaskScore'
+        scoreSkillLevel:
+          nullable: true
+          x-re:
+            notes: This field is nullable.
+          allOf:
+            - $ref: '#/components/schemas/TaskScoreSkillLevel'
+        isSkillLevelEnabled:
+          $ref: '#/components/schemas/CourseIsSkillLevelEnabled'
+        isLateDaysEnabled:
+          $ref: '#/components/schemas/ActivityIsLateDaysEnabled'
+        extraScore:
+          $ref: '#/components/schemas/TaskExtraScore'
+        createdAt:
+          $ref: '#/components/schemas/CreatedAt'
+        startedAt:
+          $ref: '#/components/schemas/StartedAt'
+        submitAt:
+          $ref: '#/components/schemas/SubmitAt'
+        rejectAt:
+          $ref: '#/components/schemas/RejectAt'
+        evaluateAt:
+          $ref: '#/components/schemas/EvaluateAt'
+        deadline:
+          $ref: '#/components/schemas/Deadline'
+        lateDays:
+          $ref: '#/components/schemas/TaskLateDays'
+        exercise:
+          $ref: '#/components/schemas/TaskExercise'
+        course:
+          $ref: '#/components/schemas/TaskCourse'
+        theme:
+          $ref: '#/components/schemas/TaskCourseTheme'
+        longread:
+          $ref: '#/components/schemas/TaskLongread'
+        student:
+          $ref: '#/components/schemas/CurrentStudentResponse'
+        reviewer:
+          $ref: '#/components/schemas/TaskReviewer'
+        solution:
+          $ref: '#/components/schemas/TaskSolution'
+        scores:
+          $ref: '#/components/schemas/TaskScores'
+        quizSessionId:
+          $ref: '#/components/schemas/QuizSessionId'
+        evaluatedAttemptId:
+          $ref: '#/components/schemas/TaskEvaluatedAttemptId'
+        currentAttemptId:
+          $ref: '#/components/schemas/TaskCurrentAttemptId'
+        lastAttemptId:
+          $ref: '#/components/schemas/TaskLastAttemptId'
+    ObjectStorageUrl:
+      type: string
+      description: >
+        S3-compatible temporary presigned URL for file object to download.
+      x-re:
+        observation:
+          notes: Link expires in 12 hours after creation.
+      # yamllint disable-line rule:line-length
+      example: 'https://storage.yandexcloud.net/...?AWSAccessKeyId=abcdef&Expires=1777680299&Signature=ghijkl'
+    GenerateContentDownloadLinkResponse:
+      type: object
+      additionalProperties: false
+      required: [url]
+      properties:
+        url:
+          $ref: '#/components/schemas/ObjectStorageUrl'
+  responses:
+    DefaultError:
+      description: Default catch-all error object, untyped.
+      x-re:
+        observation:
+          notes: >
+            It seems that all service errors have the same content type,
+            which is "application/problem+json".
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/BaseProblemError'
+    BadRequestError:
+      description: >
+        HTTP 400 - Bad Request error.
+        Returned when request is invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/BaseBadRequestError'
+    UnauthorizedError:
+      description: >
+        HTTP 401 - Unauthorized error.
+        Returned when the required BffCookie is missing, invalid, or expired.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/BaseUnauthorizedError'
+    ForbiddenError:
+      description: >
+        HTTP 403 - Forbidden error.
+        Returned when the resource is forbidden.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/BaseForbiddenError'
+    NotFoundError:
+      description: >
+        HTTP 404 - Not Found error.
+        Returned when entity was not found by its ID.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/BaseNotFoundError'

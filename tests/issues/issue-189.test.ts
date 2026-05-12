@@ -31,13 +31,16 @@ test.describe('Issue #189: task hover icons in dark theme', () => {
 
     await expect
       .poll(async () => {
-        return row.locator('.culms-action-button').first().evaluate((button) => {
-          const svg = button.querySelector('svg');
-          return {
-            buttonFilter: getComputedStyle(button).filter,
-            svgFilter: svg ? getComputedStyle(svg).filter : '',
-          };
-        });
+        return row
+          .locator('.culms-action-button')
+          .first()
+          .evaluate((button) => {
+            const svg = button.querySelector('svg');
+            return {
+              buttonFilter: getComputedStyle(button).filter,
+              svgFilter: svg ? getComputedStyle(svg).filter : '',
+            };
+          });
       })
       .toEqual({
         buttonFilter: 'none',

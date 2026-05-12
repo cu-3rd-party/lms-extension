@@ -40,11 +40,9 @@ try {
 
   const page = await context.newPage();
   await page.goto(TARGET_URL, { waitUntil: 'networkidle' });
-  await page.waitForFunction(
-    (styleId) => !!document.getElementById(styleId),
-    WAIT_FOR_STYLE_ID,
-    { timeout: 15_000 }
-  );
+  await page.waitForFunction((styleId) => !!document.getElementById(styleId), WAIT_FOR_STYLE_ID, {
+    timeout: 15_000,
+  });
 
   console.log(`Тестовый браузер готов: ${TARGET_URL}`);
   console.log('Расширение загружено, тема включена, можно проверять страницу вручную.');

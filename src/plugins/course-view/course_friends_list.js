@@ -63,7 +63,7 @@
     });
   }
 
-  function normalize(str) {
+  function _normalize(str) {
     if (!str) return '';
     return str
       .toLowerCase()
@@ -275,7 +275,7 @@
             } else {
               window.open(yandexCalendarUrl, '_blank');
             }
-          } catch (err) {
+          } catch (_err) {
             window.open(yandexCalendarUrl, '_blank');
           }
         };

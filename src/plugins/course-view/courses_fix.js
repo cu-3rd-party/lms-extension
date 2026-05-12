@@ -1,4 +1,5 @@
 // courses_fix.js (финальная версия с поддержкой actual и archived страниц)
+/* global viewFutureExams, activateCourseOverviewTaskStatus, activateCourseExporter, activateCourseOverviewAutoscroll */
 
 // Polyfill to handle browser namespace differences (Chrome uses 'chrome', Firefox uses 'browser')
 if (typeof browser === 'undefined') {
@@ -64,6 +65,17 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     });
 
     const observer = new MutationObserver(() => {
+      // Проверка на валидность контекста расширения
+      try {
+        if (typeof browser !== 'undefined' && !browser.runtime?.id) {
+          observer.disconnect();
+          return;
+        }
+      } catch (e) {
+        observer.disconnect();
+        return;
+      }
+
       if (location.href !== currentUrl) {
         previousUrl = currentUrl;
         currentUrl = location.href;
@@ -124,10 +136,11 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     try {
       const currentPath = window.location.pathname;
       const isOnArchivedPage = currentPath.includes('/courses/view/archived');
+      const isOnActualPage = currentPath.endsWith('/actual') || currentPath.endsWith('/actual/');
 
       if (isOnArchivedPage) {
         await processArchivedCoursesTable();
-      } else {
+      } else if (isOnActualPage) {
         const courseList = await waitForElement('ul.course-list', 15000);
         await updateExistingActiveCourses(courseList);
         await applyCustomOrder(courseList);
@@ -405,6 +418,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     try {
       await processFutureExams();
       await processCourseOverviewTaskStatus();
+      await processCourseExporter();
 
       // ИЗМЕНЕНИЕ 3: Теперь скролл работает, даже если пришли из списка архива
       const activeCoursesPathRegex = /^\/learn\/courses\/view\/(?:actual|archived)$/;
@@ -449,6 +463,20 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
       }
     } catch (e) {
       console.log('Something went wrong with course overview task status', e);
+    }
+  }
+
+  async function processCourseExporter() {
+    try {
+      const { courseExporterToggle } = await browser.storage.sync.get('courseExporterToggle');
+      if (
+        (!!courseExporterToggle || courseExporterToggle === undefined) &&
+        typeof activateCourseExporter === 'function'
+      ) {
+        await activateCourseExporter();
+      }
+    } catch (e) {
+      console.log('Something went wrong with course exporter', e);
     }
   }
 

@@ -21,7 +21,7 @@ if (typeof window.__akhCheckApi === 'undefined') {
           let response;
           try {
             response = typeof e.detail === 'string' ? JSON.parse(e.detail) : e.detail;
-          } catch (err) {
+          } catch (_err) {
             response = null;
           }
 

@@ -8,7 +8,10 @@ test.describe('Advanced statements', () => {
   async function getFirstCourseId(page: import('@playwright/test').Page): Promise<string | null> {
     await page.goto(COURSES_PAGE);
     await page.waitForSelector('ul.course-list.course-archiver-ready', { timeout: 15_000 });
-    return page.locator('li.course-list__item[data-course-id]:visible').first().getAttribute('data-course-id');
+    return page
+      .locator('li.course-list__item[data-course-id]:visible')
+      .first()
+      .getAttribute('data-course-id');
   }
 
   test('не добавляет блок на странице без /activity', async ({ page }) => {

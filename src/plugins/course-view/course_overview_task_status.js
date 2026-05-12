@@ -191,6 +191,7 @@ function addStatusChips(container, longreadToTaskMap) {
       existingChip.remove();
     }
 
+    let badgeClass, badgeText;
     let hasCircle = true;
     let customStyle = '';
 

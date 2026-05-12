@@ -32,6 +32,7 @@
 | **Автоскролл к текущей неделе** | Попап → «Автоскролл»           | При открытии обзора курса автоматически разворачивает и прокручивает к последней (актуальной) теме        |
 | **Виджет «Друзья на курсе»**    | Попап → «Друзья»               | Плавающий виджет на странице курса — показывает, кто из друзей записан на тот же курс                     |
 | **Предстоящие контрольные**     | Попап → «Расписание КР»        | Отображает в аккордеоне курса даты будущих контрольных и экзаменов                                        |
+| **Экспорт материалов курса**    | Всегда включена                | Добавляет виджет на страницу курса для скачивания всех материалов и ДЗ в ZIP или PDF                      |
 
 ---
 
@@ -80,13 +81,13 @@
 
 ## Сводная таблица по плагинам
 
-| Плагин        | URL-паттерн                                       | Файлы                                                                                                                                            |
-| ------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `_shared`     | Все страницы LMS                                  | `version_check`, `reset`, `friends_tab`, `plugin_page_loader`, `snow`, `course_card_image_replacer`                                              |
-| `dark-theme`  | Все страницы LMS                                  | `index.loader.js` + CSS                                                                                                                          |
-| `course-view` | `/learn/courses/view`                             | `course_card_simplifier`, `courses_fix`, `course_overview_task_status`, `course_overview_autoscroll`, `course_friends_list`, `future_exams_view` |
-| `courses`     | `/learn/tasks`                                    | `tasks_fix`                                                                                                                                      |
-| `emoji-swap`  | Все стр., кроме `/learn/tasks`                    | `emoji_swap`                                                                                                                                     |
-| `login`       | Страница входа                                    | `fix_email_autocomplete`                                                                                                                         |
-| `longreads`   | `/longreads/`                                     | `homework_weight_fix`, `instant_doc_view_fix`, `task_status_adaptation`, `rename_hw`                                                             |
-| `statements`  | `/learn/reports/student-performance/.../activity` | `advanced_statements`, `archive-statements`, `metrics_statements`                                                                                |
+| Плагин        | URL-паттерн                                       | Файлы                                                                                                                                                               |
+| ------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_shared`     | Все страницы LMS                                  | `version_check`, `reset`, `friends_tab`, `plugin_page_loader`, `snow`, `course_card_image_replacer`                                                                 |
+| `dark-theme`  | Все страницы LMS                                  | `index.loader.js` + CSS                                                                                                                                             |
+| `course-view` | `/learn/courses/view`                             | `course_card_simplifier`, `courses_fix`, `course_overview_task_status`, `course_overview_autoscroll`, `course_friends_list`, `future_exams_view`, `course_exporter` |
+| `courses`     | `/learn/tasks`                                    | `tasks_fix`                                                                                                                                                         |
+| `emoji-swap`  | Все стр., кроме `/learn/tasks`                    | `emoji_swap`                                                                                                                                                        |
+| `login`       | Страница входа                                    | `fix_email_autocomplete`                                                                                                                                            |
+| `longreads`   | `/longreads/`                                     | `homework_weight_fix`, `instant_doc_view_fix`, `task_status_adaptation`, `rename_hw`                                                                                |
+| `statements`  | `/learn/reports/student-performance/.../activity` | `advanced_statements`, `archive-statements`, `metrics_statements`                                                                                                   |
