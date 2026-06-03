@@ -13,26 +13,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
   let currentUrl = location.href;
   let previousUrl = null;
 
-  (async function () {
-    const designData = await browser.storage.sync.get('oldCoursesDesignToggle');
-    const useOldDesign = !!designData.oldCoursesDesignToggle;
-
-    if (useOldDesign) {
-      const style = document.createElement('style');
-      style.id = 'course-archiver-preload-style';
-      style.textContent = `
-              li.course-list__item {
-                  cursor: grab;
-                  user-select: none;
-              }
-              li.course-list__item.dragging {
-                  opacity: 0.5;
-                  cursor: grabbing;
-              }
-          `;
-      document.head.appendChild(style);
-    }
-  })();
+  // Удален код для drag-and-drop (официальная версия теперь поддерживается нативно)
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', main);
@@ -42,7 +23,6 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
 
   function main() {
     const reloadKeys = [
-      'oldCoursesDesignToggle',
       'futureExamsViewToggle',
       'courseOverviewTaskStatusToggle',
       'futureExamsDisplayFormat',
@@ -79,27 +59,56 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
       if (location.href !== currentUrl) {
         previousUrl = currentUrl;
         currentUrl = location.href;
-        console.log('Course Archiver: URL changed, re-running logic.');
-        processCourses();
+        window.cuLmsLog('Course Archiver: URL changed from', previousUrl, 'to', currentUrl);
 
-        const currentPath = window.location.pathname;
-        // ИЗМЕНЕНИЕ 1: Добавлена поддержка (?:actual|archived)
-        const isOnIndividualCoursePage = /\/view\/(?:actual|archived)\/\d+/.test(currentPath);
-        if (isOnIndividualCoursePage) {
-          processInvidualCoursePage();
-        }
+        // Небольшая задержка, чтобы Angular успел отрендерить контент
+        setTimeout(() => {
+          processCourses();
+
+          const currentPath = window.location.pathname;
+          const isOnIndividualCoursePage = /\/view\/(?:actual|archived)\/\d+/.test(currentPath);
+          if (isOnIndividualCoursePage) {
+            processInvidualCoursePage();
+          }
+        }, 300);
       }
     });
 
     observer.observe(document.body, { subtree: true, childList: true });
-    processCourses();
 
-    const currentPath = window.location.pathname;
-    // ИЗМЕНЕНИЕ 2: Добавлена поддержка (?:actual|archived) при инициализации
-    const isOnIndividualCoursePage = /\/view\/(?:actual|archived)\/\d+/.test(currentPath);
-    if (isOnIndividualCoursePage) {
-      processInvidualCoursePage();
-    }
+    // Дополнительно отслеживаем клики по ссылкам для более надежного определения навигации
+    document.addEventListener(
+      'click',
+      (e) => {
+        const link = e.target.closest('a[href]');
+        if (link && link.href && link.href !== location.href) {
+          const targetPath = new URL(link.href).pathname;
+          // Если это переход между вкладками курсов
+          if (targetPath.includes('/courses/view/actual')) {
+            window.cuLmsLog('Course Archiver: Detected navigation via click to', targetPath);
+            setTimeout(() => {
+              if (location.pathname.includes('/courses/view/actual')) {
+                processCourses();
+              }
+            }, 350);
+          }
+        }
+      },
+      true
+    );
+
+    // Начальная обработка с задержкой для первой загрузки страницы
+    // Angular нужно время для рендеринга
+    window.cuLmsLog('Course Archiver: Initial page load, waiting for Angular to render...');
+    setTimeout(() => {
+      processCourses();
+
+      const currentPath = window.location.pathname;
+      const isOnIndividualCoursePage = /\/view\/(?:actual|archived)\/\d+/.test(currentPath);
+      if (isOnIndividualCoursePage) {
+        processInvidualCoursePage();
+      }
+    }, 500);
   }
 
   function updateArchiveButtonColors(isDark) {
@@ -132,28 +141,51 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     }
   }
 
-  async function processCourses() {
-    try {
-      const currentPath = window.location.pathname;
-      const isOnArchivedPage = currentPath.includes('/courses/view/archived');
-      const isOnActualPage = currentPath.endsWith('/actual') || currentPath.endsWith('/actual/');
+  let processCoursesTimeout = null;
 
-      if (isOnArchivedPage) {
-        await processArchivedCoursesTable();
-      } else if (isOnActualPage) {
-        const courseList = await waitForElement('ul.course-list', 15000);
-        await updateExistingActiveCourses(courseList);
-        await applyCustomOrder(courseList);
-        setupDragAndDrop(courseList);
-        courseList.classList.add('course-archiver-ready');
-      }
-    } catch (e) {
-      window.cuLmsLog('Course Archiver: Not a course page, or content failed to load in time.', e);
-      const courseList = document.querySelector('ul.course-list');
-      if (courseList) {
-        courseList.classList.add('course-archiver-ready');
-      }
+  async function processCourses() {
+    // Debounce: отменяем предыдущий вызов, если он еще не выполнился
+    if (processCoursesTimeout) {
+      clearTimeout(processCoursesTimeout);
     }
+
+    processCoursesTimeout = setTimeout(async () => {
+      try {
+        const currentPath = window.location.pathname;
+        window.cuLmsLog('Course Archiver: Processing courses on path:', currentPath);
+
+        const isOnArchivedPage = currentPath.includes('/courses/view/archived');
+        // Проверяем, что мы на странице actual (включая подстраницы required, elective, listener, internal)
+        const isOnActualPage = currentPath.includes('/courses/view/actual');
+
+        if (isOnArchivedPage) {
+          window.cuLmsLog('Course Archiver: On archived page');
+          await processArchivedCoursesTable();
+        } else if (isOnActualPage) {
+          window.cuLmsLog('Course Archiver: On actual page, waiting for course list');
+          const courseList = await waitForElement('ul.course-list', 15000);
+          window.cuLmsLog(
+            'Course Archiver: Found course list with',
+            courseList.children.length,
+            'items'
+          );
+          await updateExistingActiveCourses(courseList);
+          // Убрана поддержка кастомного drag-and-drop (официальный cdkDrag теперь работает нативно)
+          courseList.classList.add('course-archiver-ready');
+          window.cuLmsLog('Course Archiver: Finished processing courses');
+        }
+      } catch (e) {
+        window.cuLmsLog(
+          'Course Archiver: Not a course page, or content failed to load in time.',
+          e
+        );
+        const courseList = document.querySelector('ul.course-list');
+        if (courseList) {
+          courseList.classList.add('course-archiver-ready');
+        }
+      }
+      processCoursesTimeout = null;
+    }, 100); // Небольшая задержка для debounce
   }
 
   async function processArchivedCoursesTable() {
@@ -261,6 +293,29 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
   }
 
   async function updateExistingActiveCourses(courseList) {
+    // Ждем, пока в списке действительно появятся курсы (Angular может рендерить их асинхронно)
+    let attempts = 0;
+    const maxAttempts = 30; // увеличено с 20 до 30 для первой загрузки
+
+    while (courseList.children.length === 0 && attempts < maxAttempts) {
+      window.cuLmsLog(
+        'Course Archiver: Waiting for courses to appear in DOM, attempt',
+        attempts + 1
+      );
+      await new Promise((resolve) => setTimeout(resolve, 150)); // увеличено с 100 до 150
+      attempts++;
+    }
+
+    if (courseList.children.length === 0) {
+      window.cuLmsLog('Course Archiver: No courses found in list after waiting');
+      return;
+    }
+
+    window.cuLmsLog('Course Archiver: Found', courseList.children.length, 'courses in list');
+
+    // Небольшая дополнительная задержка, чтобы Angular завершил рендеринг карточек
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
     const allApiCourses = await fetchAllCoursesData();
     const storedArchivedCourseIds = await getArchivedCoursesFromStorage();
     const { themeEnabled: isDarkTheme } = await browser.storage.sync.get('themeEnabled');
@@ -269,11 +324,23 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     const normalizeEmoji = (str) =>
       str.replace(/💙/g, '🔵').replace(/❤️/g, '🔴').replace(/🖤/g, '⚫️');
 
+    let processedCount = 0;
     for (const card of courseList.querySelectorAll('li.course-list__item')) {
-      const nameElement = card.querySelector('.course-name.font-text-s-bold');
-      if (!nameElement) continue;
-      const courseData = courseNameMap.get(normalizeEmoji(nameElement.textContent.trim()));
-      if (!courseData) continue;
+      // Пробуем разные селекторы для названия курса (новая и старая структура)
+      const nameElement =
+        card.querySelector('.course-name') ||
+        card.querySelector('cu-course-card .limited-lines-text') ||
+        card.querySelector('.font-text-s-bold');
+      if (!nameElement) {
+        window.cuLmsLog('Course Archiver: Could not find course name element in card', card);
+        continue;
+      }
+      const courseName = normalizeEmoji(nameElement.textContent.trim());
+      const courseData = courseNameMap.get(courseName);
+      if (!courseData) {
+        window.cuLmsLog('Course Archiver: Could not find course data for:', courseName);
+        continue;
+      }
 
       const courseId = courseData.id;
       card.setAttribute('data-course-id', courseId);
@@ -282,22 +349,28 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
       card.style.display = isLocallyArchived ? 'none' : '';
       if (!isLocallyArchived) {
         addOrUpdateButton(card, courseId, isLocallyArchived, !!isDarkTheme);
+        processedCount++;
       }
     }
+
+    window.cuLmsLog('Course Archiver: Processed', processedCount, 'active courses');
   }
 
   function addOrUpdateButton(li, courseId, isLocallyArchived, isDarkTheme) {
-    const imageAreaContainer = li.querySelector('div.course-card');
-    if (!imageAreaContainer) return;
+    // Новая структура: кнопка добавляется внутри cu-course-card
+    const cuCourseCard = li.querySelector('cu-course-card');
+    if (!cuCourseCard) return;
 
-    imageAreaContainer.style.position = 'relative';
+    // Убеждаемся, что cu-course-card имеет relative позиционирование
+    cuCourseCard.style.position = 'relative';
+
     let buttonContainer = li.querySelector('.archive-button-container');
     if (!buttonContainer) {
       buttonContainer = document.createElement('div');
       buttonContainer.className = 'archive-button-container';
-      imageAreaContainer.appendChild(buttonContainer);
+      cuCourseCard.appendChild(buttonContainer);
     }
-    buttonContainer.style.cssText = `position: absolute; right: 8px; bottom: 4px; z-index: 2;`;
+    buttonContainer.style.cssText = `position: absolute; right: 8px; bottom: 8px; z-index: 10;`;
 
     const iconUrl = '/learn/assets/cu/icons/cuIconArchive.svg';
 
@@ -324,95 +397,7 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
     });
   }
 
-  async function getCustomOrder() {
-    const { courseOrder } = await browser.storage.local.get('courseOrder');
-    return courseOrder || [];
-  }
-
-  async function saveCustomOrder(order) {
-    await browser.storage.local.set({ courseOrder: order });
-  }
-
-  async function applyCustomOrder(courseList) {
-    if (!courseList) return;
-    const customOrder = await getCustomOrder();
-    const courses = Array.from(courseList.children);
-    const courseMap = new Map();
-    courses.forEach((course) => {
-      const id = course.getAttribute('data-course-id');
-      if (id) courseMap.set(id, course);
-    });
-
-    if (customOrder.length === 0) {
-      const initialOrder = courses
-        .map((course) => course.getAttribute('data-course-id'))
-        .filter(Boolean);
-      if (initialOrder.length > 0) await saveCustomOrder(initialOrder);
-      return;
-    }
-
-    const finalOrder = [];
-    const fragment = document.createDocumentFragment();
-
-    customOrder.forEach((courseId) => {
-      if (courseMap.has(courseId)) {
-        fragment.appendChild(courseMap.get(courseId));
-        finalOrder.push(courseId);
-        courseMap.delete(courseId);
-      }
-    });
-
-    courseMap.forEach((course, id) => {
-      fragment.appendChild(course);
-      finalOrder.push(id);
-    });
-
-    courseList.innerHTML = '';
-    courseList.appendChild(fragment);
-    await saveCustomOrder(finalOrder);
-  }
-
-  function setupDragAndDrop(courseList) {
-    if (!courseList) return;
-    let draggedElement = null;
-
-    const handleDragStart = function (e) {
-      draggedElement = this;
-      this.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', this.getAttribute('data-course-id'));
-    };
-    const handleDragEnd = function () {
-      this.classList.remove('dragging');
-      draggedElement = null;
-      const newOrder = Array.from(courseList.children)
-        .map((item) => item.getAttribute('data-course-id'))
-        .filter(Boolean);
-      saveCustomOrder(newOrder);
-    };
-    const handleDragOver = function (e) {
-      e.preventDefault();
-      if (!draggedElement || this === draggedElement) return;
-      const rect = this.getBoundingClientRect();
-      const midY = rect.top + rect.height / 2;
-      if (e.clientY < midY) {
-        this.parentNode.insertBefore(draggedElement, this);
-      } else {
-        this.parentNode.insertBefore(draggedElement, this.nextSibling);
-      }
-    };
-
-    const cards = courseList.querySelectorAll('li.course-list__item');
-    cards.forEach((card) => {
-      card.draggable = true;
-      card.removeEventListener('dragstart', handleDragStart);
-      card.addEventListener('dragstart', handleDragStart);
-      card.removeEventListener('dragend', handleDragEnd);
-      card.addEventListener('dragend', handleDragEnd);
-      card.removeEventListener('dragover', handleDragOver);
-      card.addEventListener('dragover', handleDragOver);
-    });
-  }
+  // Функции drag-and-drop удалены, так как теперь используется официальный cdkDrag
 
   async function processInvidualCoursePage() {
     try {
@@ -532,11 +517,38 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
   function waitForElement(selector, timeout = 10000) {
     return new Promise((resolve, reject) => {
       let element = document.querySelector(selector);
-      if (element) return resolve(element);
+
+      // Проверяем не только наличие элемента, но и что он имеет содержимое
+      const isElementReady = (el) => {
+        if (!el) return false;
+        // Для списка курсов проверяем, что в нем есть дочерние элементы
+        if (selector === 'ul.course-list') {
+          return el.children.length > 0;
+        }
+        return true;
+      };
+
+      if (element && isElementReady(element)) {
+        window.cuLmsLog(
+          'Course Archiver: Element',
+          selector,
+          'found immediately with',
+          element.children?.length,
+          'children'
+        );
+        return resolve(element);
+      }
 
       const observer = new MutationObserver(() => {
         element = document.querySelector(selector);
-        if (element) {
+        if (element && isElementReady(element)) {
+          window.cuLmsLog(
+            'Course Archiver: Element',
+            selector,
+            'found via observer with',
+            element.children?.length,
+            'children'
+          );
           observer.disconnect();
           resolve(element);
         }
@@ -547,8 +559,18 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
       setTimeout(() => {
         observer.disconnect();
         element = document.querySelector(selector);
-        if (element) resolve(element);
-        else reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+        if (element) {
+          window.cuLmsLog(
+            'Course Archiver: Element',
+            selector,
+            'found on timeout with',
+            element.children?.length,
+            'children'
+          );
+          resolve(element);
+        } else {
+          reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+        }
       }, timeout);
     });
   }
