@@ -10,21 +10,22 @@
 
 ### `courses_fix.js`
 
-Центральный скрипт плагина. Управляет архивацией курсов, реагирует на SPA-навигацию и координирует запуск остальных скриптов.
+Центральный скрипт плагина. Управляет архивацией курсов и реагирует на SPA-навигацию.
 
 **Как работает:**
 
 1. Подписывается на `MutationObserver` за изменением URL (SPA-навигация) и перезапускает логику при переходе между страницами.
-2. Добавляет на каждой карточке курса кнопку-архивации (иконка архива). При клике курс скрывается и его ID сохраняется в `browser.storage.sync` → `archivedCourseIds`.
-3. Если в попапе включён «Старый дизайн» — добавляет CSS-классы для drag-and-drop курсов (`cursor: grab`).
-4. При изменении ключевых настроек (`oldCoursesDesignToggle`, `futureExamsViewToggle`, `courseOverviewTaskStatusToggle`) перезагружает страницу.
-5. Запускает `simplifyAllCourseCards()`, `activateCourseOverviewTaskStatus()`, `activateCourseOverviewAutoscroll()` и `viewFutureExams()` по условию из настроек.
+2. Добавляет на каждой карточке курса кнопку-архивации (иконка архива). При клике курс скрывается и его ID сохраняется в `browser.storage.local` → `archivedCourseIds`.
+3. При изменении ключевых настроек (`futureExamsViewToggle`, `courseOverviewTaskStatusToggle`, `futureExamsDisplayFormat`) перезагружает страницу.
+4. Запускает `simplifyAllCourseCards()`, `activateCourseOverviewTaskStatus()`, `activateCourseOverviewAutoscroll()` и `viewFutureExams()` по условию из настроек.
+
+**Важно:** Функционал drag-and-drop был удален, так как теперь LMS официально поддерживает перетаскивание курсов через `cdkDrag`.
 
 **Взаимодействие со страницей:**
 
 - Читает DOM: `ul.course-list`, карточки `cu-course-card`
-- Вставляет: кнопки-архиватора, CSS-стили для drag-and-drop
-- Хранилище: `browser.storage.sync` (archivedCourseIds, настройки)
+- Вставляет: кнопки-архиватора
+- Хранилище: `browser.storage.local` (archivedCourseIds), `browser.storage.sync` (настройки)
 
 ---
 
@@ -130,6 +131,8 @@
 ### `course_exporter.js`
 
 Виджет для выгрузки материалов и задач курса в форматах ZIP и PDF.
+
+**Важно:** Виджет отображается только на страницах активных курсов (`/learn/courses/view/actual/{ID}`), на архивированных курсах не показывается.
 
 **Как работает:**
 

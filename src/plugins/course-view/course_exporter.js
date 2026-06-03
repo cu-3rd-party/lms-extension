@@ -549,7 +549,8 @@ async function activateCourseExporter() {
   isExportInitializing = true;
 
   try {
-    const match = window.location.pathname.match(/(?:actual|archived)\/(\d+)/);
+    // Проверяем, что мы находимся ТОЛЬКО на странице actual (не archived)
+    const match = window.location.pathname.match(/\/actual\/(\d+)/);
     if (!match) return;
 
     const courseId = parseInt(match[1]);
@@ -777,7 +778,8 @@ if (!window.cuExportWidgetObserver) {
     });
     if (isOnlyInternal) return;
 
-    const match = window.location.pathname.match(/(?:actual|archived)\/(\d+)/);
+    // Проверяем, что мы находимся ТОЛЬКО на странице actual (не archived)
+    const match = window.location.pathname.match(/\/actual\/(\d+)/);
     if (!match) return;
 
     const widget = document.getElementById('cu-export-course-widget');
