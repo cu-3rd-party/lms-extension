@@ -154,6 +154,89 @@ a:hover {
   /* Убедимся, что нет фона при наведении */
 }
 
+/* BTDEV: Новая структура страницы курсов - header и табы */
+.header-island {
+  background-color: var(--culms-dark-bg-primary) !important;
+  border: 1px solid var(--culms-dark-border-primary) !important;
+}
+
+.header-island .title,
+.header-island h1 {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+.tabs-container {
+  background-color: transparent !important;
+}
+
+/* Стили для кнопок табов */
+.tab,
+a.tab,
+button.tab {
+  background-color: transparent !important;
+  color: var(--culms-dark-text-tertiary) !important;
+  border: 1px solid transparent !important;
+  transition: all 0.2s ease !important;
+}
+
+.tab span,
+a.tab span,
+button.tab span {
+  color: var(--culms-dark-text-tertiary) !important;
+}
+
+/* Активная вкладка */
+.tab.active,
+a.tab.active,
+button.tab.active {
+  background-color: var(--culms-dark-bg-secondary) !important;
+  color: var(--culms-dark-text-primary) !important;
+  border-color: var(--culms-dark-border-primary) !important;
+}
+
+.tab.active span,
+a.tab.active span,
+button.tab.active span {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Hover эффект для неактивных табов */
+.tab:not(.active):hover,
+a.tab:not(.active):hover,
+button.tab:not(.active):hover {
+  background-color: var(--culms-dark-bg-hover) !important;
+  color: var(--culms-dark-text-secondary) !important;
+}
+
+.tab:not(.active):hover span,
+a.tab:not(.active):hover span,
+button.tab:not(.active):hover span {
+  color: var(--culms-dark-text-secondary) !important;
+}
+
+/* Новые course cards (cu-course-card) */
+cu-course-card {
+  background-color: var(--culms-dark-bg-primary) !important;
+  border: 1px solid var(--culms-dark-border-primary) !important;
+  border-radius: 12px !important;
+}
+
+cu-course-card:hover {
+  background-color: var(--culms-dark-bg-hover) !important;
+  border-color: var(--culms-dark-border-hover) !important;
+}
+
+cu-course-card *,
+cu-course-card .limited-lines-text,
+cu-course-card .font-text-s-bold {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+cu-course-card .text-tertiary,
+cu-course-card [class*='tertiary'] {
+  color: var(--culms-dark-text-tertiary) !important;
+}
+
 /* --- ОСНОВНОЙ ФИКС --- */
 
 /* 1. Стилизуем сам блок .tui-island */
@@ -16183,4 +16266,10 @@ cu-navigation-widget.time-widget .information .title {
 /* Чтобы стрелочка в кнопке чата тоже стала белой (если она SVG) */
 cu-navigation-widget.time-widget .information .title tui-icon {
   color: #ffffff !important;
+}
+
+:tui-root {
+  tui-text-primary {
+    color: var(--culms-dark-text-primary);
+  }
 }

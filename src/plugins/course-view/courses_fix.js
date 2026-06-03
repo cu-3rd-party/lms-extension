@@ -345,12 +345,16 @@ if (typeof window.culmsCourseFixInitialized === 'undefined') {
       const courseId = courseData.id;
       card.setAttribute('data-course-id', courseId);
 
+      // ВРЕМЕННО ОТКЛЮЧЕНО: Архивация курсов
+      /*
       const isLocallyArchived = storedArchivedCourseIds.has(courseId);
       card.style.display = isLocallyArchived ? 'none' : '';
       if (!isLocallyArchived) {
         addOrUpdateButton(card, courseId, isLocallyArchived, !!isDarkTheme);
         processedCount++;
       }
+      */
+      processedCount++;
     }
 
     window.cuLmsLog('Course Archiver: Processed', processedCount, 'active courses');
