@@ -62,7 +62,7 @@ const browserApi = {
 };
 
 // Настройки, которые применяются "на лету" без перезагрузки (можно сохранять сразу)
-const LIVE_SETTINGS = ['themeEnabled', 'oledEnabled'];
+const LIVE_SETTINGS = ['themeEnabled', 'oledEnabled', 'darkPdfEnabled'];
 
 // --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP ---
 const darkThemeLinkID = 'popup-dark-theme-style';
@@ -90,6 +90,7 @@ browser.storage.sync.set({
 const toggles = {
   themeEnabled: document.getElementById('theme-toggle'),
   oledEnabled: document.getElementById('oled-toggle'),
+  darkPdfEnabled: document.getElementById('dark-pdf-toggle'),
   autoRenameEnabled: document.getElementById('auto-rename-toggle'),
   snowEnabled: document.getElementById('snow-toggle'),
   stickerEnabled: document.getElementById('sticker-toggle'),
@@ -448,6 +449,7 @@ if (resetBtn) {
     const defaultSettings = {
       themeEnabled: false,
       oledEnabled: false,
+      darkPdfEnabled: false,
       autoRenameEnabled: false,
       autoRenameTemplate: 'dz_fi',
       courseOverviewTaskStatusToggle: false,

@@ -1,7 +1,7 @@
 // var используется намеренно: при повторном внедрении const бросает «already declared».
 var SKIPPED_TASKS_KEY = SKIPPED_TASKS_KEY || 'cu.lms.skipped-tasks';
 
-const EMOJI_REGEX = /(?:🔴|🔵|⚫️|⚫|❤️|💙|🖤)/g;
+var EMOJI_REGEX = EMOJI_REGEX || /(?:🔴|🔵|⚫️|⚫|❤️|💙|🖤)/g;
 
 // ИСПРАВЛЕНИЕ #167
 function normalizeText(text) {

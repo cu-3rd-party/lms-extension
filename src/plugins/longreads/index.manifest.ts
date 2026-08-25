@@ -6,6 +6,7 @@ const manifest = {
   scripts: [
     'plugins/_shared/lms_materials_api.js',
     'plugins/longreads/homework_weight_fix.js',
+    'plugins/longreads/pdf_dark_theme.js',
     'plugins/longreads/instant_doc_view_fix.js',
     'plugins/longreads/task_status_adaptation.js',
     'plugins/longreads/rename_hw.js',
