@@ -16296,7 +16296,9 @@ section[cucourseselectioncard].campaign-card {
   background-color: var(--culms-dark-bg-primary) !important;
   border: 1px solid var(--culms-dark-border-primary) !important;
   color: var(--culms-dark-text-primary) !important;
-  transition: background-color 0.2s ease, border-color 0.2s ease !important;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease !important;
 }
 
 cu-campaigns-list .campaign-card:hover,
@@ -16468,4 +16470,14 @@ section[cucourseselectioncard].courses-block__result tui-icon {
   tui-text-primary {
     color: var(--culms-dark-text-primary);
   }
+}
+
+/* Фикс белого круга иконки темы в аккордеоне (course-content) */
+cu-course-content .theme-details .icon-container {
+  background-color: var(--culms-dark-bg-secondary) !important;
+  border-color: var(--culms-dark-border-primary) !important;
+}
+
+cu-course-content .theme-details .icon-container tui-icon {
+  color: var(--culms-dark-text-primary) !important;
 }
