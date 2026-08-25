@@ -467,6 +467,21 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
       fileElement.style.opacity = '0.5';
       fileElement.style.cursor = 'wait';
 
+      // Open the window synchronously to bypass popup blockers
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Loading...</title>
+              <style>body { background-color: #1c1c22; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; margin: 0; }</style>
+            </head>
+            <body><h2>Preparing Dark PDF...</h2></body>
+          </html>
+        `);
+      }
+
       try {
         await loadDeps();
         const pdfUrl = await getPdfDownloadUrl(fileElement);
@@ -474,6 +489,7 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
           // This is likely a student solution or something not in the materials API.
           // We already stopped propagation, so we must manually re-trigger a click
           // to let the native Angular handler download it.
+          if (win) win.close();
           fileElement.dataset.cuPdfDarkIgnore = 'true';
           fileElement.click();
           return;
@@ -485,8 +501,8 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
           (fileElement.querySelector('.t-name')?.textContent?.trim() || 'Document') +
           (fileElement.querySelector('.t-type')?.textContent?.trim() || '.pdf');
 
-        const win = window.open('', '_blank');
         if (win) {
+          win.document.open();
           win.document.write(`
           <!DOCTYPE html>
           <html>
@@ -505,6 +521,17 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
         }
       } catch (err) {
         console.error(`${LOG_PREFIX} Error processing PDF:`, err);
+        if (win) {
+          win.document.open();
+          win.document.write(`
+            <!DOCTYPE html>
+            <html>
+              <head><title>Error</title><style>body { background-color: #1c1c22; color: #fff; font-family: sans-serif; padding: 20px; }</style></head>
+              <body><h2>Error processing PDF</h2><p>${err.message}</p></body>
+            </html>
+          `);
+          win.document.close();
+        }
       } finally {
         fileElement.style.opacity = originalOpacity;
         fileElement.style.cursor = originalCursor;
