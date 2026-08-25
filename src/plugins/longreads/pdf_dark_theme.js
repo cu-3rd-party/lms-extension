@@ -480,7 +480,29 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
         }
 
         const darkUrl = await getDarkPdfUrl(pdfUrl);
-        window.open(darkUrl, '_blank');
+
+        const filename =
+          (fileElement.querySelector('.t-name')?.textContent?.trim() || 'Document') +
+          (fileElement.querySelector('.t-type')?.textContent?.trim() || '.pdf');
+
+        const win = window.open('', '_blank');
+        if (win) {
+          win.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>${filename}</title>
+              <style>body { margin: 0; overflow: hidden; background-color: #1c1c22; }</style>
+            </head>
+            <body>
+              <embed src="${darkUrl}" type="application/pdf" width="100%" height="100%" style="border: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;">
+            </body>
+          </html>
+        `);
+          win.document.close();
+        } else {
+          window.open(darkUrl, '_blank');
+        }
       } catch (err) {
         console.error(`${LOG_PREFIX} Error processing PDF:`, err);
       } finally {
