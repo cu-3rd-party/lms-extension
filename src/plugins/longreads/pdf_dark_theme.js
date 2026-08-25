@@ -358,8 +358,15 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
   const darkPdfCache = new Map();
   let activeProcessingPromise = Promise.resolve();
 
-  function getDarkPdfUrl(originalUrl) {
-    if (darkPdfCache.has(originalUrl)) return darkPdfCache.get(originalUrl);
+  function getDarkPdfUrl(originalUrl, onStatus) {
+    const updateStatus = (msg) => {
+      if (onStatus) onStatus(msg);
+    };
+
+    if (darkPdfCache.has(originalUrl)) {
+      updateStatus('Загрузка из кэша...');
+      return darkPdfCache.get(originalUrl);
+    }
 
     let releaseMutex;
     const previousProcessing = activeProcessingPromise;
@@ -368,8 +375,10 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
     });
 
     const promise = (async () => {
+      updateStatus('Ожидание очереди...');
       await previousProcessing; // Wait in queue
       try {
+        updateStatus('Скачивание файла (это может занять время)...');
         const t0 = performance.now();
         console.log(`${LOG_PREFIX} Fetching PDF:`, originalUrl.substring(0, 100) + '...');
         const response = await fetch(originalUrl);
@@ -380,6 +389,7 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
         console.log(
           `${LOG_PREFIX} Fetch done in ${(t1 - t0).toFixed(0)}ms. Processing ${(originalBytes.length / 1024).toFixed(0)} KB PDF...`
         );
+        updateStatus('Конвертация в темную тему...');
         const darkBytes = await processPdfBytes(originalBytes);
         const t2 = performance.now();
 
@@ -510,23 +520,31 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
           <!DOCTYPE html>
           <html>
             <head>
-              <title>Loading...</title>
+              <title>Загрузка...</title>
               <style>
                 body { background-color: #1c1c22; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; margin: 0; flex-direction: column; }
                 @keyframes spin { 100% { transform: rotate(360deg); } }
-                .spinner { width: 100px; height: 100px; animation: spin 2s linear infinite; margin-bottom: 20px; }
+                .spinner { width: 100px; height: 100px; animation: spin 2s linear infinite; margin-bottom: 20px; mix-blend-mode: screen; filter: invert(1); }
               </style>
             </head>
             <body>
               <img src="${iconUrl}" class="spinner" alt="Loading..." />
-              <h2>Preparing Dark PDF...</h2>
-              <p style="opacity: 0.7; font-size: 14px; margin-top: 10px;">This may take a few seconds for large files.</p>
+              <h2 id="pdf-status">Подготовка...</h2>
+              <p style="opacity: 0.7; font-size: 14px; margin-top: 10px;">Большие файлы могут обрабатываться долго</p>
             </body>
           </html>
         `);
       }
 
+      const updateStatus = (msg) => {
+        if (win && !win.closed) {
+          const el = win.document.getElementById('pdf-status');
+          if (el) el.textContent = msg;
+        }
+      };
+
       try {
+        updateStatus('Инициализация...');
         await loadDeps();
         const pdfUrl = await getPdfDownloadUrl(fileElement);
         if (!pdfUrl) {
@@ -539,7 +557,8 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
           return;
         }
 
-        const darkUrl = await getDarkPdfUrl(pdfUrl);
+        updateStatus('Запуск обработки...');
+        const darkUrl = await getDarkPdfUrl(pdfUrl, updateStatus);
 
         const filename =
           (fileElement.querySelector('.t-name')?.textContent?.trim() || 'Document') +
