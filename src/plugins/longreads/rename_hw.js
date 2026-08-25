@@ -43,7 +43,7 @@
 
   function findWeekNumberInUI() {
     const weekElementsNotArray = document.querySelectorAll(
-      'a[href*="/learn/courses/view/actual/"], .week-navigation__item--active, [class*="week"]'
+      'a[href*="/learn/courses/view/actual/"], a[href*="/learn/courses/view/archived/"], .week-navigation__item--active, [class*="week"]'
     );
     const weekElements = Array.from(weekElementsNotArray);
     for (const element of weekElements.reverse()) {
