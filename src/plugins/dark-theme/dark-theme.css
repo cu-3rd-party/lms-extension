@@ -16268,6 +16268,202 @@ cu-navigation-widget.time-widget .information .title tui-icon {
   color: #ffffff !important;
 }
 
+/* =========================================================
+   СТРАНИЦА ВЫБОРА КУРСОВ (/learn/courses-selection)
+   ========================================================= */
+
+/* Главная карточка-заголовок «Выбор курсов» */
+cu-campaigns-list .main-card,
+section[cucourseselectioncard].main-card {
+  background-color: var(--culms-dark-bg-secondary) !important;
+  border: 1px solid var(--culms-dark-border-primary) !important;
+  color: var(--culms-dark-text-primary) !important;
+}
+
+cu-campaigns-list .main-card h1,
+section[cucourseselectioncard].main-card h1 {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+cu-campaigns-list .main-card .card-description,
+section[cucourseselectioncard].main-card .card-description {
+  color: var(--culms-dark-text-tertiary) !important;
+}
+
+/* Карточки кампаний */
+cu-campaigns-list .campaign-card,
+section[cucourseselectioncard].campaign-card {
+  background-color: var(--culms-dark-bg-primary) !important;
+  border: 1px solid var(--culms-dark-border-primary) !important;
+  color: var(--culms-dark-text-primary) !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease !important;
+}
+
+cu-campaigns-list .campaign-card:hover,
+section[cucourseselectioncard].campaign-card:hover {
+  background-color: var(--culms-dark-bg-hover) !important;
+  border-color: var(--culms-dark-border-hover) !important;
+}
+
+/* Текст внутри карточек кампаний */
+cu-campaigns-list .campaign-card h1,
+cu-campaigns-list .campaign-card .limited-lines-text,
+cu-campaigns-list .campaign-card .font-text-xl-bold,
+section[cucourseselectioncard] h1,
+section[cucourseselectioncard] .limited-lines-text,
+section[cucourseselectioncard] .font-text-xl-bold {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Описание / статус выбора */
+cu-campaigns-list .campaign-card .card-description,
+cu-campaigns-list .campaign-card .text-secondary,
+section[cucourseselectioncard] .card-description,
+section[cucourseselectioncard] .text-secondary {
+  color: var(--culms-dark-text-tertiary) !important;
+}
+
+/* Кнопка «К выбору» */
+cu-campaigns-list .campaign-card a[tuibutton],
+cu-campaigns-list .campaign-card .campaign-action,
+section[cucourseselectioncard] a[tuibutton],
+section[cucourseselectioncard] .campaign-action {
+  background-color: var(--culms-dark-bg-hover-light) !important;
+  color: var(--culms-dark-text-primary) !important;
+  border: 1px solid var(--culms-dark-border-secondary) !important;
+}
+
+cu-campaigns-list .campaign-card a[tuibutton]:hover,
+cu-campaigns-list .campaign-card .campaign-action:hover,
+section[cucourseselectioncard] a[tuibutton]:hover,
+section[cucourseselectioncard] .campaign-action:hover {
+  background-color: var(--culms-dark-bg-hover) !important;
+  border-color: var(--culms-dark-border-hover-light) !important;
+}
+
+/* Прогресс-бар */
+cu-campaigns-list progress[tuiprogressbar],
+section[cucourseselectioncard] progress[tuiprogressbar] {
+  background-color: var(--culms-dark-border-primary) !important;
+}
+
+cu-campaigns-list progress[tuiprogressbar]::-webkit-progress-bar,
+section[cucourseselectioncard] progress[tuiprogressbar]::-webkit-progress-bar {
+  background-color: var(--culms-dark-border-primary) !important;
+  border-radius: 4px !important;
+}
+
+/* =========================================================
+   ОБЗОР КАМПАНИИ (/learn/courses-selection/{id})
+   ========================================================= */
+
+/* Заголовок «Твои курсы по разделам» */
+cu-campaign-overview .selection-title {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Главная секция «Выбор курсов завершен» */
+cu-campaign-overview .main-section,
+cu-campaign-overview-main-content .main-section,
+section[cucourseselectioncard].main-section {
+  background-color: var(--culms-dark-bg-secondary) !important;
+  border: 1px solid var(--culms-dark-border-primary) !important;
+  color: var(--culms-dark-text-primary) !important;
+}
+
+cu-campaign-overview .main-section h1,
+cu-campaign-overview-main-content .main-section h1,
+section[cucourseselectioncard].main-section h1 {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+cu-campaign-overview .main-section .text-secondary,
+cu-campaign-overview-main-content .main-section .text-secondary,
+section[cucourseselectioncard].main-section .text-secondary {
+  color: var(--culms-dark-text-tertiary) !important;
+}
+
+/* Кнопка «Написать в поддержку» */
+cu-campaign-overview .main-section a[tuibutton],
+cu-campaign-overview-main-content .main-section a[tuibutton],
+section[cucourseselectioncard].main-section .main-section__action {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Блоки курсов по разделам */
+cu-campaign-overview-selection-results .courses-block,
+section[cucourseselectioncard].courses-block {
+  background-color: var(--culms-dark-bg-primary) !important;
+  border: 1px solid var(--culms-dark-border-primary) !important;
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Заголовки разделов */
+cu-campaign-overview-selection-results .courses-block__header h3,
+section[cucourseselectioncard] .courses-block__header h3 {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Элементы списка курсов */
+cu-campaign-overview-selection-results .courses-block__courses-item,
+section[cucourseselectioncard] .courses-block__courses-item {
+  border-color: var(--culms-dark-border-primary) !important;
+}
+
+/* Содержимое элемента курса */
+cu-campaign-overview-selection-results .courses-block__courses-item-content,
+section[cucourseselectioncard] .courses-block__courses-item-content {
+  background-color: transparent !important;
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Название курса */
+cu-campaign-overview-selection-results .courses-block__courses-item-name,
+section[cucourseselectioncard] .courses-block__courses-item-name {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* Иконка курса */
+cu-campaign-overview-selection-results .courses-block__courses-item-icon tui-icon,
+section[cucourseselectioncard] .courses-block__courses-item-icon tui-icon {
+  color: var(--culms-dark-text-tertiary) !important;
+}
+
+/* Пустые слоты «Не выбрано» */
+cu-campaign-overview-selection-results .courses-block__courses-item-content_empty,
+section[cucourseselectioncard] .courses-block__courses-item-content_empty {
+  background-color: var(--culms-dark-bg-hover) !important;
+  border: 1px dashed var(--culms-dark-border-secondary) !important;
+}
+
+cu-campaign-overview-selection-results .courses-block__courses-item-content_empty .text-secondary,
+section[cucourseselectioncard] .courses-block__courses-item-content_empty .text-secondary {
+  color: var(--culms-dark-text-tertiary) !important;
+}
+
+/* Итоговый блок результата */
+cu-campaign-overview-selection-results .courses-block__result,
+section[cucourseselectioncard].courses-block__result {
+  background-color: var(--culms-dark-bg-secondary) !important;
+  border: 1px solid var(--culms-dark-border-primary) !important;
+  color: var(--culms-dark-text-primary) !important;
+}
+
+cu-campaign-overview-selection-results .courses-block__result h3,
+section[cucourseselectioncard].courses-block__result h3 {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+cu-campaign-overview-selection-results .courses-block__result .courses-block__description,
+section[cucourseselectioncard].courses-block__result .courses-block__description {
+  color: var(--culms-dark-text-tertiary) !important;
+}
+
+cu-campaign-overview-selection-results .courses-block__result tui-icon,
+section[cucourseselectioncard].courses-block__result tui-icon {
+  color: var(--culms-dark-text-tertiary) !important;
+}
+
 :tui-root {
   tui-text-primary {
     color: var(--culms-dark-text-primary);
