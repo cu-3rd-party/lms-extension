@@ -91,11 +91,9 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
     { light: [180, 3, 180], dark: [210, 50, 210], tolerance: 10 },
   ];
 
-  // =========================================================================
-  // Color math utilities
-  // =========================================================================
-  function rgbDistance(c1, c2) {
-    return Math.sqrt((c1[0] - c2[0]) ** 2 + (c1[1] - c2[1]) ** 2 + (c1[2] - c2[2]) ** 2);
+  // Pre-calculate squared tolerance
+  for (const entry of COLOR_MAP) {
+    entry.toleranceSq = entry.tolerance * entry.tolerance;
   }
 
   function invertLuminance(r, g, b) {
@@ -142,11 +140,14 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
 
   function mapColor(r, g, b) {
     let best = null,
-      bestDist = Infinity;
+      bestDistSq = Infinity;
     for (const entry of COLOR_MAP) {
-      const d = rgbDistance([r, g, b], entry.light);
-      if (d <= entry.tolerance && d < bestDist) {
-        bestDist = d;
+      const dr = r - entry.light[0];
+      const dg = g - entry.light[1];
+      const db = b - entry.light[2];
+      const dSq = dr * dr + dg * dg + db * db;
+      if (dSq <= entry.toleranceSq && dSq < bestDistSq) {
+        bestDistSq = dSq;
         best = entry.dark;
       }
     }
@@ -210,40 +211,50 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
   let pdfLib = null;
   let fflate = null;
 
-  async function loadDeps() {
-    if (pdfLib && fflate) return;
+  let depsPromise = null;
 
-    // pdf-lib is already bundled in the extension (used by course_exporter)
-    // We load it dynamically from the global scope or import
-    if (typeof window.PDFLib !== 'undefined') {
-      pdfLib = window.PDFLib;
-    } else {
-      // Try to load from the bundled pdf-lib.min.js
-      const script = document.createElement('script');
-      script.src = browser.runtime.getURL('plugins/_shared/pdf-lib.min.js');
-      await new Promise((resolve, reject) => {
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-      pdfLib = window.PDFLib;
-    }
+  function loadDeps() {
+    if (pdfLib && fflate) return Promise.resolve();
+    if (depsPromise) return depsPromise;
 
-    // Load fflate
-    if (typeof window.fflate !== 'undefined') {
-      fflate = window.fflate;
-    } else {
-      const script = document.createElement('script');
-      script.src = browser.runtime.getURL('plugins/_shared/fflate.umd.min.js');
-      await new Promise((resolve, reject) => {
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-      fflate = window.fflate;
-    }
+    depsPromise = (async () => {
+      // pdf-lib is already bundled in the extension (used by course_exporter)
+      // We load it dynamically from the global scope or import
+      if (typeof window.PDFLib !== 'undefined') {
+        pdfLib = window.PDFLib;
+      } else {
+        // Try to load from the bundled pdf-lib.min.js
+        const script = document.createElement('script');
+        script.src = browser.runtime.getURL('plugins/_shared/pdf-lib.min.js');
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+        pdfLib = window.PDFLib;
+      }
 
-    if (!pdfLib || !fflate) throw new Error('Failed to load pdf-lib or fflate');
+      // Load fflate
+      if (typeof window.fflate !== 'undefined') {
+        fflate = window.fflate;
+      } else {
+        const script = document.createElement('script');
+        script.src = browser.runtime.getURL('plugins/_shared/fflate.umd.min.js');
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+        fflate = window.fflate;
+      }
+
+      if (!pdfLib || !fflate) throw new Error('Failed to load pdf-lib or fflate');
+    })().catch((e) => {
+      depsPromise = null;
+      throw e;
+    });
+
+    return depsPromise;
   }
 
   async function processPdfBytes(originalBytes) {
@@ -345,23 +356,45 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
   // Cache for processed PDFs (blob URLs keyed by original URL)
   // =========================================================================
   const darkPdfCache = new Map();
+  let activeProcessingPromise = Promise.resolve();
 
   function getDarkPdfUrl(originalUrl) {
     if (darkPdfCache.has(originalUrl)) return darkPdfCache.get(originalUrl);
 
+    let releaseMutex;
+    const previousProcessing = activeProcessingPromise;
+    activeProcessingPromise = new Promise((resolve) => {
+      releaseMutex = resolve;
+    });
+
     const promise = (async () => {
-      console.log(`${LOG_PREFIX} Fetching PDF:`, originalUrl.substring(0, 100) + '...');
-      const response = await fetch(originalUrl);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const originalBytes = new Uint8Array(await response.arrayBuffer());
+      await previousProcessing; // Wait in queue
+      try {
+        const t0 = performance.now();
+        console.log(`${LOG_PREFIX} Fetching PDF:`, originalUrl.substring(0, 100) + '...');
+        const response = await fetch(originalUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const originalBytes = new Uint8Array(await response.arrayBuffer());
+        const t1 = performance.now();
 
-      console.log(`${LOG_PREFIX} Processing ${(originalBytes.length / 1024).toFixed(0)} KB PDF...`);
-      const darkBytes = await processPdfBytes(originalBytes);
+        console.log(
+          `${LOG_PREFIX} Fetch done in ${(t1 - t0).toFixed(0)}ms. Processing ${(originalBytes.length / 1024).toFixed(0)} KB PDF...`
+        );
+        const darkBytes = await processPdfBytes(originalBytes);
+        const t2 = performance.now();
 
-      const blob = new Blob([darkBytes], { type: 'application/pdf' });
-      const blobUrl = URL.createObjectURL(blob);
-      console.log(`${LOG_PREFIX} Dark PDF ready`);
-      return blobUrl;
+        const blob = new Blob([darkBytes], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        const t3 = performance.now();
+
+        console.log(
+          `${LOG_PREFIX} Processing done in ${(t2 - t1).toFixed(0)}ms. URL created in ${(t3 - t2).toFixed(0)}ms.`
+        );
+        console.log(`${LOG_PREFIX} Total time: ${(t3 - t0).toFixed(0)}ms. Dark PDF ready`);
+        return blobUrl;
+      } finally {
+        releaseMutex();
+      }
     })();
 
     darkPdfCache.set(originalUrl, promise);
@@ -467,6 +500,9 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
       fileElement.style.opacity = '0.5';
       fileElement.style.cursor = 'wait';
 
+      // Get the extension icon URL for the spinner
+      const iconUrl = browser.runtime.getURL('icons/icon128.png');
+
       // Open the window synchronously to bypass popup blockers
       const win = window.open('', '_blank');
       if (win) {
@@ -475,9 +511,17 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
           <html>
             <head>
               <title>Loading...</title>
-              <style>body { background-color: #1c1c22; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; margin: 0; }</style>
+              <style>
+                body { background-color: #1c1c22; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; margin: 0; flex-direction: column; }
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+                .spinner { width: 100px; height: 100px; animation: spin 2s linear infinite; margin-bottom: 20px; }
+              </style>
             </head>
-            <body><h2>Preparing Dark PDF...</h2></body>
+            <body>
+              <img src="${iconUrl}" class="spinner" alt="Loading..." />
+              <h2>Preparing Dark PDF...</h2>
+              <p style="opacity: 0.7; font-size: 14px; margin-top: 10px;">This may take a few seconds for large files.</p>
+            </body>
           </html>
         `);
       }
@@ -539,43 +583,4 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
     },
     { capture: true }
   );
-
-  // =========================================================================
-  // Silent Background Preloading
-  // =========================================================================
-
-  async function preloadPdf(fileElement) {
-    if (fileElement.dataset.cuPdfDarkPreloaded) return;
-    fileElement.dataset.cuPdfDarkPreloaded = 'true';
-
-    try {
-      if (!isDarkPdfStateEnabled) return;
-      await loadDeps();
-      const pdfUrl = await getPdfDownloadUrl(fileElement);
-      if (pdfUrl) {
-        // We do NOT await getDarkPdfUrl here so it processes in background without blocking the loop
-        getDarkPdfUrl(pdfUrl).catch((e) => console.warn(`${LOG_PREFIX} Preload error:`, e));
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  function scanAndPreload() {
-    if (!isDarkPdfStateEnabled) return;
-    const pdfFiles = document.querySelectorAll('a.file:not([data-cu-pdf-dark-preloaded])');
-    for (const el of pdfFiles) {
-      if (isPdfFile(el)) preloadPdf(el);
-    }
-  }
-
-  const observer = new MutationObserver((mutations) => {
-    if (mutations.some((m) => m.addedNodes.length > 0)) {
-      clearTimeout(observer._timeout);
-      observer._timeout = setTimeout(scanAndPreload, 500);
-    }
-  });
-
-  observer.observe(document.body, { childList: true, subtree: true });
-  scanAndPreload();
 }
