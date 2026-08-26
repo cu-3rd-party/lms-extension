@@ -95,6 +95,15 @@ a:hover .tui-island::before {
   background-color: var(--culms-dark-bg-primary) !important;
 }
 
+.header,
+.header__navigation-bar {
+  background-color: var(--culms-dark-bg-primary) !important;
+}
+
+.header__navigation-bar {
+  border-bottom: 1px solid var(--culms-dark-border-primary) !important;
+}
+
 /* Text surfaces */
 .user-info__name,
 .user-info__email,

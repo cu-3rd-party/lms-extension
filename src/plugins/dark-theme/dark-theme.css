@@ -292,6 +292,15 @@ a:hover .tui-island::before {
   /*BTDEV: nav bar on longread pages*/
 }
 
+.header,
+.header__navigation-bar {
+  background-color: var(--culms-dark-bg-primary) !important;
+}
+
+.header__navigation-bar {
+  border-bottom: 1px solid var(--culms-dark-border-primary) !important;
+}
+
 .message-content {
   background-color: var(--culms-dark-bg-primary) !important;
   /*BTDEV: reviewer comments*/

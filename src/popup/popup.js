@@ -93,10 +93,8 @@ const toggles = {
   darkPdfEnabled: document.getElementById('dark-pdf-toggle'),
   autoRenameEnabled: document.getElementById('auto-rename-toggle'),
   snowEnabled: document.getElementById('snow-toggle'),
-  stickerEnabled: document.getElementById('sticker-toggle'),
   courseOverviewTaskStatusToggle: document.getElementById('course-overview-task-status-toggle'),
   emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
-  oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
   futureExamsViewToggle: document.getElementById('future-exams-view-toggle'),
   courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
   advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
@@ -111,46 +109,12 @@ const futureExamsDisplayContainer = document.getElementById('future-exams-displa
 const futureExamsDisplayFormat = document.getElementById('future-exams-display-format');
 const autoRenameFormatContainer = document.getElementById('auto-rename-format-container');
 const renameTemplateSelect = document.getElementById('rename-template-select');
-const stickerUploadContainer = document.getElementById('sticker-upload-container');
-const stickerFileInput = document.getElementById('sticker-file-input');
-const stickerPreview = document.getElementById('sticker-preview');
-const noStickerText = document.getElementById('no-sticker-text');
-const stickerResetBtn = document.getElementById('sticker-reset-btn');
 const reloadNotice = document.getElementById('reload-notice');
-const stickerFitSelect = document.getElementById('sticker-fit-select');
 const gradesExportBtn = document.getElementById('grades-export-btn');
 const gradesExportStatus = document.getElementById('grades-export-status');
 
-const allKeys = [
-  ...Object.keys(toggles),
-  'futureExamsDisplayFormat',
-  'autoRenameTemplate',
-  'stickerObjectFit',
-];
+const allKeys = [...Object.keys(toggles), 'futureExamsDisplayFormat', 'autoRenameTemplate'];
 let pendingChanges = {};
-
-// --- ФУНКЦИИ ДЛЯ РАБОТЫ СО СТИКЕРАМИ ---
-function updateStickerUI(isEnabled) {
-  if (stickerUploadContainer) {
-    stickerUploadContainer.style.display = isEnabled ? 'block' : 'none';
-  }
-}
-
-function loadStickerImage() {
-  if (!stickerPreview || !noStickerText) return;
-
-  browser.storage.local.get(['customStickerData']).then((result) => {
-    if (result.customStickerData) {
-      stickerPreview.src = result.customStickerData;
-      stickerPreview.style.display = 'inline-block';
-      noStickerText.style.display = 'none';
-    } else {
-      stickerPreview.src = '';
-      stickerPreview.style.display = 'none';
-      noStickerText.style.display = 'inline-block';
-    }
-  });
-}
 
 function updateAutoRenameUI(isEnabled) {
   if (autoRenameFormatContainer) {
@@ -176,18 +140,6 @@ function refreshToggleStates() {
       toggles.endOfCourseCalcEnabled.disabled = !isAdvancedStatementsEnabled;
       endOfCourseCalcLabel.classList.toggle('disabled-label', !isAdvancedStatementsEnabled);
     }
-
-    if (data.stickerEnabled) {
-      updateStickerUI(true);
-      const editorContainer = document.getElementById('sticker-editor-container');
-      if (editorContainer) editorContainer.style.display = 'block';
-      loadStickerImage();
-    } else {
-      updateStickerUI(false);
-      const editorContainer = document.getElementById('sticker-editor-container');
-      if (editorContainer) editorContainer.style.display = 'none';
-    }
-    if (stickerFitSelect) stickerFitSelect.value = data.stickerObjectFit || 'cover';
 
     updateAutoRenameUI(isAutoRenameEnabled);
     if (renameTemplateSelect && data.autoRenameTemplate) {
@@ -268,55 +220,12 @@ allKeys.forEach((key) => {
         }
       } else if (key === 'futureExamsViewToggle') {
         updateFormatDisplayVisibility();
-      } else if (key === 'stickerEnabled') {
-        updateStickerUI(isEnabled);
-        const editorContainer = document.getElementById('sticker-editor-container');
-        if (editorContainer) editorContainer.style.display = isEnabled ? 'block' : 'none';
-        if (isEnabled) loadStickerImage();
       } else if (key === 'autoRenameEnabled') {
         updateAutoRenameUI(isEnabled);
       }
     });
   }
 });
-
-const openEditorBtn = document.getElementById('open-editor-btn');
-if (openEditorBtn) {
-  openEditorBtn.addEventListener('click', () => {
-    const targetUrl =
-      'https://my.centraluniversity.ru/learn/courses/view/actual?customIconEditor=true';
-
-    if (toggles.stickerEnabled && !toggles.stickerEnabled.checked) {
-      toggles.stickerEnabled.checked = true;
-      if (isInsideIframe) pendingChanges['stickerEnabled'] = true;
-    }
-
-    if (isInsideIframe) {
-      pendingChanges['stickerEnabled'] = true;
-      window.parent.postMessage(
-        {
-          action: 'receivePendingChanges',
-          payload: pendingChanges, // Отправляем всё накопленное перед переходом
-          shouldReload: false,
-        },
-        '*'
-      );
-
-      setTimeout(() => {
-        window.parent.location.href = targetUrl;
-      }, 50);
-    } else {
-      browser.storage.sync.set({ stickerEnabled: true }).then(() => {
-        browserApi.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
-          if (tabs.length > 0) {
-            browserApi.tabs.update(tabs[0].id, { url: targetUrl });
-            window.close();
-          }
-        });
-      });
-    }
-  });
-}
 
 // 2. Обработчики дропдаунов (откладываем сохранение в Iframe)
 if (futureExamsDisplayFormat) {
@@ -340,51 +249,6 @@ if (renameTemplateSelect) {
     } else {
       browser.storage.sync.set({ autoRenameTemplate: template });
     }
-  });
-}
-
-if (stickerFitSelect) {
-  stickerFitSelect.addEventListener('change', () => {
-    const val = stickerFitSelect.value;
-    if (isInsideIframe) {
-      pendingChanges['stickerObjectFit'] = val;
-      if (reloadNotice) reloadNotice.style.display = 'block';
-    } else {
-      browser.storage.sync.set({ stickerObjectFit: val });
-    }
-  });
-}
-
-// 3. Обработчик загрузки файла
-if (stickerFileInput) {
-  stickerFileInput.addEventListener('change', (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (file.size > 3 * 1024 * 1024) {
-      alert('Файл слишком большой! Пожалуйста, выберите картинку до 3 МБ.');
-      stickerFileInput.value = '';
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const base64String = e.target.result;
-      browser.storage.local.set({ customStickerData: base64String }).then(() => {
-        loadStickerImage();
-      });
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-// 4. Обработчик удаления картинки
-if (stickerResetBtn) {
-  stickerResetBtn.addEventListener('click', () => {
-    browser.storage.local.remove('customStickerData').then(() => {
-      loadStickerImage();
-      stickerFileInput.value = '';
-    });
   });
 }
 
@@ -425,14 +289,11 @@ const resetBtn = document.getElementById('reset-all-settings-btn');
 if (resetBtn) {
   resetBtn.addEventListener('click', () => {
     const confirmed = confirm(
-      'Это действие сбросит все настройки:\n- Удалит скрытые курсы и друзей\n- Сбросит порядок курсов\n- Удалит стикер\n- Вернет стандартные настройки\n\nПродолжить?'
+      'Это действие сбросит все настройки:\n- Удалит скрытые курсы и друзей\n- Сбросит порядок курсов\n- Вернет стандартные настройки\n\nПродолжить?'
     );
     if (!confirmed) return;
 
-    browser.storage.local.clear().then(() => {
-      if (stickerFileInput) stickerFileInput.value = '';
-      loadStickerImage();
-    });
+    browser.storage.local.clear();
 
     if (isInsideIframe) {
       window.parent.postMessage({ action: 'RESET_LMS_LOCAL_STORAGE_IFRAME' }, '*');
@@ -457,10 +318,8 @@ if (resetBtn) {
       endOfCourseCalcEnabled: true,
       emojiHeartsEnabled: false,
       snowEnabled: false,
-      oldCoursesDesignToggle: false,
       futureExamsViewToggle: false,
       futureExamsDisplayFormat: 'date',
-      stickerEnabled: false,
       courseOverviewAutoscrollToggle: false,
       friendsEnabled: true,
       hideBonusButtonEnabled: false,
@@ -489,35 +348,12 @@ if (resetBtn) {
       if (futureExamsDisplayFormat)
         futureExamsDisplayFormat.value = defaultSettings.futureExamsDisplayFormat;
 
-      if (stickerUploadContainer) stickerUploadContainer.style.display = 'none';
       if (autoRenameFormatContainer) autoRenameFormatContainer.style.display = 'none';
       if (futureExamsDisplayContainer) futureExamsDisplayContainer.style.display = 'none';
 
       if (reloadNotice) reloadNotice.style.display = 'block';
     } else {
       browser.storage.sync.set(defaultSettings);
-    }
-  });
-}
-
-const resetCourseIconsBtn = document.getElementById('reset-course-icons-btn');
-if (resetCourseIconsBtn) {
-  resetCourseIconsBtn.addEventListener('click', () => {
-    const confirmed = confirm('Сбросить иконки для ВСЕХ курсов? Перезагрузите страницу.');
-
-    if (confirmed) {
-      browser.storage.local.remove('courseIcons').then(() => {
-        if (isInsideIframe) {
-          window.parent.location.reload();
-        } else {
-          browserApi.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
-            if (tabs.length > 0) {
-              browserApi.tabs.reload(tabs[0].id);
-              window.close();
-            }
-          });
-        }
-      });
     }
   });
 }

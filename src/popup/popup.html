@@ -276,13 +276,6 @@
       </div>
 
       <div class="toggle-container">
-        <span class="toggle-label">Возвращение старого дизайна курсов:</span>
-        <label class="switch">
-          <input type="checkbox" id="old-courses-design-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="toggle-container">
         <span class="toggle-label">Видеть предстоящие контрольные:</span>
         <label class="switch">
           <input type="checkbox" id="future-exams-view-toggle" />
@@ -296,69 +289,6 @@
             <option value="date">Разброс дат</option>
             <option value="week">Неделя</option>
           </select>
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <h3>Кастомный стикер курсов</h3>
-      <div class="toggle-container">
-        <span class="toggle-label">Заменять иконки курсов:</span>
-        <label class="switch">
-          <input type="checkbox" id="sticker-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <!-- Контейнер редактора (Показывается только если включен переключатель выше) -->
-      <div id="sticker-editor-container" style="display: none; margin-top: 10px">
-        <button
-          id="open-editor-btn"
-          style="
-            width: 100%;
-            padding: 8px;
-            background-color: #2196f3;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
-          "
-        >
-          Открыть редактор иконок
-        </button>
-
-        <button
-          id="reset-course-icons-btn"
-          style="
-            margin-top: 8px;
-            width: 100%;
-            padding: 6px;
-            background: #fff0f0;
-            border: 1px solid #ffcccc;
-            color: #d63031;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-          "
-        >
-          Сбросить все иконки курсов
-        </button>
-
-        <p style="font-size: 11px; color: #666; margin-top: 5px; text-align: center">
-          Нажмите редактор, чтобы настроить иконку для каждого курса отдельно.
-        </p>
-        <div class="setting-container" style="margin-bottom: 12px">
-          <span class="setting-label">Заполнение картинки:</span>
-          <div class="dropdown-container">
-            <select class="dropdown-select" id="sticker-fit-select">
-              <option value="cover">Обрезать (Cover)</option>
-              <option value="contain">Вместить (Contain)</option>
-              <option value="fill">Растянуть (Fill)</option>
-              <option value="fit">Вставить как встанет (Fit)</option>
-            </select>
-          </div>
         </div>
       </div>
     </div>
