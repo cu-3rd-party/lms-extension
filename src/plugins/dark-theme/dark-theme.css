@@ -478,6 +478,69 @@ tui-chip[data-appearance='neutral'] {
   filter: invert(1) !important;
 }
 
+/* BTDEV: virtual machines resource list */
+cu-self-service-virtual-machines-feature-list .banner,
+cu-self-service-virtual-machines-feature-list .banner__in,
+cu-self-service-virtual-machines-feature-list .banner__bg {
+  background-color: var(--culms-dark-bg-secondary) !important;
+}
+
+cu-self-service-virtual-machines-feature-list .banner__content,
+cu-self-service-virtual-machines-feature-list .banner-text,
+cu-self-service-virtual-machines-feature-list .banner-text .text-primary,
+cu-self-service-virtual-machines-feature-list .banner-text .text-secondary,
+cu-self-service-virtual-machines-feature-list .resource-header,
+cu-self-service-virtual-machines-feature-list .resource-header h2,
+cu-self-service-virtual-machines-feature-list .resource-header p,
+cu-self-service-virtual-machines-feature-list .resource-card-column,
+cu-self-service-virtual-machines-feature-list .resource-name,
+cu-self-service-virtual-machines-feature-list .resource-ip,
+cu-self-service-virtual-machines-feature-list .details-badge,
+cu-self-service-virtual-machines-feature-list .details-badge-icon {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+cu-self-service-virtual-machines-feature-list .banner-text .text-secondary,
+cu-self-service-virtual-machines-feature-list .resource-header p,
+cu-self-service-virtual-machines-feature-list .resource-ip {
+  color: var(--culms-dark-text-secondary) !important;
+}
+
+cu-self-service-virtual-machines-feature-list cu-resource-card {
+  background-color: var(--culms-dark-bg-primary) !important;
+  border: 1px solid var(--culms-dark-border-secondary) !important;
+}
+
+cu-self-service-virtual-machines-feature-list .details-badge {
+  background-color: var(--culms-dark-bg-hover) !important;
+}
+
+cu-self-service-virtual-machines-feature-list tui-chip[data-appearance='positive'],
+cu-self-service-virtual-machines-feature-list tui-chip[data-appearance='positive'] span {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+/* BTDEV: shared instance service pages */
+cu-instance-list .banner,
+cu-instance-list .banner__in,
+cu-instance-list .banner__bg {
+  background-color: var(--culms-dark-bg-secondary) !important;
+}
+
+cu-instance-list .banner__content,
+cu-instance-list .banner-text,
+cu-instance-list .banner-text .text-primary,
+cu-instance-list .banner-text .text-secondary,
+cu-instance-list .instances-title,
+cu-instance-list .no-instances {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+cu-instance-list .banner-text .text-secondary,
+cu-instance-list .not-found-text {
+  color: var(--culms-dark-text-secondary) !important;
+}
+
 a:hover .cu-navtab__main-element-text,
 /*BTDEV: left panel navigation colors*/
 button:hover .cu-navtab__main-element-text {
