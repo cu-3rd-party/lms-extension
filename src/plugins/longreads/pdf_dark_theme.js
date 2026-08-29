@@ -1,7 +1,19 @@
 // pdf_dark_theme.js — Dark theme for PDF files in longreads
-// Ported from 3rd-pdf project (pdf.cu3rd.ru)
-// Uses pdf-lib + pako to recolor PDF streams client-side,
-// then replaces the original download link with the dark version.
+//
+// Этот файл только перехватывает клик по PDF-вложению и достаёт ссылку на
+// оригинал. Скачиванием, перекраской и показом занимается отдельная страница
+// расширения plugins/longreads/pdf_viewer.html (см. pdf_viewer.js) — вкладку
+// с ней открывает background по сообщению OPEN_PDF_VIEWER.
+//
+// Раньше всё это жило прямо здесь: window.open('', '_blank') + document.write
+// + <embed> с blob-URL. В Firefox так не работает (вкладка навсегда оставалась
+// на about:blank), поэтому тяжёлая часть вынесена на страницу расширения.
+// Не возвращай её обратно в content-скрипт.
+
+if (typeof browser === 'undefined') {
+  // var, а не const: файл переинжектится при каждой SPA-навигации.
+  var browser = chrome;
+}
 
 if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
   window.__culmsPdfDarkThemeInitialized = true;
@@ -14,402 +26,6 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
   // Storage key
   // =========================================================================
   const SETTING_KEY = 'darkPdfEnabled';
-
-  // =========================================================================
-  // Color map (from 3rd-pdf DEFAULT_COLOR_MAP)
-  // =========================================================================
-  const COLOR_MAP = [
-    // White backgrounds → dark
-    { light: [255, 255, 255], dark: [20, 20, 24], tolerance: 8 },
-    { light: [246, 246, 246], dark: [26, 26, 32], tolerance: 6 },
-    { light: [242, 242, 242], dark: [30, 30, 38], tolerance: 6 },
-    { light: [230, 230, 230], dark: [36, 36, 44], tolerance: 6 },
-    { light: [247, 247, 249], dark: [28, 28, 34], tolerance: 6 },
-    { light: [255, 249, 229], dark: [30, 28, 20], tolerance: 8 },
-    { light: [255, 228, 150], dark: [60, 55, 20], tolerance: 15 },
-    { light: [255, 255, 0], dark: [80, 80, 0], tolerance: 20 },
-    // Text
-    { light: [0, 0, 0], dark: [220, 220, 228], tolerance: 5 },
-    // Stars
-    { light: [20, 20, 20], dark: [60, 60, 68], tolerance: 10 },
-    { light: [185, 185, 185], dark: [170, 170, 175], tolerance: 6 },
-    // Greyscale
-    { light: [209, 209, 209], dark: [50, 50, 58], tolerance: 6 },
-    { light: [199, 199, 199], dark: [56, 56, 64], tolerance: 6 },
-    { light: [200, 200, 200], dark: [55, 55, 65], tolerance: 6 },
-    { light: [176, 176, 176], dark: [64, 64, 72], tolerance: 6 },
-    { light: [150, 150, 150], dark: [140, 140, 155], tolerance: 6 },
-    { light: [136, 136, 136], dark: [110, 110, 125], tolerance: 6 },
-    { light: [109, 109, 109], dark: [130, 130, 145], tolerance: 6 },
-    { light: [93, 93, 93], dark: [150, 150, 165], tolerance: 6 },
-    { light: [79, 79, 79], dark: [160, 160, 175], tolerance: 6 },
-    { light: [69, 69, 69], dark: [170, 170, 185], tolerance: 6 },
-    { light: [61, 61, 61], dark: [180, 180, 195], tolerance: 6 },
-    { light: [221, 221, 221], dark: [45, 45, 55], tolerance: 6 },
-    // Expert Blue
-    { light: [119, 90, 255], dark: [45, 35, 95], tolerance: 10 },
-    { light: [48, 68, 255], dark: [60, 80, 150], tolerance: 10 },
-    { light: [33, 11, 106], dark: [160, 140, 255], tolerance: 8 },
-    { light: [95, 48, 247], dark: [120, 80, 255], tolerance: 8 },
-    { light: [82, 30, 227], dark: [130, 90, 255], tolerance: 8 },
-    { light: [67, 24, 191], dark: [140, 100, 255], tolerance: 8 },
-    { light: [57, 22, 156], dark: [150, 120, 255], tolerance: 8 },
-    { light: [148, 133, 255], dark: [148, 133, 255], tolerance: 8 },
-    { light: [184, 177, 255], dark: [100, 90, 180], tolerance: 8 },
-    { light: [213, 212, 255], dark: [55, 52, 100], tolerance: 8 },
-    { light: [233, 232, 255], dark: [40, 38, 75], tolerance: 8 },
-    { light: [243, 242, 255], dark: [30, 28, 55], tolerance: 8 },
-    // Base Green
-    { light: [0, 166, 81], dark: [0, 200, 100], tolerance: 10 },
-    { light: [2, 229, 112], dark: [2, 229, 112], tolerance: 8 },
-    { light: [0, 191, 89], dark: [0, 210, 100], tolerance: 8 },
-    { light: [6, 117, 61], dark: [30, 180, 90], tolerance: 8 },
-    // Star colors
-    { light: [48, 69, 255], dark: [80, 100, 255], tolerance: 10 },
-    { light: [230, 63, 7], dark: [255, 90, 50], tolerance: 10 },
-    { light: [229, 64, 8], dark: [255, 90, 50], tolerance: 10 },
-    // Categorical
-    { light: [136, 119, 251], dark: [150, 135, 255], tolerance: 10 },
-    { light: [78, 166, 151], dark: [90, 190, 175], tolerance: 10 },
-    { light: [235, 116, 115], dark: [255, 130, 130], tolerance: 10 },
-    { light: [229, 119, 238], dark: [240, 140, 250], tolerance: 10 },
-    { light: [116, 194, 112], dark: [130, 210, 130], tolerance: 10 },
-    // Brand Accents
-    { light: [255, 102, 44], dark: [255, 120, 70], tolerance: 10 },
-    { light: [255, 221, 45], dark: [255, 230, 80], tolerance: 12 },
-    { light: [254, 104, 185], dark: [255, 120, 195], tolerance: 10 },
-    { light: [44, 185, 255], dark: [60, 200, 255], tolerance: 10 },
-    { light: [217, 184, 254], dark: [200, 170, 255], tolerance: 10 },
-    { light: [113, 195, 203], dark: [130, 210, 220], tolerance: 10 },
-    { light: [227, 255, 124], dark: [200, 230, 100], tolerance: 12 },
-    // Insight / Link
-    { light: [228, 198, 230], dark: [60, 45, 65], tolerance: 10 },
-    { light: [96, 135, 220], dark: [110, 150, 240], tolerance: 10 },
-    // Misc
-    { light: [56, 140, 70], dark: [70, 170, 90], tolerance: 10 },
-    { light: [45, 112, 179], dark: [70, 140, 210], tolerance: 10 },
-    { light: [180, 3, 180], dark: [210, 50, 210], tolerance: 10 },
-  ];
-
-  // Pre-calculate squared tolerance
-  for (const entry of COLOR_MAP) {
-    entry.toleranceSq = entry.tolerance * entry.tolerance;
-  }
-
-  function invertLuminance(r, g, b) {
-    const rf = r / 255,
-      gf = g / 255,
-      bf = b / 255;
-    const max = Math.max(rf, gf, bf),
-      min = Math.min(rf, gf, bf);
-    let h,
-      s,
-      l = (max + min) / 2;
-    if (max === min) {
-      h = 0;
-      s = 0;
-    } else {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      if (max === rf) h = ((gf - bf) / d + (gf < bf ? 6 : 0)) / 6;
-      else if (max === gf) h = ((bf - rf) / d + 2) / 6;
-      else h = ((rf - gf) / d + 4) / 6;
-    }
-    l = 1 - l;
-    s = Math.min(1, s * 1.1);
-    function hue2rgb(p, q, t) {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-      return p;
-    }
-    let rr, gg, bb;
-    if (s === 0) {
-      rr = gg = bb = l;
-    } else {
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-      rr = hue2rgb(p, q, h + 1 / 3);
-      gg = hue2rgb(p, q, h);
-      bb = hue2rgb(p, q, h - 1 / 3);
-    }
-    return [Math.round(rr * 255), Math.round(gg * 255), Math.round(bb * 255)];
-  }
-
-  function mapColor(r, g, b) {
-    let best = null,
-      bestDistSq = Infinity;
-    for (const entry of COLOR_MAP) {
-      const dr = r - entry.light[0];
-      const dg = g - entry.light[1];
-      const db = b - entry.light[2];
-      const dSq = dr * dr + dg * dg + db * db;
-      if (dSq <= entry.toleranceSq && dSq < bestDistSq) {
-        bestDistSq = dSq;
-        best = entry.dark;
-      }
-    }
-    return best || invertLuminance(r, g, b);
-  }
-
-  function cmykToRgb(c, m, y, k) {
-    return [
-      Math.round(255 * (1 - c) * (1 - k)),
-      Math.round(255 * (1 - m) * (1 - k)),
-      Math.round(255 * (1 - y) * (1 - k)),
-    ];
-  }
-
-  // =========================================================================
-  // Stream color replacement
-  // =========================================================================
-  const CMYK_PAT =
-    /(^|\s)(?<![\d.]\s)([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(k|K|sc|SC|scn|SCN)\b/g;
-  const RGB_PAT = /(^|\s)(?<![\d.]\s)([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(rg|RG|sc|SC|scn|SCN)\b/g;
-  const GREY_PAT = /(^|\s)(?<![\d.]\s)([\d.]+)\s+(g|G|sc|SC|scn|SCN)\b/g;
-
-  function replaceColorsInStream(text) {
-    let out = text;
-
-    out = out.replace(CMYK_PAT, (_, pfx, p1, p2, p3, p4, op) => {
-      const [r, g, b] = cmykToRgb(parseFloat(p1), parseFloat(p2), parseFloat(p3), parseFloat(p4));
-      const m = mapColor(r, g, b);
-      const rgbOp = op === op.toUpperCase() ? 'RG' : 'rg';
-      return `${pfx}${(m[0] / 255).toFixed(5)} ${(m[1] / 255).toFixed(5)} ${(m[2] / 255).toFixed(5)} ${rgbOp}`;
-    });
-
-    out = out.replace(RGB_PAT, (_, pfx, p1, p2, p3, op) => {
-      const r = Math.round(parseFloat(p1) * 255),
-        g = Math.round(parseFloat(p2) * 255),
-        b = Math.round(parseFloat(p3) * 255);
-      const m = mapColor(r, g, b);
-      const rgbOp = op === op.toUpperCase() ? 'RG' : 'rg';
-      return `${pfx}${(m[0] / 255).toFixed(5)} ${(m[1] / 255).toFixed(5)} ${(m[2] / 255).toFixed(5)} ${rgbOp}`;
-    });
-
-    out = out.replace(GREY_PAT, (match, pfx, p1, op) => {
-      const val = parseFloat(p1);
-      if (val < 0 || val > 1) return match;
-      const grey = Math.round(val * 255);
-      const m = mapColor(grey, grey, grey);
-      const isUpper = op === op.toUpperCase();
-      if (m[0] === m[1] && m[1] === m[2]) {
-        return `${pfx}${(m[0] / 255).toFixed(5)} ${isUpper ? 'G' : 'g'}`;
-      }
-      return `${pfx}${(m[0] / 255).toFixed(5)} ${(m[1] / 255).toFixed(5)} ${(m[2] / 255).toFixed(5)} ${isUpper ? 'RG' : 'rg'}`;
-    });
-
-    return out;
-  }
-
-  // =========================================================================
-  // PDF processing (using pdf-lib + pako loaded from extension bundles)
-  // =========================================================================
-
-  let pdfLib = null;
-  let fflate = null;
-
-  let depsPromise = null;
-
-  function loadDeps() {
-    if (pdfLib && fflate) return Promise.resolve();
-    if (depsPromise) return depsPromise;
-
-    depsPromise = (async () => {
-      // pdf-lib is already bundled in the extension (used by course_exporter)
-      // We load it dynamically from the global scope or import
-      if (typeof window.PDFLib !== 'undefined') {
-        pdfLib = window.PDFLib;
-      } else {
-        // Try to load from the bundled pdf-lib.min.js
-        const script = document.createElement('script');
-        script.src = browser.runtime.getURL('plugins/_shared/pdf-lib.min.js');
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-        pdfLib = window.PDFLib;
-      }
-
-      // Load fflate
-      if (typeof window.fflate !== 'undefined') {
-        fflate = window.fflate;
-      } else {
-        const script = document.createElement('script');
-        script.src = browser.runtime.getURL('plugins/_shared/fflate.umd.min.js');
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-        fflate = window.fflate;
-      }
-
-      if (!pdfLib || !fflate) throw new Error('Failed to load pdf-lib or fflate');
-    })().catch((e) => {
-      depsPromise = null;
-      throw e;
-    });
-
-    return depsPromise;
-  }
-
-  async function processPdfBytes(originalBytes) {
-    await loadDeps();
-
-    const { PDFDocument, PDFName, PDFRef } = pdfLib;
-    const pdfDoc = await PDFDocument.load(originalBytes, {
-      ignoreEncryption: true,
-      updateMetadata: false,
-    });
-    const context = pdfDoc.context;
-
-    const streamsToProcess = new Set();
-
-    // 1. Collect page content streams
-    const totalPages = pdfDoc.getPageCount();
-    for (let i = 0; i < totalPages; i++) {
-      const page = pdfDoc.getPage(i);
-      const contentsObj = page.node.get(PDFName.of('Contents'));
-      if (!contentsObj) continue;
-      if (typeof contentsObj.size === 'function') {
-        for (let j = 0; j < contentsObj.size(); j++) streamsToProcess.add(contentsObj.get(j));
-      } else {
-        streamsToProcess.add(contentsObj);
-      }
-    }
-
-    // 2. Collect Form XObjects
-    const allObjects = context.enumerateIndirectObjects();
-    for (const [ref, obj] of allObjects) {
-      if (obj && typeof obj.get === 'function') {
-        const subtype = obj.get(PDFName.of('Subtype'));
-        if (subtype && subtype.toString() === '/Form') streamsToProcess.add(ref);
-      }
-    }
-
-    // 3. Process streams
-    for (const ref of streamsToProcess) {
-      if (!ref) continue;
-      const streamObj = ref instanceof PDFRef ? context.lookup(ref) : ref;
-      if (!streamObj || (!streamObj.getContents && !streamObj.contents)) continue;
-
-      try {
-        const streamBytes =
-          typeof streamObj.getContents === 'function'
-            ? streamObj.getContents()
-            : streamObj.contents;
-        const filterName = streamObj.dict?.get(PDFName.of('Filter'))?.toString() || '';
-        let text;
-
-        if (filterName.includes('FlateDecode')) {
-          try {
-            text = new TextDecoder('latin1').decode(fflate.unzlibSync(streamBytes));
-          } catch {
-            text = new TextDecoder('latin1').decode(streamBytes);
-          }
-        } else {
-          text = new TextDecoder('latin1').decode(streamBytes);
-        }
-
-        const newText = replaceColorsInStream(text);
-
-        if (newText !== text) {
-          const latin1Bytes = new Uint8Array(newText.length);
-          for (let c = 0; c < newText.length; c++) latin1Bytes[c] = newText.charCodeAt(c) & 0xff;
-          const compressed = fflate.zlibSync(latin1Bytes);
-          const newStream = context.stream(compressed, {
-            Filter: PDFName.of('FlateDecode'),
-            Length: compressed.length,
-            ...streamObj.dict?.dict,
-          });
-          if (ref instanceof PDFRef) context.assign(ref, newStream);
-        }
-      } catch (e) {
-        console.warn(`${LOG_PREFIX} Stream error:`, e);
-      }
-    }
-
-    // 4. Add dark background to all pages
-    const bgBytes = new TextEncoder().encode('q 0.078 0.078 0.094 rg 0 0 5000 5000 re f Q\n');
-    for (const page of pdfDoc.getPages()) {
-      const bgStream = context.stream(bgBytes, { Length: bgBytes.length });
-      const bgRef = context.register(bgStream);
-      let contents = page.node.get(PDFName.of('Contents'));
-      if (!contents) continue;
-      if (typeof contents.push === 'function') {
-        const arr = context.obj([bgRef]);
-        for (let i = 0; i < contents.size(); i++) arr.push(contents.get(i));
-        page.node.set(PDFName.of('Contents'), arr);
-      } else {
-        page.node.set(PDFName.of('Contents'), context.obj([bgRef, contents]));
-      }
-    }
-
-    return await pdfDoc.save();
-  }
-
-  // =========================================================================
-  // Cache for processed PDFs (blob URLs keyed by original URL)
-  // =========================================================================
-  const darkPdfCache = new Map();
-  let activeProcessingPromise = Promise.resolve();
-
-  function getDarkPdfUrl(originalUrl, onStatus) {
-    const updateStatus = (msg) => {
-      if (onStatus) onStatus(msg);
-    };
-
-    if (darkPdfCache.has(originalUrl)) {
-      updateStatus('Загрузка из кэша...');
-      return darkPdfCache.get(originalUrl);
-    }
-
-    let releaseMutex;
-    const previousProcessing = activeProcessingPromise;
-    activeProcessingPromise = new Promise((resolve) => {
-      releaseMutex = resolve;
-    });
-
-    const promise = (async () => {
-      updateStatus('Ожидание очереди...');
-      await previousProcessing; // Wait in queue
-      try {
-        updateStatus('Скачивание файла (это может занять время)...');
-        const t0 = performance.now();
-        console.log(`${LOG_PREFIX} Fetching PDF:`, originalUrl.substring(0, 100) + '...');
-        const response = await fetch(originalUrl);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const originalBytes = new Uint8Array(await response.arrayBuffer());
-        const t1 = performance.now();
-
-        console.log(
-          `${LOG_PREFIX} Fetch done in ${(t1 - t0).toFixed(0)}ms. Processing ${(originalBytes.length / 1024).toFixed(0)} KB PDF...`
-        );
-        updateStatus('Конвертация в темную тему...');
-        const darkBytes = await processPdfBytes(originalBytes);
-        const t2 = performance.now();
-
-        const blob = new Blob([darkBytes], { type: 'application/pdf' });
-        const blobUrl = URL.createObjectURL(blob);
-        const t3 = performance.now();
-
-        console.log(
-          `${LOG_PREFIX} Processing done in ${(t2 - t1).toFixed(0)}ms. URL created in ${(t3 - t2).toFixed(0)}ms.`
-        );
-        console.log(`${LOG_PREFIX} Total time: ${(t3 - t0).toFixed(0)}ms. Dark PDF ready`);
-        return blobUrl;
-      } finally {
-        releaseMutex();
-      }
-    })();
-
-    darkPdfCache.set(originalUrl, promise);
-    return promise;
-  }
 
   // =========================================================================
   // DOM integration — intercept PDF file links in longreads
@@ -481,7 +97,16 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
     return linkData?.url || null;
   }
 
-  // Bind a global click listener for PDF file elements
+  // =========================================================================
+  // Перехват кликов по PDF-вложениям
+  // =========================================================================
+
+  /** Отдаёт клик Angular'у, как будто мы в него и не вмешивались. */
+  function passClickThrough(fileElement) {
+    fileElement.dataset.cuPdfDarkIgnore = 'true';
+    fileElement.click();
+  }
+
   document.addEventListener(
     'click',
     async (e) => {
@@ -510,91 +135,39 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
       fileElement.style.opacity = '0.5';
       fileElement.style.cursor = 'wait';
 
-      // Get the extension icon URL for the spinner
-      const iconUrl = browser.runtime.getURL('icons/icon128.png');
-
-      // Open the window synchronously to bypass popup blockers
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Загрузка...</title>
-              <style>
-                body { background-color: #1c1c22; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; margin: 0; flex-direction: column; }
-                @keyframes spin { 100% { transform: rotate(360deg); } }
-                .spinner { width: 100px; height: 100px; animation: spin 2s linear infinite; margin-bottom: 20px; mix-blend-mode: screen; filter: invert(1); }
-              </style>
-            </head>
-            <body>
-              <img src="${iconUrl}" class="spinner" alt="Loading..." />
-              <h2 id="pdf-status">Подготовка...</h2>
-              <p style="opacity: 0.7; font-size: 14px; margin-top: 10px;">Большие файлы могут обрабатываться долго</p>
-            </body>
-          </html>
-        `);
-      }
-
-      const updateStatus = (msg) => {
-        if (win && !win.closed) {
-          const el = win.document.getElementById('pdf-status');
-          if (el) el.textContent = msg;
-        }
-      };
-
+      // Весь обработчик обёрнут в try/catch намеренно: он async, и любое
+      // необработанное исключение здесь превращается в тихий unhandled
+      // rejection — именно так предыдущая версия молча ломалась в Firefox.
       try {
-        updateStatus('Инициализация...');
-        await loadDeps();
+        // Вкладку открывает background через tabs.create, а не window.open,
+        // поэтому блокировщик всплывающих окон не при чём и можно спокойно
+        // дождаться ссылки перед открытием.
         const pdfUrl = await getPdfDownloadUrl(fileElement);
+
         if (!pdfUrl) {
-          // This is likely a student solution or something not in the materials API.
-          // We already stopped propagation, so we must manually re-trigger a click
-          // to let the native Angular handler download it.
-          if (win) win.close();
-          fileElement.dataset.cuPdfDarkIgnore = 'true';
-          fileElement.click();
+          // Файла нет в API материалов — скорее всего это решение студента.
+          // Мы уже остановили распространение события, поэтому кликаем сами.
+          passClickThrough(fileElement);
           return;
         }
-
-        updateStatus('Запуск обработки...');
-        const darkUrl = await getDarkPdfUrl(pdfUrl, updateStatus);
 
         const filename =
           (fileElement.querySelector('.t-name')?.textContent?.trim() || 'Document') +
           (fileElement.querySelector('.t-type')?.textContent?.trim() || '.pdf');
 
-        if (win) {
-          win.document.open();
-          win.document.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>${filename}</title>
-              <style>body { margin: 0; overflow: hidden; background-color: #1c1c22; }</style>
-            </head>
-            <body>
-              <embed src="${darkUrl}" type="application/pdf" width="100%" height="100%" style="border: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;">
-            </body>
-          </html>
-        `);
-          win.document.close();
-        } else {
-          window.open(darkUrl, '_blank');
+        const response = await browser.runtime.sendMessage({
+          action: 'OPEN_PDF_VIEWER',
+          url: pdfUrl,
+          filename,
+        });
+
+        if (!response?.success) {
+          throw new Error(response?.error || 'background не смог открыть вкладку');
         }
       } catch (err) {
-        console.error(`${LOG_PREFIX} Error processing PDF:`, err);
-        if (win) {
-          win.document.open();
-          win.document.write(`
-            <!DOCTYPE html>
-            <html>
-              <head><title>Error</title><style>body { background-color: #1c1c22; color: #fff; font-family: sans-serif; padding: 20px; }</style></head>
-              <body><h2>Error processing PDF</h2><p>${err.message}</p></body>
-            </html>
-          `);
-          win.document.close();
-        }
+        console.error(`${LOG_PREFIX} Не удалось открыть тёмный PDF:`, err);
+        // Лучше отдать пользователю обычный светлый PDF, чем ничего.
+        passClickThrough(fileElement);
       } finally {
         fileElement.style.opacity = originalOpacity;
         fileElement.style.cursor = originalCursor;

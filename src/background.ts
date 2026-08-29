@@ -59,6 +59,7 @@ type IncomingMessage =
   | { action: 'TABS_UPDATE'; tabId: number; options: browser.Tabs.UpdateUpdatePropertiesType }
   | { action: 'TABS_RELOAD'; tabId: number; options: browser.Tabs.ReloadReloadPropertiesType }
   | { action: 'TABS_SEND_MESSAGE'; tabId: number; message: unknown }
+  | { action: 'OPEN_PDF_VIEWER'; url: string; filename: string }
   | { action: 'GRADES_EXPORT_EXECUTE' }
   | { action: string; [key: string]: unknown };
 
@@ -1064,6 +1065,22 @@ browser.runtime.onMessage.addListener(((
       .catch((err) => sendResponse(null));
     return true;
   }
+  // Открывает страницу расширения с тёмным PDF.
+  // Именно background, а не window.open из content-скрипта: tabs.create не
+  // трогает блокировщик всплывающих окон, а страница расширения умеет то,
+  // чего не может дорисованный руками about:blank (см. pdf_viewer.js).
+  if (request.action === 'OPEN_PDF_VIEWER') {
+    const viewerUrl =
+      browser.runtime.getURL('plugins/longreads/pdf_viewer.html') +
+      `?src=${encodeURIComponent(request.url as string)}` +
+      `&name=${encodeURIComponent(request.filename as string)}`;
+    browser.tabs
+      .create({ url: viewerUrl })
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
   if (request.action === 'GRADES_EXPORT_EXECUTE') {
     browser.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
       const tab = tabs[0];

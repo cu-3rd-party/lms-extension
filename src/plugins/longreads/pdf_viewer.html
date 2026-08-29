@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Загрузка PDF...</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        background-color: #1c1c22;
+        color: #fff;
+        font-family: sans-serif;
+      }
+
+      /* Тонкая шапка. Появляется, когда PDF готов, и всегда даёт прямую
+         ссылку: если встроенная смотрелка выключена в настройках браузера,
+         страница иначе выглядела бы пустой. */
+      #pdf-bar {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 8px 14px;
+        background: #24242c;
+        border-bottom: 1px solid #33333d;
+        font-size: 13px;
+      }
+
+      #pdf-bar[hidden] {
+        display: none;
+      }
+
+      #pdf-name {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        opacity: 0.75;
+      }
+
+      #pdf-open {
+        flex: 0 0 auto;
+        padding: 5px 12px;
+        border-radius: 6px;
+        background: #2f6fed;
+        color: #fff;
+        text-decoration: none;
+      }
+
+      #pdf-stage {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+
+      /* Экран загрузки. Разметка статическая — она видна сразу при открытии
+         вкладки, ничего не дорисовывается снаружи. */
+      #pdf-loader {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        /* Фрейм с PDF добавляется позже и тоже растянут на всю сцену, поэтому
+           экран загрузки должен лежать над ним, пока его не спрятали */
+        z-index: 2;
+        background-color: #1c1c22;
+      }
+
+      #pdf-loader[hidden] {
+        display: none;
+      }
+
+      .spinner {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 20px;
+        animation: spin 2s linear infinite;
+        mix-blend-mode: screen;
+        filter: invert(1);
+      }
+
+      /* На экране ошибки крутить спиннер незачем */
+      #pdf-loader.failed .spinner {
+        animation: none;
+        opacity: 0.35;
+      }
+
+      #pdf-loader.failed .hint {
+        display: none;
+      }
+
+      @keyframes spin {
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      #pdf-status {
+        margin: 0;
+        padding: 0 24px;
+        text-align: center;
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .hint {
+        margin-top: 10px;
+        opacity: 0.7;
+        font-size: 14px;
+      }
+
+      .pdf-embed {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header id="pdf-bar" hidden>
+      <span id="pdf-name"></span>
+      <a id="pdf-open" href="#" target="_blank" rel="noopener">Открыть отдельно</a>
+    </header>
+
+    <div id="pdf-stage">
+      <div id="pdf-loader">
+        <img src="../../icons/icon128.png" class="spinner" alt="" />
+        <h2 id="pdf-status">Подготовка...</h2>
+        <p class="hint">Большие файлы могут обрабатываться долго</p>
+      </div>
+    </div>
+
+    <!-- Классические скрипты: этот файл копируется в dist как есть и никогда
+         не проходит через Vite, поэтому ESM-импортов тут быть не может.
+         На странице расширения нет isolated world, так что UMD-сборки кладут
+         fflate и PDFLib в обычные глобалы. -->
+    <script src="../_shared/fflate.umd.min.js"></script>
+    <script src="../_shared/pdf-lib.min.js"></script>
+    <script src="pdf_viewer.js"></script>
+  </body>
+</html>
