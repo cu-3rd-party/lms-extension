@@ -12,6 +12,12 @@ const FUTURE_EXAMS_CACHE_TTL_MS = 30 * 60 * 1000;
  * При недоступности сервера отдаём последний закэшированный ответ (или
  * `fallback`, если кэша ещё нет) — плагин никогда не должен ронять страницу
  * курса из-за сетевой ошибки.
+ *
+ * Запрос идёт через background (сообщение FETCH_JSON), а не напрямую
+ * fetch() отсюда: в Firefox content-скрипты не получают CORS-обход из
+ * host_permissions (в отличие от Chrome), и прямой кросс-доменный fetch
+ * падает с "CORS request did not succeed" даже когда сервер шлёт
+ * Access-Control-Allow-Origin. У background-скрипта такого ограничения нет.
  */
 async function fetchWithCache(url, cacheKey, fallback) {
   const api = typeof browser !== 'undefined' ? browser : chrome;
@@ -25,9 +31,11 @@ async function fetchWithCache(url, cacheKey, fallback) {
   }
 
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
+    const response = await api.runtime.sendMessage({ action: 'FETCH_JSON', url });
+    if (!response || !response.success) {
+      throw new Error((response && response.error) || 'no response from background');
+    }
+    const data = response.data;
     await api.storage.local.set({ [cacheKey]: data, [timestampKey]: Date.now() });
     return data;
   } catch (e) {

@@ -127,16 +127,23 @@
 2. Кэширует оба ответа в `browser.storage.local` на 30 минут
    (`FUTURE_EXAMS_CACHE_TTL_MS`); при недоступности сервера отдаёт последний
    закэшированный вариант.
-3. Находит текущий курс по названию в DOM.
-4. Добавляет специальные `tui-accordion-item` с типом `future-exam` и датами в стиль лонгридов.
-5. Поддерживает два формата отображения: `full` (название + дата) и `compact` (только дата).
+3. Сам запрос идёт не напрямую `fetch()` из этого файла, а через сообщение
+   `FETCH_JSON` в background (`src/background.ts`): в Firefox content-скрипты
+   не получают CORS-обход из `host_permissions`, в отличие от Chrome, и
+   прямой кросс-доменный fetch падал с «CORS request did not succeed» даже
+   при `Access-Control-Allow-Origin: *` на сервере. У background-скрипта
+   такого ограничения нет ни в Chrome, ни в Firefox.
+4. Находит текущий курс по названию в DOM.
+5. Добавляет специальные `tui-accordion-item` с типом `future-exam` и датами в стиль лонгридов.
+6. Поддерживает два формата отображения: `full` (название + дата) и `compact` (только дата).
 
 **Взаимодействие со страницей:**
 
 - Читает DOM: `cu-course-overview`, название курса
 - Вставляет: `tui-accordion-item` элементы в аккордеон
 - Fetch: `FUTURE_EXAMS_BACKEND_URL` (`https://lms.exams.cu3rd.ru`) +
-  `/api/schedule`, `/api/config` — см. также `host_permissions` в
+  `/api/schedule`, `/api/config` — через `browser.runtime.sendMessage({ action: 'FETCH_JSON' })`
+  в background, не напрямую (см. п. 3 выше); см. также `host_permissions` в
   `manifest.config.js`
 - Хранилище: `browser.storage.local` (`futureExamsScheduleCache`,
   `futureExamsScheduleCacheTimestamp`, `futureExamsConfigCache`,

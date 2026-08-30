@@ -51,6 +51,7 @@ type ScheduleResult =
 
 type IncomingMessage =
   | { action: 'fetchGistContent'; url: string }
+  | { action: 'FETCH_JSON'; url: string }
   | { action: 'SEARCH_CONTACTS'; query: string }
   | { action: 'ANALYZE_SUBJECTS'; email: string }
   | { action: 'GET_WEEKLY_SCHEDULE'; email: string; date?: string }
@@ -961,6 +962,21 @@ browser.runtime.onMessage.addListener(((
         } else {
           sendResponse({ success: false, error: 'Ответ от Gist имеет неожиданный формат.' });
         }
+      })
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Прокси для обычного JSON GET на внешний хост: content-скрипты в Firefox
+  // не получают CORS-обход из host_permissions (в отличие от Chrome), поэтому
+  // кросс-доменный fetch с их стороны падает с "CORS request did not succeed"
+  // даже если сервер шлёт Access-Control-Allow-Origin. У background-скрипта
+  // такого ограничения нет.
+  if (request.action === 'FETCH_JSON') {
+    fetch((request as { action: 'FETCH_JSON'; url: string }).url)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        sendResponse({ success: true, data: await response.json() });
       })
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;
