@@ -10,22 +10,31 @@
 
 ### `courses_fix.js`
 
-Центральный скрипт плагина. Управляет архивацией курсов и реагирует на SPA-навигацию.
+Оркестратор виджетов страницы отдельного курса. Реагирует на SPA-навигацию и по
+условию из настроек запускает виджеты из других файлов плагина.
 
 **Как работает:**
 
-1. Подписывается на `MutationObserver` за изменением URL (SPA-навигация) и перезапускает логику при переходе между страницами.
-2. Добавляет на каждой карточке курса кнопку-архивации (иконка архива). При клике курс скрывается и его ID сохраняется в `browser.storage.local` → `archivedCourseIds`.
-3. При изменении ключевых настроек (`futureExamsViewToggle`, `courseOverviewTaskStatusToggle`, `futureExamsDisplayFormat`) перезагружает страницу.
-4. Запускает `simplifyAllCourseCards()`, `activateCourseOverviewTaskStatus()`, `activateCourseOverviewAutoscroll()` и `viewFutureExams()` по условию из настроек.
+1. Подписывается на `MutationObserver` за изменением URL (SPA-навигация): при
+   переходе на страницу конкретного курса (`/view/(actual|archived)/{ID}`)
+   запускает `processInvidualCoursePage()`.
+2. При изменении ключевых настроек (`futureExamsViewToggle`, `courseOverviewTaskStatusToggle`, `futureExamsDisplayFormat`) перезагружает страницу.
+3. По условию из `browser.storage.sync` запускает `viewFutureExams()`,
+   `activateCourseOverviewTaskStatus()`, `activateCourseExporter()` и
+   `activateCourseOverviewAutoscroll()` — сами виджеты реализованы в соответствующих файлах.
 
-**Важно:** Функционал drag-and-drop был удален, так как теперь LMS официально поддерживает перетаскивание курсов через `cdkDrag`.
+**Важно:** раньше здесь же жил «архиватор курсов» (кнопки архивации/разархивации,
+`browser.storage.local.archivedCourseIds`, скрытие списка курсов через
+`preload.js`/`preload.css` до его отработки) — убран целиком как нерабочий:
+удалены `preload.js`, `preload.css` и вся связанная логика из этого файла и
+из `content_scripts` в `manifest.config.js`. Функционал drag-and-drop был
+удалён ранее, так как LMS официально поддерживает перетаскивание курсов через
+`cdkDrag`.
 
 **Взаимодействие со страницей:**
 
-- Читает DOM: `ul.course-list`, карточки `cu-course-card`
-- Вставляет: кнопки-архиватора
-- Хранилище: `browser.storage.local` (archivedCourseIds), `browser.storage.sync` (настройки)
+- Читает DOM: `location.href`/`location.pathname` для определения текущей страницы
+- Хранилище: `browser.storage.sync` (настройки виджетов)
 
 ---
 

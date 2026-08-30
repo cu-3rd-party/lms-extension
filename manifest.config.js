@@ -35,11 +35,6 @@ export default defineManifest({
   },
   content_scripts: [
     {
-      matches: ['https://my.centraluniversity.ru/learn/courses/view/*'],
-      js: ['preload.js'],
-      run_at: 'document_start',
-    },
-    {
       matches: ['https://my.centraluniversity.ru/*'],
       js: ['plugins/_shared/akh_bridge.js'],
       run_at: 'document_start',
