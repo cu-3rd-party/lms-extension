@@ -23,6 +23,8 @@ export default defineManifest({
     'https://akhcheck.ru/*',
     'https://back.akhcheck.ru/*',
     'https://storage.yandexcloud.net/*',
+    // https://github.com/cu-3rd-party/lms-future-exams-backend
+    'https://lms.exams.cu3rd.ru/*',
   ],
   background:
     BROWSER === 'firefox'

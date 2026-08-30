@@ -116,15 +116,31 @@
 
 **Как работает:**
 
-1. Содержит захардкоженное расписание контрольных по курсам (объект `schedule`).
-2. Находит текущий курс по названию в DOM.
-3. Добавляет специальные `tui-accordion-item` с типом `future-exam` и датами в стиль лонгридов.
-4. Поддерживает два формата отображения: `full` (название + дата) и `compact` (только дата).
+1. Тянет расписание контрольных (`GET /api/schedule`) и дату первой недели
+   семестра (`GET /api/config`) с отдельного сервера
+   [lms-future-exams-backend](https://github.com/cu-3rd-party/lms-future-exams-backend) —
+   там же их правят вручную через защищённую паролем страницу `/admin`, без
+   релиза расширения. Раньше список и дата первой недели были захардкожены
+   прямо в этом файле (объект `schedule` и `new Date(currentYear, 1, 2)`) —
+   из-за чего в начале осеннего семестра номера недель в формате «неделя N»
+   съезжали (продолжали считаться от февральской даты).
+2. Кэширует оба ответа в `browser.storage.local` на 30 минут
+   (`FUTURE_EXAMS_CACHE_TTL_MS`); при недоступности сервера отдаёт последний
+   закэшированный вариант.
+3. Находит текущий курс по названию в DOM.
+4. Добавляет специальные `tui-accordion-item` с типом `future-exam` и датами в стиль лонгридов.
+5. Поддерживает два формата отображения: `full` (название + дата) и `compact` (только дата).
 
 **Взаимодействие со страницей:**
 
 - Читает DOM: `cu-course-overview`, название курса
 - Вставляет: `tui-accordion-item` элементы в аккордеон
+- Fetch: `FUTURE_EXAMS_BACKEND_URL` (`https://lms.exams.cu3rd.ru`) +
+  `/api/schedule`, `/api/config` — см. также `host_permissions` в
+  `manifest.config.js`
+- Хранилище: `browser.storage.local` (`futureExamsScheduleCache`,
+  `futureExamsScheduleCacheTimestamp`, `futureExamsConfigCache`,
+  `futureExamsConfigCacheTimestamp`)
 
 ---
 
