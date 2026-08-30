@@ -17,16 +17,6 @@
     .cu-event-link { display: block; width: 100%; box-sizing: border-box; margin-top: auto; padding: 10px 16px; background-color: #3375ff !important; color: #ffffff !important; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; text-align: center; transition: all 0.2s ease; cursor: pointer; }
     .cu-event-link:hover { background-color: #2860d8 !important; }
     
-    .cu-table-container { overflow-x: auto; border-radius: 12px; border: 1px solid #e7e8ea; background: #ffffff; }
-    .cu-custom-table { width: 100%; text-align: left; border-collapse: collapse; }
-    .cu-custom-table th { padding: 12px 16px; border-bottom: 1px solid #e7e8ea; background: #f5f5f6; font-weight: 600; font-size: 14px; color: #000000; }
-    .cu-custom-table td { padding: 12px 16px; border-bottom: 1px solid #e7e8ea; font-size: 14px; color: #000000; }
-    .cu-custom-table tr:last-child td { border-bottom: none; }
-    .cu-text-secondary { color: #8b929e !important; }
-
-    /* Стили для сгруппированной ячейки дня недели */
-    .cu-day-group { font-weight: 600 !important; vertical-align: top; border-right: 1px solid #e7e8ea; }
-
     /* --- КАСТОМНЫЙ ФИЛЬТР (Taiga UI Клон) --- */
     .cu-filter-wrapper { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; position: relative; z-index: 10; }
     .cu-filter-label { font-size: 14px; font-weight: 500; color: #8b929e; }
@@ -60,13 +50,8 @@
     .cu-clubs-dark .cu-event-club, .cu-clubs-dark .cu-event-name { color: #ffffff; }
     .cu-clubs-dark .cu-event-date { color: #a1a1aa; }
     .cu-clubs-dark h1, .cu-clubs-dark h2 { color: #ffffff !important; }
-    .cu-clubs-dark .cu-table-container { background: #19191c; border-color: #333338; }
-    .cu-clubs-dark .cu-custom-table th { background: #232328; border-color: #333338; color: #ffffff; }
-    .cu-clubs-dark .cu-custom-table td { border-color: #333338; color: #ececed; }
-    .cu-clubs-dark .cu-text-secondary { color: #a1a1aa !important; }
     .cu-clubs-dark .cu-filter-label { color: #a1a1aa; }
-    .cu-clubs-dark .cu-day-group { border-right-color: #333338; } 
-    
+
     /* Темная тема: Кнопка */
     .cu-clubs-dark .cu-event-link { background-color: rgba(51, 117, 255, 0.15) !important; color: #749dff !important; }
     .cu-clubs-dark .cu-event-link:hover { background-color: rgba(51, 117, 255, 0.25) !important; }
@@ -90,13 +75,8 @@
     .cu-clubs-oled .cu-event-club, .cu-clubs-oled .cu-event-name { color: #ffffff; }
     .cu-clubs-oled .cu-event-date { color: #888888; }
     .cu-clubs-oled h1, .cu-clubs-oled h2 { color: #ffffff !important; }
-    .cu-clubs-oled .cu-table-container { background: #000000; border-color: #222222; }
-    .cu-clubs-oled .cu-custom-table th { background: #0a0a0a; border-color: #222222; color: #ffffff; }
-    .cu-clubs-oled .cu-custom-table td { border-color: #222222; color: #dddddd; }
-    .cu-clubs-oled .cu-text-secondary { color: #888888 !important; }
     .cu-clubs-oled .cu-filter-label { color: #888888; }
-    .cu-clubs-oled .cu-day-group { border-right-color: #222222; } 
-    
+
     /* OLED тема: Кнопка */
     .cu-clubs-oled .cu-event-link { background-color: rgba(51, 117, 255, 0.2) !important; color: #749dff !important; }
     .cu-clubs-oled .cu-event-link:hover { background-color: rgba(51, 117, 255, 0.3) !important; }
@@ -125,7 +105,6 @@
   }
 
   const EVENTS_API = 'https://api.lms.cu3rd.ru/api/v1/events';
-  const RECURRING_API = 'https://api.lms.cu3rd.ru/api/v1/events/recurring';
 
   const rawSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
   const CU_CLUBS_ICON = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(rawSvg)}`;
@@ -133,7 +112,6 @@
   const extApi = typeof browser !== 'undefined' ? browser : chrome;
 
   let currentEventsData = [];
-  let currentRecurringData = [];
   let selectedClubs = [];
 
   function applyThemeToContainer() {
@@ -314,17 +292,11 @@
 
   async function fetchAndRenderClubs(container) {
     try {
-      const [eventsRes, recurringRes] = await Promise.all([
-        fetch(EVENTS_API).then((r) => r.json()),
-        fetch(RECURRING_API).then((r) => r.json()),
-      ]);
-
+      const eventsRes = await fetch(EVENTS_API).then((r) => r.json());
       currentEventsData = eventsRes.events || [];
-      currentRecurringData = recurringRes.events || [];
 
       const clubsSet = new Set();
       currentEventsData.forEach((e) => clubsSet.add(e.club_name));
-      currentRecurringData.forEach((e) => clubsSet.add(e.club_name));
       const uniqueClubs = Array.from(clubsSet).sort();
 
       container.innerHTML = `
@@ -421,87 +393,22 @@
       ? currentEventsData
       : currentEventsData.filter((e) => selectedClubs.includes(e.club_name));
 
-    const recurring = isFilterEmpty
-      ? currentRecurringData
-      : currentRecurringData.filter((e) => selectedClubs.includes(e.club_name));
-
-    let html = '';
-
-    if (events.length === 0 && recurring.length === 0) {
-      html = `<div style="color: var(--tui-text-02); padding: 32px 0; text-align: center;">Событий не найдено</div>`;
-      container.innerHTML = html;
+    if (events.length === 0) {
+      container.innerHTML = `<div style="color: var(--tui-text-02); padding: 32px 0; text-align: center;">Событий не найдено</div>`;
       return;
     }
 
-    if (events.length > 0) {
-      html += `<h2 class="font-service-heading-3" style="margin: 0 0 16px;">Ближайшие события</h2><div class="cu-events-grid">`;
-      events.forEach((e) => {
-        html += `
+    let html = `<h2 class="font-service-heading-3" style="margin: 0 0 16px;">Ближайшие события</h2><div class="cu-events-grid">`;
+    events.forEach((e) => {
+      html += `
           <div class="cu-event-card">
             <div class="cu-event-date">${e.event_date} • ${e.event_time}</div>
             <div class="cu-event-club">${e.club_name}</div>
             <div class="cu-event-name">${e.event_name || 'Встреча клуба'}</div>
             ${e.event_link ? `<a class="cu-event-link" href="${e.event_link}" target="_blank">Записаться</a>` : ''}
           </div>`;
-      });
-      html += `</div>`;
-    }
-
-    if (recurring.length > 0) {
-      html += `<h2 class="font-service-heading-3" style="margin: 32px 0 16px;">Регулярные встречи</h2>`;
-      const daysOrder = {
-        Понедельник: 1,
-        Вторник: 2,
-        Среда: 3,
-        Четверг: 4,
-        Пятница: 5,
-        Суббота: 6,
-        Воскресенье: 7,
-      };
-
-      const sortedRecurring = [...recurring].sort(
-        (a, b) => (daysOrder[a.day_of_week] || 99) - (daysOrder[b.day_of_week] || 99)
-      );
-
-      html += `
-        <div class="cu-table-container">
-          <table class="cu-custom-table">
-            <thead>
-              <tr>
-                <th style="width: 20%;">День недели</th>
-                <th style="width: 25%;">Время</th>
-                <th style="width: 55%;">Клуб</th>
-              </tr>
-            </thead>
-            <tbody>`;
-
-      const groupedRecurring = {};
-      sortedRecurring.forEach((e) => {
-        if (!groupedRecurring[e.day_of_week]) {
-          groupedRecurring[e.day_of_week] = [];
-        }
-        groupedRecurring[e.day_of_week].push(e);
-      });
-
-      Object.keys(groupedRecurring).forEach((day) => {
-        const itemsInGroup = groupedRecurring[day];
-
-        itemsInGroup.forEach((e, index) => {
-          html += `<tr>`;
-
-          if (index === 0) {
-            html += `<td rowspan="${itemsInGroup.length}" class="cu-day-group">${e.day_of_week}</td>`;
-          }
-
-          html += `
-            <td class="cu-text-secondary">${e.event_time}</td>
-            <td style="font-weight: 500;">${e.club_name}</td>
-          </tr>`;
-        });
-      });
-
-      html += `</tbody></table></div>`;
-    }
+    });
+    html += `</div>`;
 
     container.innerHTML = html;
   }
