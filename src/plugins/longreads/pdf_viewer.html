@@ -18,41 +18,6 @@
         font-family: sans-serif;
       }
 
-      /* Тонкая шапка. Появляется, когда PDF готов, и всегда даёт прямую
-         ссылку: если встроенная смотрелка выключена в настройках браузера,
-         страница иначе выглядела бы пустой. */
-      #pdf-bar {
-        flex: 0 0 auto;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        padding: 8px 14px;
-        background: #24242c;
-        border-bottom: 1px solid #33333d;
-        font-size: 13px;
-      }
-
-      #pdf-bar[hidden] {
-        display: none;
-      }
-
-      #pdf-name {
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        opacity: 0.75;
-      }
-
-      #pdf-open {
-        flex: 0 0 auto;
-        padding: 5px 12px;
-        border-radius: 6px;
-        background: #2f6fed;
-        color: #fff;
-        text-decoration: none;
-      }
-
       #pdf-stage {
         position: relative;
         flex: 1 1 auto;
@@ -127,11 +92,6 @@
     </style>
   </head>
   <body>
-    <header id="pdf-bar" hidden>
-      <span id="pdf-name"></span>
-      <a id="pdf-open" href="#" target="_blank" rel="noopener">Открыть отдельно</a>
-    </header>
-
     <div id="pdf-stage">
       <div id="pdf-loader">
         <img src="../../icons/icon128.png" class="spinner" alt="" />

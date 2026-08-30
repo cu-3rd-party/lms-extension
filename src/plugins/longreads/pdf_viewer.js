@@ -23,9 +23,6 @@ const LOG_PREFIX = '[CU LMS PDF Dark]';
 const statusEl = document.getElementById('pdf-status');
 const stageEl = document.getElementById('pdf-stage');
 const loaderEl = document.getElementById('pdf-loader');
-const barEl = document.getElementById('pdf-bar');
-const nameEl = document.getElementById('pdf-name');
-const openEl = document.getElementById('pdf-open');
 
 function setStatus(msg) {
   if (statusEl) statusEl.textContent = msg;
@@ -321,23 +318,10 @@ async function processPdfBytes(originalBytes) {
  *
  * iframe, а не embed: показ PDF во фрейме — самый обкатанный путь в pdf.js,
  * и в Chromium, и в Gecko.
- *
- * Шапка со ссылкой показывается всегда, а не только по ошибке: встроенную
- * смотрелку можно выключить в настройках браузера («всегда скачивать PDF»),
- * и тогда фрейм честно отрабатывает load, но остаётся пустым. Определить это
- * из скрипта нельзя — содержимое фрейма недоступно. Поэтому у пользователя
- * всегда есть явное действие, и пустой вкладки он не увидит ни при каком
- * раскладе.
  */
 function renderPdf(darkBytes, filename) {
   const blob = new Blob([darkBytes], { type: 'application/pdf' });
   const blobUrl = URL.createObjectURL(blob);
-
-  if (barEl && openEl) {
-    openEl.href = blobUrl;
-    if (nameEl) nameEl.textContent = filename;
-    barEl.hidden = false;
-  }
 
   const frame = document.createElement('iframe');
   frame.className = 'pdf-embed';
