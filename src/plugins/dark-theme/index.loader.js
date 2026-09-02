@@ -32,6 +32,8 @@ if (typeof window.darkThemeInitialized === 'undefined') {
         const colorMatch = icon.dataset.originalStyle.match(/color:\s*([^;]+)/);
         if (colorMatch && colorMatch[1]?.trim() !== 'inherit') {
           icon.style.setProperty('color', colorMatch[1].trim(), 'important');
+        } else {
+          icon.style.setProperty('color', 'var(--culms-dark-text-secondary)', 'important');
         }
       } else {
         if (typeof icon.dataset.originalStyle !== 'undefined') {

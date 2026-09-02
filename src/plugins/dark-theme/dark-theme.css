@@ -15958,23 +15958,12 @@ body .course-card.softSkills tui-icon.course-icon {
   color: #1c1c1e !important; /* Темная иконка для светло-зеленого фона */
 }
 
-/* Фон для блока с иконками уровня */
+/* Фон и цвет текста для блока с иконками уровня */
+cu-skill-level-view,
 body .course-card .skill-level {
   background-color: var(--culms-dark-bg-hover-light) !important;
+  color: var(--culms-dark-text-secondary) !important;
 }
-
-/* 
- * Этот блок больше не нужен, так как JS-код теперь надежно управляет цветами звёздочек.
- * Оставлять его рискованно, он может создать новые конфликты.
- *
- * body .course-card .skill-level tui-icon {
- *    color: revert !important;
- * } 
-*/
-
-/* body .course-card .skill-level tui-icon {
-    color: revert !important;
-} */
 
 body {
   --informer-tui-elevation-02: rgb(32, 33, 36) !important; /* Ваш новый цвет */
