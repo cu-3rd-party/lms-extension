@@ -151,7 +151,9 @@ if (typeof window.__culmsTimetableStatusInit === 'undefined') {
     if (!tbody) return;
 
     var existingChips = tbody.querySelectorAll('.' + CHIP_CLASS);
-    if (existingChips.length > 0) return;
+    existingChips.forEach(function (c) {
+      c.remove();
+    });
 
     var timetableResp = await fetch('/api/micro-lms/students/me/timetables', {
       credentials: 'include',
@@ -257,22 +259,34 @@ if (typeof window.__culmsTimetableStatusInit === 'undefined') {
     });
   }
 
-  function waitForTableAndInject() {
-    if (document.querySelector('table.cu-table tbody tr')) {
-      injectStyles();
-      loadAndInjectStatuses();
-      return;
-    }
+  var _injectDebounceTimer = null;
+  var _injecting = false;
 
-    var observer = new MutationObserver(function (_mutations, obs) {
+  function scheduleInject() {
+    if (_injectDebounceTimer) clearTimeout(_injectDebounceTimer);
+    _injectDebounceTimer = setTimeout(function () {
+      _injectDebounceTimer = null;
       if (document.querySelector('table.cu-table tbody tr')) {
-        obs.disconnect();
         injectStyles();
-        loadAndInjectStatuses();
+        _injecting = true;
+        loadAndInjectStatuses().finally(function () {
+          _injecting = false;
+        });
       }
+    }, 300);
+  }
+
+  function watchTable() {
+    scheduleInject();
+    var observer = new MutationObserver(function () {
+      if (_injecting) return;
+      var tbody = document.querySelector('table.cu-table tbody');
+      if (!tbody) return;
+      if (tbody.querySelector('.' + CHIP_CLASS)) return;
+      scheduleInject();
     });
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  waitForTableAndInject();
+  watchTable();
 }
