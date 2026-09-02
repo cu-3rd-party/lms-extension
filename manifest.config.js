@@ -97,6 +97,7 @@ export default defineManifest({
         'plugins/longreads/task_status_adaptation.js',
         'plugins/longreads/rename_hw.js',
         'plugins/statements/advanced_statements.js',
+        'plugins/timetable/timetable_status.js',
         'plugins/_shared/fflate.umd.min.js',
         'plugins/_shared/pdf-lib.min.js',
       ],
