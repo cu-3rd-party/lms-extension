@@ -15965,6 +15965,29 @@ body .course-card .skill-level {
   color: var(--culms-dark-text-secondary) !important;
 }
 
+/* Страница онлайн-записи (appointment) */
+cu-appointment-dashboard .nav {
+  background-color: var(--culms-dark-bg-secondary) !important;
+}
+
+cu-appointment-dashboard .nav__title,
+cu-appointment-dashboard .empty__text {
+  color: var(--culms-dark-text-primary) !important;
+}
+
+cu-appointment-dashboard .nav__description {
+  color: var(--culms-dark-text-secondary) !important;
+}
+
+cu-appointment-dashboard .empty {
+  background-color: var(--culms-dark-bg-secondary) !important;
+}
+
+cu-appointment-dashboard .tab:not(.active) {
+  background-color: var(--culms-dark-bg-hover-light) !important;
+  color: var(--culms-dark-text-secondary) !important;
+}
+
 body {
   --informer-tui-elevation-02: rgb(32, 33, 36) !important; /* Ваш новый цвет */
   --base-positive-pale: #1f1f1f !important; /* fix for Сдано in achivements*/

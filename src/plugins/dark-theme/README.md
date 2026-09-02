@@ -73,6 +73,14 @@
 - `.courses-block__courses-item-content_empty` — пустые слоты «Не выбрано» с пунктирной рамкой
 - `.courses-block__result` — итоговый блок результата
 
+**Страница онлайн-записи (`/learn/appointment/dashboard`):**
+
+- `cu-appointment-dashboard .nav` — верхняя карточка с заголовком, описанием и табами, получает вторичный тёмный фон
+- `.nav__title`, `.empty__text` — светлый основной цвет текста
+- `.nav__description` — вторичный цвет описания
+- `.empty` — карточка пустого состояния с тёмным фоном
+- `.tab:not(.active)` — неактивные табы с тёмным hover-фоном
+
 ---
 
 ### `dark-theme-oled.css`
