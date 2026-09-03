@@ -40,6 +40,13 @@ export default defineManifest({
       run_at: 'document_start',
     },
     {
+      // Safari does not reliably expose SPA history changes through
+      // webNavigation. The script is a no-op in Chrome and Firefox.
+      matches: ['https://my.centraluniversity.ru/*'],
+      js: ['plugins/_shared/safari_navigation.js'],
+      run_at: 'document_start',
+    },
+    {
       matches: ['https://akhcheck.ru/*'],
       js: ['plugins/_shared/token_grabber.js'],
       run_at: 'document_idle',

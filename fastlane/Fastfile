@@ -1,0 +1,28 @@
+default_platform(:mac)
+
+platform :mac do
+  lane :release do
+    sh("bun run build:chrome")
+
+    gym(
+      project: "./safari/CU LMS Enhancer/CU LMS Enhancer.xcodeproj",
+      scheme: "CU LMS Enhancer",
+      configuration: "Release",
+      destination: "generic/platform=macOS",
+      export_method: "developer-id",
+      output_directory: "build/release",
+      output_name: "CU-LMS-Enhancer"
+    )
+
+    app_path = File.expand_path("../build/release/CU-LMS-Enhancer.app", __dir__)
+    release_path = File.expand_path("../build/release", __dir__)
+    sh("bunx create-dmg --overwrite --no-version-in-filename --identity='Developer ID Application' --dmg-title='CU LMS Enhancer' '#{app_path}' '#{release_path}'")
+
+    notarize(
+      package: File.join(release_path, "CU LMS Enhancer.dmg"),
+      username: ENV.fetch("FASTLANE_USER"),
+      asc_provider: ENV.fetch("APPLE_TEAM_ID"),
+      print_log: true
+    )
+  end
+end

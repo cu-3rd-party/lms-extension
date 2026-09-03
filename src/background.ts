@@ -62,6 +62,7 @@ type IncomingMessage =
   | { action: 'TABS_SEND_MESSAGE'; tabId: number; message: unknown }
   | { action: 'OPEN_PDF_VIEWER'; url: string; filename: string }
   | { action: 'GRADES_EXPORT_EXECUTE' }
+  | { action: 'SAFARI_NAVIGATION'; url: string }
   | { action: string; [key: string]: unknown };
 
 // --- ФУНКЦИЯ СБОРА ОЦЕНОК ДЛЯ ЭКСПОРТА ---
@@ -1081,13 +1082,24 @@ const navFilter = {
   url: [{ hostSuffix: 'centraluniversity.ru' }],
 };
 
-browser.webNavigation.onHistoryStateUpdated.addListener((details) => {
-  if (details.frameId === 0) handleNavigation(details.tabId, details.url);
+// Chrome + Firefox:
+// оставляем существующий механизм SPA-навигации.
+if (browser.webNavigation.onHistoryStateUpdated) {
+  browser.webNavigation.onHistoryStateUpdated.addListener((details) => {
+    if (details.frameId === 0) {
+      handleNavigation(details.tabId, details.url);
+    }
+  }, navFilter);
+}
+
+// Первоначальная загрузка страницы.
+// Это оставляем для всех браузеров.
+browser.webNavigation.onCompleted.addListener((details) => {
+  if (details.frameId === 0) {
+    handleNavigation(details.tabId, details.url);
+  }
 }, navFilter);
 
-browser.webNavigation.onCompleted.addListener((details) => {
-  if (details.frameId === 0) handleNavigation(details.tabId, details.url);
-}, navFilter);
 
 // --- ОБРАБОТЧИК СООБЩЕНИЙ (ЕДИНЫЙ ДЛЯ ВСЕГО) ---
 browser.runtime.onMessage.addListener(((
@@ -1096,6 +1108,19 @@ browser.runtime.onMessage.addListener(((
   sendResponse: (response: unknown) => void
 ) => {
   const request = rawRequest as IncomingMessage;
+
+  // Safari does not reliably emit webNavigation.onHistoryStateUpdated for
+  // client-side routing. The Safari content script reports the URL instead.
+  if (request.action === 'SAFARI_NAVIGATION') {
+    const navigationRequest = request as { action: 'SAFARI_NAVIGATION'; url: string };
+    const messageSender = sender as browser.Runtime.MessageSender;
+    if (messageSender.frameId === 0 && messageSender.tab?.id != null) {
+      handleNavigation(messageSender.tab.id, navigationRequest.url);
+      sendResponse({ success: true });
+    }
+    return false;
+  }
+
   // 1. ЛОГИКА ОБРАБОТКИ GIST
   if (request.action === 'fetchGistContent') {
     fetch((request as { action: 'fetchGistContent'; url: string }).url)

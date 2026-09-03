@@ -83,7 +83,7 @@
 
 | Плагин        | URL-паттерн                                       | Файлы                                                                                                                                     |
 | ------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `_shared`     | Все страницы LMS                                  | `version_check`, `reset`, `friends_tab`, `plugin_page_loader`, `snow`                                                                     |
+| `_shared`     | Все страницы LMS                                  | `version_check`, `reset`, `friends_tab`, `plugin_page_loader`, `safari_navigation`, `snow`                                                |
 | `dark-theme`  | Все страницы LMS                                  | `index.loader.js` + CSS                                                                                                                   |
 | `course-view` | `/learn/courses/view`                             | `courses_fix`, `course_overview_task_status`, `course_overview_autoscroll`, `course_friends_list`, `future_exams_view`, `course_exporter` |
 | `courses`     | `/learn/tasks`                                    | `tasks_fix`                                                                                                                               |

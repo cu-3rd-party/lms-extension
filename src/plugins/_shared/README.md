@@ -87,6 +87,22 @@
 
 ---
 
+### `safari_navigation.js`
+
+Восстанавливает обнаружение SPA-навигации в Safari.
+
+**Как работает:**
+
+- В Safari отслеживает изменение `location.href`, включая переходы через
+  `history.pushState` и `history.replaceState`, которые не всегда попадают в
+  `webNavigation`.
+- Отправляет новый URL в background с action `SAFARI_NAVIGATION`, после чего
+  background запускает подходящие плагины для новой страницы.
+- В Chrome и Firefox завершается сразу: их существующий путь через
+  `webNavigation.onHistoryStateUpdated` не меняется.
+
+---
+
 ### `snow.js`
 
 Анимация падающего снега поверх страницы.

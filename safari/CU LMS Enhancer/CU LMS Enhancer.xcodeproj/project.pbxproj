@@ -1,0 +1,651 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		7F11DB813048D89C003D8BBE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F11DB803048D89C003D8BBE /* AppDelegate.swift */; };
+		7F11DB853048D89C003D8BBE /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DB833048D89C003D8BBE /* Main.html */; };
+		7F11DB873048D89C003D8BBE /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DB863048D89C003D8BBE /* Icon.png */; };
+		7F11DB893048D89C003D8BBE /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DB883048D89C003D8BBE /* Style.css */; };
+		7F11DB8B3048D89C003D8BBE /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DB8A3048D89C003D8BBE /* Script.js */; };
+		7F11DB8D3048D89C003D8BBE /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F11DB8C3048D89C003D8BBE /* ViewController.swift */; };
+		7F11DB903048D89C003D8BBE /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DB8E3048D89C003D8BBE /* Main.storyboard */; };
+		7F11DB923048D89D003D8BBE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DB913048D89D003D8BBE /* Assets.xcassets */; };
+		7F11DB993048D89D003D8BBE /* CU LMS Enhancer Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7F11DB983048D89D003D8BBE /* CU LMS Enhancer Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7F11DB9E3048D89D003D8BBE /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F11DB9D3048D89D003D8BBE /* SafariWebExtensionHandler.swift */; };
+		7F11DBB43048D89D003D8BBE /* popup in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBAA3048D89D003D8BBE /* popup */; };
+		7F11DBB53048D89D003D8BBE /* browser-polyfill.js in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBAB3048D89D003D8BBE /* browser-polyfill.js */; };
+		7F11DBB63048D89D003D8BBE /* service-worker-loader.js in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBAC3048D89D003D8BBE /* service-worker-loader.js */; };
+		7F11DBB73048D89D003D8BBE /* styles.css in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBAD3048D89D003D8BBE /* styles.css */; };
+		7F11DBB83048D89D003D8BBE /* index.loader.js-loader.js in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBAE3048D89D003D8BBE /* index.loader.js-loader.js */; };
+		7F11DBB93048D89D003D8BBE /* plugins in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBAF3048D89D003D8BBE /* plugins */; };
+		7F11DBBA3048D89D003D8BBE /* gist_dark.css in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBB03048D89D003D8BBE /* gist_dark.css */; };
+		7F11DBBB3048D89D003D8BBE /* chunks in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBB13048D89D003D8BBE /* chunks */; };
+		7F11DBBC3048D89D003D8BBE /* icons in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBB23048D89D003D8BBE /* icons */; };
+		7F11DBBD3048D89D003D8BBE /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBB33048D89D003D8BBE /* manifest.json */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7F11DB9A3048D89D003D8BBE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7F11DB753048D89C003D8BBE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7F11DB973048D89D003D8BBE;
+			remoteInfo = "CU LMS Enhancer Extension";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7F11DBA53048D89D003D8BBE /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7F11DB993048D89D003D8BBE /* CU LMS Enhancer Extension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		7F11DB7D3048D89C003D8BBE /* CU LMS Enhancer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "CU LMS Enhancer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7F11DB803048D89C003D8BBE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		7F11DB843048D89C003D8BBE /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
+		7F11DB863048D89C003D8BBE /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
+		7F11DB883048D89C003D8BBE /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
+		7F11DB8A3048D89C003D8BBE /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
+		7F11DB8C3048D89C003D8BBE /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		7F11DB8F3048D89C003D8BBE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		7F11DB913048D89D003D8BBE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		7F11DB933048D89D003D8BBE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		7F11DB983048D89D003D8BBE /* CU LMS Enhancer Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "CU LMS Enhancer Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7F11DB9D3048D89D003D8BBE /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		7F11DB9F3048D89D003D8BBE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		7F11DBAA3048D89D003D8BBE /* popup */ = {isa = PBXFileReference; lastKnownFileType = folder; name = popup; path = ../../../dist/chrome/popup; sourceTree = "<group>"; };
+		7F11DBAB3048D89D003D8BBE /* browser-polyfill.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "browser-polyfill.js"; path = "../../../dist/chrome/browser-polyfill.js"; sourceTree = "<group>"; };
+		7F11DBAC3048D89D003D8BBE /* service-worker-loader.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "service-worker-loader.js"; path = "../../../dist/chrome/service-worker-loader.js"; sourceTree = "<group>"; };
+		7F11DBAD3048D89D003D8BBE /* styles.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = styles.css; path = ../../../dist/chrome/styles.css; sourceTree = "<group>"; };
+		7F11DBAE3048D89D003D8BBE /* index.loader.js-loader.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "index.loader.js-loader.js"; path = "../../../dist/chrome/index.loader.js-loader.js"; sourceTree = "<group>"; };
+		7F11DBAF3048D89D003D8BBE /* plugins */ = {isa = PBXFileReference; lastKnownFileType = folder; name = plugins; path = ../../../dist/chrome/plugins; sourceTree = "<group>"; };
+		7F11DBB03048D89D003D8BBE /* gist_dark.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = gist_dark.css; path = ../../../dist/chrome/gist_dark.css; sourceTree = "<group>"; };
+		7F11DBB13048D89D003D8BBE /* chunks */ = {isa = PBXFileReference; lastKnownFileType = folder; name = chunks; path = ../../../dist/chrome/chunks; sourceTree = "<group>"; };
+		7F11DBB23048D89D003D8BBE /* icons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = icons; path = ../../../dist/chrome/icons; sourceTree = "<group>"; };
+		7F11DBB33048D89D003D8BBE /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = ../../../dist/chrome/manifest.json; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7F11DB7A3048D89C003D8BBE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7F11DB953048D89D003D8BBE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		7F11DB743048D89C003D8BBE = {
+			isa = PBXGroup;
+			children = (
+				7F11DB7F3048D89C003D8BBE /* CU LMS Enhancer */,
+				7F11DB9C3048D89D003D8BBE /* CU LMS Enhancer Extension */,
+				7F11DB7E3048D89C003D8BBE /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7F11DB7E3048D89C003D8BBE /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7F11DB7D3048D89C003D8BBE /* CU LMS Enhancer.app */,
+				7F11DB983048D89D003D8BBE /* CU LMS Enhancer Extension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7F11DB7F3048D89C003D8BBE /* CU LMS Enhancer */ = {
+			isa = PBXGroup;
+			children = (
+				7F11DB803048D89C003D8BBE /* AppDelegate.swift */,
+				7F11DB8C3048D89C003D8BBE /* ViewController.swift */,
+				7F11DB8E3048D89C003D8BBE /* Main.storyboard */,
+				7F11DB913048D89D003D8BBE /* Assets.xcassets */,
+				7F11DB933048D89D003D8BBE /* Info.plist */,
+				7F11DB823048D89C003D8BBE /* Resources */,
+			);
+			path = "CU LMS Enhancer";
+			sourceTree = "<group>";
+		};
+		7F11DB823048D89C003D8BBE /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				7F11DB833048D89C003D8BBE /* Main.html */,
+				7F11DB863048D89C003D8BBE /* Icon.png */,
+				7F11DB883048D89C003D8BBE /* Style.css */,
+				7F11DB8A3048D89C003D8BBE /* Script.js */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		7F11DB9C3048D89D003D8BBE /* CU LMS Enhancer Extension */ = {
+			isa = PBXGroup;
+			children = (
+				7F11DBA93048D89D003D8BBE /* Resources */,
+				7F11DB9D3048D89D003D8BBE /* SafariWebExtensionHandler.swift */,
+				7F11DB9F3048D89D003D8BBE /* Info.plist */,
+			);
+			path = "CU LMS Enhancer Extension";
+			sourceTree = "<group>";
+		};
+		7F11DBA93048D89D003D8BBE /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				7F11DBAA3048D89D003D8BBE /* popup */,
+				7F11DBAB3048D89D003D8BBE /* browser-polyfill.js */,
+				7F11DBAC3048D89D003D8BBE /* service-worker-loader.js */,
+				7F11DBAD3048D89D003D8BBE /* styles.css */,
+				7F11DBAE3048D89D003D8BBE /* index.loader.js-loader.js */,
+				7F11DBAF3048D89D003D8BBE /* plugins */,
+				7F11DBB03048D89D003D8BBE /* gist_dark.css */,
+				7F11DBB13048D89D003D8BBE /* chunks */,
+				7F11DBB23048D89D003D8BBE /* icons */,
+				7F11DBB33048D89D003D8BBE /* manifest.json */,
+			);
+			name = Resources;
+			path = "CU LMS Enhancer Extension";
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7F11DB7C3048D89C003D8BBE /* CU LMS Enhancer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7F11DBA63048D89D003D8BBE /* Build configuration list for PBXNativeTarget "CU LMS Enhancer" */;
+			buildPhases = (
+				7F11DB793048D89C003D8BBE /* Sources */,
+				7F11DB7A3048D89C003D8BBE /* Frameworks */,
+				7F11DB7B3048D89C003D8BBE /* Resources */,
+				7F11DBA53048D89D003D8BBE /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7F11DB9B3048D89D003D8BBE /* PBXTargetDependency */,
+			);
+			name = "CU LMS Enhancer";
+			packageProductDependencies = (
+			);
+			productName = "CU LMS Enhancer";
+			productReference = 7F11DB7D3048D89C003D8BBE /* CU LMS Enhancer.app */;
+			productType = "com.apple.product-type.application";
+		};
+		7F11DB973048D89D003D8BBE /* CU LMS Enhancer Extension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7F11DBA23048D89D003D8BBE /* Build configuration list for PBXNativeTarget "CU LMS Enhancer Extension" */;
+			buildPhases = (
+				7F11DB943048D89D003D8BBE /* Sources */,
+				7F11DB953048D89D003D8BBE /* Frameworks */,
+				7F11DB963048D89D003D8BBE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "CU LMS Enhancer Extension";
+			packageProductDependencies = (
+			);
+			productName = "CU LMS Enhancer Extension";
+			productReference = 7F11DB983048D89D003D8BBE /* CU LMS Enhancer Extension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7F11DB753048D89C003D8BBE /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					7F11DB7C3048D89C003D8BBE = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					7F11DB973048D89D003D8BBE = {
+						CreatedOnToolsVersion = 26.6;
+					};
+				};
+			};
+			buildConfigurationList = 7F11DB783048D89C003D8BBE /* Build configuration list for PBXProject "CU LMS Enhancer" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 7F11DB743048D89C003D8BBE;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 7F11DB7E3048D89C003D8BBE /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7F11DB7C3048D89C003D8BBE /* CU LMS Enhancer */,
+				7F11DB973048D89D003D8BBE /* CU LMS Enhancer Extension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		7F11DB7B3048D89C003D8BBE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7F11DB873048D89C003D8BBE /* Icon.png in Resources */,
+				7F11DB903048D89C003D8BBE /* Main.storyboard in Resources */,
+				7F11DB8B3048D89C003D8BBE /* Script.js in Resources */,
+				7F11DB853048D89C003D8BBE /* Main.html in Resources */,
+				7F11DB923048D89D003D8BBE /* Assets.xcassets in Resources */,
+				7F11DB893048D89C003D8BBE /* Style.css in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7F11DB963048D89D003D8BBE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7F11DBB63048D89D003D8BBE /* service-worker-loader.js in Resources */,
+				7F11DBB83048D89D003D8BBE /* index.loader.js-loader.js in Resources */,
+				7F11DBBD3048D89D003D8BBE /* manifest.json in Resources */,
+				7F11DBBB3048D89D003D8BBE /* chunks in Resources */,
+				7F11DBBC3048D89D003D8BBE /* icons in Resources */,
+				7F11DBBA3048D89D003D8BBE /* gist_dark.css in Resources */,
+				7F11DBB73048D89D003D8BBE /* styles.css in Resources */,
+				7F11DBB93048D89D003D8BBE /* plugins in Resources */,
+				7F11DBB53048D89D003D8BBE /* browser-polyfill.js in Resources */,
+				7F11DBB43048D89D003D8BBE /* popup in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7F11DB793048D89C003D8BBE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7F11DB8D3048D89C003D8BBE /* ViewController.swift in Sources */,
+				7F11DB813048D89C003D8BBE /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7F11DB943048D89D003D8BBE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7F11DB9E3048D89D003D8BBE /* SafariWebExtensionHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7F11DB9B3048D89D003D8BBE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7F11DB973048D89D003D8BBE /* CU LMS Enhancer Extension */;
+			targetProxy = 7F11DB9A3048D89D003D8BBE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		7F11DB833048D89C003D8BBE /* Main.html */ = {
+			isa = PBXVariantGroup;
+			children = (
+				7F11DB843048D89C003D8BBE /* Base */,
+			);
+			name = Main.html;
+			sourceTree = "<group>";
+		};
+		7F11DB8E3048D89C003D8BBE /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				7F11DB8F3048D89C003D8BBE /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		7F11DBA03048D89D003D8BBE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		7F11DBA13048D89D003D8BBE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		7F11DBA33048D89D003D8BBE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = W88579NAWQ;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "CU LMS Enhancer Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "CU LMS Enhancer Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ArsenyD.lmsEnhancerExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		7F11DBA43048D89D003D8BBE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = W88579NAWQ;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "CU LMS Enhancer Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "CU LMS Enhancer Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ArsenyD.lmsEnhancerExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		7F11DBA73048D89D003D8BBE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = W88579NAWQ;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "CU LMS Enhancer/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "CU LMS Enhancer";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ArsenyD.lmsEnhancer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		7F11DBA83048D89D003D8BBE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = W88579NAWQ;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "CU LMS Enhancer/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "CU LMS Enhancer";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ArsenyD.lmsEnhancer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7F11DB783048D89C003D8BBE /* Build configuration list for PBXProject "CU LMS Enhancer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7F11DBA03048D89D003D8BBE /* Debug */,
+				7F11DBA13048D89D003D8BBE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7F11DBA23048D89D003D8BBE /* Build configuration list for PBXNativeTarget "CU LMS Enhancer Extension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7F11DBA33048D89D003D8BBE /* Debug */,
+				7F11DBA43048D89D003D8BBE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7F11DBA63048D89D003D8BBE /* Build configuration list for PBXNativeTarget "CU LMS Enhancer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7F11DBA73048D89D003D8BBE /* Debug */,
+				7F11DBA83048D89D003D8BBE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7F11DB753048D89C003D8BBE /* Project object */;
+}

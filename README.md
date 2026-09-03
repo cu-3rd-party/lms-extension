@@ -29,6 +29,8 @@ bun run build:chrome   # → dist/chrome/
 bun run build:firefox  # → dist/firefox/
 ```
 
+**Safari:** Откройте Настройки Safari → Дополнения → Включить «Показывать функции для веб-разработчика» → Разработчик → Включить «Разрешить неподписанные расширения» → «Добавить временное расширение» → выберите `dist/chrome/`. Для SPA-переходов Safari расширение отслеживает изменение URL отдельным content script.
+
 **Chrome:** откройте `chrome://extensions` → включите режим разработчика → «Загрузить распакованное» → выберите `dist/chrome/`
 
 **Firefox:** откройте `about:debugging#/runtime/this-firefox` → «Load Temporary Add-on...» → выберите любой файл из `dist/firefox/`
@@ -36,3 +38,6 @@ bun run build:firefox  # → dist/firefox/
 Подробнее о структуре проекта, плагинах и настройке окружения — в [CONTRIBUTING.md](CONTRIBUTING.md).
 
 E2E-тесты расширения — в [tests/](tests/).
+
+Сборка распространяемого macOS-приложения с Safari Web Extension, DMG и
+notarization описана в [fastlane/README.md](fastlane/README.md).
