@@ -549,8 +549,9 @@ async function activateCourseExporter() {
   isExportInitializing = true;
 
   try {
-    // Проверяем, что мы находимся на странице actual или archived
-    const match = window.location.pathname.match(/\/(?:actual|archived)\/(\d+)/);
+    const match = window.location.pathname.match(
+      /\/learn\/courses\/view\/(?:actual|archived)\/(\d+)\/?$/
+    );
     if (!match) return;
 
     const courseId = parseInt(match[1]);
@@ -778,9 +779,14 @@ if (!window.cuExportWidgetObserver) {
     });
     if (isOnlyInternal) return;
 
-    // Проверяем, что мы находимся на странице actual или archived
-    const match = window.location.pathname.match(/\/(?:actual|archived)\/(\d+)/);
-    if (!match) return;
+    const match = window.location.pathname.match(
+      /\/learn\/courses\/view\/(?:actual|archived)\/(\d+)\/?$/
+    );
+    if (!match) {
+      const widget = document.getElementById('cu-export-course-widget');
+      if (widget) widget.style.display = 'none';
+      return;
+    }
 
     const widget = document.getElementById('cu-export-course-widget');
     const inCorrectContainer = widget && widget.closest('cu-widgets-panel');
