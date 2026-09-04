@@ -34,3 +34,14 @@ bundle exec fastlane mac release
 ```text
 build/release/CU LMS Enhancer.dmg
 ```
+
+## GitHub Actions
+
+Workflow `Publish Release` запускает Safari-сборку на `macos-latest` при публикации GitHub Release. Safari job также можно запустить вручную через `Actions` → `Publish Release` → `Run workflow`. При ручном запуске jobs Chrome и Firefox пропускаются. В Environment `publish-safari` добавь secrets:
+
+- `APPLE_ID` — Apple ID;
+- `APPLE_APP_SPECIFIC_PASSWORD` — app-specific password;
+- `APPLE_CERTIFICATE_BASE64` — `.p12` с сертификатом `Developer ID Application` и private key в base64;
+- `APPLE_CERTIFICATE_PASSWORD` — пароль `.p12`.
+
+В том же Environment добавь variable `APPLE_TEAM_ID`. Готовый DMG загружается в artifacts workflow.
