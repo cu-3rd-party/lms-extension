@@ -4,7 +4,8 @@
 
 1. сборку web-части через `bun` и архивацию macOS-проекта через `gym`;
 2. создание и подпись `.dmg` через CLI [create-dmg](https://github.com/sindresorhus/create-dmg) сертификатом `Developer ID Application`;
-3. notarization и прикрепление ticket через Fastlane action `notarize`.
+3. переименование `CU LMS Enhancer.dmg` в `lms-extension-safari.dmg`: параметр `--dmg-title` задаёт название тома, а имя файла `create-dmg` берёт из имени приложения;
+4. notarization и прикрепление ticket через Fastlane action `notarize`.
 
 ## Требования
 
@@ -32,7 +33,7 @@ bundle exec fastlane mac release
 Результат:
 
 ```text
-build/release/CU LMS Enhancer.dmg
+build/release/lms-extension-safari.dmg
 ```
 
 ## GitHub Actions
@@ -44,4 +45,4 @@ Workflow `Publish Release` запускает Safari-сборку на `macos-la
 - `APPLE_CERTIFICATE_BASE64` — `.p12` с сертификатом `Developer ID Application` и private key в base64;
 - `APPLE_CERTIFICATE_PASSWORD` — пароль `.p12`.
 
-В том же Environment добавь variable `APPLE_TEAM_ID`. Готовый DMG загружается в artifacts workflow.
+В том же Environment добавь variable `APPLE_TEAM_ID`. Workflows `Publish Release` и `Build Safari` загружают `build/release/lms-extension-safari.dmg` в artifact с именем `lms-extension-safari.dmg`; отсутствие файла считается ошибкой. При скачивании через GitHub Actions artifact представляет собой ZIP-архив с DMG внутри. `Build Safari` запускается вручную через `workflow_dispatch`.

@@ -16,10 +16,14 @@ platform :mac do
 
     app_path = File.expand_path("../build/release/CU-LMS-Enhancer.app", __dir__)
     release_path = File.expand_path("../build/release", __dir__)
-    sh("bunx create-dmg --overwrite --no-version-in-filename --identity='Developer ID Application' --dmg-title='CU LMS Enhancer' '#{app_path}' '#{release_path}'")
+    sh("bunx create-dmg --overwrite --no-version-in-filename --identity='Developer ID Application' --dmg-title='lms-extension-safari' '#{app_path}' '#{release_path}'")
+
+    # create-dmg derives the filename from the app name, not --dmg-title.
+    dmg_path = File.join(release_path, "lms-extension-safari.dmg")
+    File.rename(File.join(release_path, "CU LMS Enhancer.dmg"), dmg_path)
 
     notarize(
-      package: File.join(release_path, "CU LMS Enhancer.dmg"),
+      package: dmg_path,
       username: ENV.fetch("FASTLANE_USER"),
       asc_provider: ENV.fetch("APPLE_TEAM_ID"),
       print_log: true

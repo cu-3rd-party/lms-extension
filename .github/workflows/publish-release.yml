@@ -148,5 +148,6 @@ jobs:
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
-          name: CU-LMS-Enhancer-Safari
-          path: build/release/CU LMS Enhancer.dmg
+          name: lms-extension-safari.dmg
+          path: build/release/lms-extension-safari.dmg
+          if-no-files-found: error
