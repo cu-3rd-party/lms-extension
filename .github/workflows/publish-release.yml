@@ -126,6 +126,9 @@ jobs:
           ruby-version: '3.4'
           bundler-cache: true
 
+      - name: Install node-gyp for native modules
+        run: npm install -g node-gyp
+
       - name: Install deps
         run: bun install --frozen-lockfile
 
