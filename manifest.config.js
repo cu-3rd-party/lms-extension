@@ -118,9 +118,9 @@ export default defineManifest({
     browser_specific_settings: {
       gecko: {
         id: 'cu-lms-enhancer@centraluniversity.ru',
-      },
-      data_collection_permissions: {
-        required: ['none'],
+        data_collection_permissions: {
+          required: ['none'],
+        },
       },
     },
   }),
