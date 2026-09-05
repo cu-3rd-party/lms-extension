@@ -36,6 +36,10 @@ bundle exec fastlane mac release
 build/release/lms-extension-safari.dmg
 ```
 
+## Идентификатор Safari-расширения
+
+`extensionBundleIdentifier` в `safari/CU LMS Enhancer/CU LMS Enhancer/ViewController.swift` должен совпадать с `PRODUCT_BUNDLE_IDENTIFIER` target `CU LMS Enhancer Extension`: `com.ArsenyD.lmsEnhancerExtension`. Приложение использует его для получения состояния расширения и перехода к его настройкам в Safari по кнопке. При изменении идентификатора обновляй оба места. Для доставки исправления пользователям нужно пересобрать DMG.
+
 ## GitHub Actions
 
 Workflow `Publish Release` запускает Safari-сборку на `macos-latest` при публикации GitHub Release. Safari job также можно запустить вручную через `Actions` → `Publish Release` → `Run workflow`. При ручном запуске jobs Chrome и Firefox пропускаются. В Environment `publish-safari` добавь secrets:

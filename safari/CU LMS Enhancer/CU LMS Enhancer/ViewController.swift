@@ -2,7 +2,7 @@ import Cocoa
 import SafariServices
 import WebKit
 
-let extensionBundleIdentifier = "com.yourCompany.CU-LMS-Enhancer.Extension"
+let extensionBundleIdentifier = "com.ArsenyD.lmsEnhancerExtension"
 
 class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHandler {
 
