@@ -1,0 +1,46 @@
+name: Build Safari
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-safari:
+    name: Build Safari DMG
+    runs-on: macos-latest
+    environment: publish-safari
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Import Developer ID certificate
+        uses: apple-actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Build and notarize Safari app
+        run: bundle exec fastlane mac release
+        env:
+          FASTLANE_USER: ${{ secrets.APPLE_ID }}
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: CU-LMS-Enhancer-Safari
+          path: build/release/CU LMS Enhancer.dmg
