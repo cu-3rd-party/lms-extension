@@ -173,10 +173,6 @@
   border-color: #16a34a;
 }
 
-.culms-swap-order_completed {
-  opacity: 0.7;
-}
-
 .culms-swap-order__head {
   display: flex;
   align-items: center;
@@ -206,11 +202,6 @@
 .culms-swap-status_matched {
   background: rgba(22, 163, 74, 0.14);
   color: #16a34a;
-}
-
-.culms-swap-status_completed {
-  background: rgba(107, 114, 128, 0.1);
-  color: #8a8e93;
 }
 
 /* Сетка, а не flex: подписи слотов бывают длинными, и во flex-раскладке

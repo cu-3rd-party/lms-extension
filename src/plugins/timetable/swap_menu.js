@@ -215,10 +215,10 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
 
   // --- Заказы ----------------------------------------------------------------
 
+  // Закрытые заказы сервер не отдаёт вовсе — показывать тут нечего.
   const STATUS_LABELS = {
     open: 'Ищем встречный заказ',
     matched: 'Нашлось совпадение',
-    completed: 'Обмен закрыт',
   };
 
   const CONTACT_LABELS = {
@@ -267,7 +267,9 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
       card.appendChild(renderMatch(order.match));
     }
 
-    if (order.status === 'open' || order.status === 'matched') {
+    // У сосватанного заказа отмены нет: рядом уже стоит ОК, а две кнопки с
+    // разным смыслом на одной карточке только путают.
+    if (order.status === 'open') {
       const actions = document.createElement('div');
       actions.className = 'culms-swap-order__actions';
 
@@ -310,19 +312,16 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
     const actions = document.createElement('div');
     actions.className = 'culms-swap-match__actions';
 
-    const done = document.createElement('button');
-    done.type = 'button';
-    done.className = 'culms-swap-btn culms-swap-btn_primary';
-    done.textContent = 'Обменялись';
-    done.addEventListener('click', () => withBusy(done, () => swap().confirmMatch(match.id)));
+    // Одна кнопка вместо «обменялись / не получилось»: чем кончился разговор с
+    // куратором, сервису знать незачем. ОК просто убирает карточку у нажавшего.
+    const ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'culms-swap-btn culms-swap-btn_primary';
+    ok.textContent = 'ОК';
+    ok.title = 'Убрать из «Моих запросов»';
+    ok.addEventListener('click', () => withBusy(ok, () => swap().closeMatch(match.id)));
 
-    const failed = document.createElement('button');
-    failed.type = 'button';
-    failed.className = 'culms-swap-btn culms-swap-btn_ghost';
-    failed.textContent = 'Не получилось';
-    failed.addEventListener('click', () => withBusy(failed, () => swap().declineMatch(match.id)));
-
-    actions.append(done, failed);
+    actions.append(ok);
     box.append(title, contact, detail, hint, actions);
     return box;
   }
@@ -386,9 +385,9 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
     }
 
     // Совпадения — наверх: это единственное, что требует действий студента.
-    const weight = { matched: 0, open: 1, completed: 2 };
+    const weight = { matched: 0, open: 1 };
     const sorted = [...data.orders].sort(
-      (a, b) => (weight[a.status] ?? 3) - (weight[b.status] ?? 3)
+      (a, b) => (weight[a.status] ?? 2) - (weight[b.status] ?? 2)
     );
     sorted.forEach((order) => container.appendChild(renderOrder(order)));
   }

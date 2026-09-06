@@ -118,19 +118,15 @@ if (typeof window.__culmsSwapButtonInit === 'undefined') {
 
     if (context.order) {
       const status = context.order.status;
-      if (status === 'matched' && context.order.match) {
+      if (status === 'matched') {
         row.appendChild(createHint('Нашлось совпадение — смотри «Мои запросы» внизу страницы'));
-      } else if (status === 'completed') {
-        row.appendChild(createHint('Обмен закрыт'));
-      } else {
-        row.appendChild(createHint('Заказ создан, ищем встречный'));
+        return;
       }
 
-      if (status === 'open' || status === 'matched') {
-        const cancel = createButton('Отменить заказ', 'ghost');
-        cancel.addEventListener('click', () => cancelOrder(row, context));
-        row.appendChild(cancel);
-      }
+      row.appendChild(createHint('Заказ создан, ищем встречный'));
+      const cancel = createButton('Отменить заказ', 'ghost');
+      cancel.addEventListener('click', () => cancelOrder(row, context));
+      row.appendChild(cancel);
       return;
     }
 

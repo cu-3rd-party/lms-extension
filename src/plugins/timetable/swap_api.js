@@ -261,8 +261,8 @@ if (typeof window.__culmsSwapApiInit === 'undefined') {
   const listOrders = () => request('GET', '/api/v1/orders');
   const createOrder = (payload) => request('POST', '/api/v1/orders', payload);
   const cancelOrder = (orderId) => request('DELETE', `/api/v1/orders/${orderId}`);
-  const confirmMatch = (matchId) => request('POST', `/api/v1/matches/${matchId}/confirm`);
-  const declineMatch = (matchId) => request('POST', `/api/v1/matches/${matchId}/decline`);
+  /** Личное «ОК»: убирает совпадение у нажавшего, вторая сторона своё ещё видит. */
+  const closeMatch = (matchId) => request('POST', `/api/v1/matches/${matchId}/close`);
 
   /** Сколько человек готовы отдать каждый из слотов. Пустой объект при ошибке. */
   async function getDemand(eventIds) {
@@ -294,8 +294,7 @@ if (typeof window.__culmsSwapApiInit === 'undefined') {
     listOrders,
     createOrder,
     cancelOrder,
-    confirmMatch,
-    declineMatch,
+    closeMatch,
     getDemand,
     log,
   };
