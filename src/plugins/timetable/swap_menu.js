@@ -16,6 +16,20 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
   let pollTimer = null;
   let identity = null;
 
+  /**
+   * Плагин cu-clubs переиспользует адрес /learn/timetable: по хэшу #cuclubs он
+   * прячет `cu-student-timetable-events` и рисует на его месте страницу клубов.
+   * Наше меню — соседний узел, а не потомок, поэтому само оно не спрячется.
+   */
+  function isClubsPage() {
+    return window.location.hash === '#cuclubs';
+  }
+
+  function syncVisibility() {
+    const menu = document.getElementById(MENU_ID);
+    if (menu) menu.hidden = isClubsPage();
+  }
+
   // --- Разметка --------------------------------------------------------------
 
   function buildMenu() {
@@ -387,6 +401,8 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
         pollTimer = null;
         return;
       }
+      // Пока открыта страница клубов, меню скрыто — дёргать сервер незачем.
+      if (isClubsPage()) return;
       refreshOrders(root);
     }, POLL_INTERVAL_MS);
   }
@@ -399,6 +415,7 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
     const menu = buildMenu();
     anchor.parentElement.insertBefore(menu, anchor.nextSibling);
 
+    syncVisibility();
     renderContactOptions(menu);
     await restoreContact(menu);
     menu.querySelector('[data-role="save"]').addEventListener('click', () => saveContact(menu));
@@ -421,7 +438,11 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
   let mounting = false;
 
   function tryMount() {
-    if (mounting || document.getElementById(MENU_ID)) return;
+    if (document.getElementById(MENU_ID)) {
+      syncVisibility();
+      return;
+    }
+    if (mounting || isClubsPage()) return;
 
     const anchor = document.querySelector(ANCHOR_SELECTOR);
     if (!anchor || !anchor.querySelector('table.cu-table tbody tr')) return;
@@ -436,5 +457,6 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
 
   const observer = new MutationObserver(tryMount);
   observer.observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('hashchange', tryMount);
   tryMount();
 }

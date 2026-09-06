@@ -281,6 +281,9 @@ if (typeof window.__culmsSwapButtonInit === 'undefined') {
       pending = null;
       if (running) return;
 
+      // На странице клубов (/learn/timetable#cuclubs) расписания нет вовсе.
+      if (window.location.hash === '#cuclubs') return;
+
       const dialog = document.querySelector('[data-appearance="drawer"] .events-list');
       if (!dialog) return;
 
