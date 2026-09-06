@@ -12,10 +12,6 @@
   font: var(--tui-font-text-m, normal 1rem / 1.5rem sans-serif);
 }
 
-.culms-swap-menu[hidden] {
-  display: none;
-}
-
 .culms-swap-menu__head {
   display: flex;
   align-items: center;

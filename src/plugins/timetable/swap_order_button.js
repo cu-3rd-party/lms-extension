@@ -277,7 +277,9 @@ if (typeof window.__culmsSwapButtonInit === 'undefined') {
       pending = null;
       if (running) return;
 
-      // На странице клубов (/learn/timetable#cuclubs) расписания нет вовсе.
+      // Диалог выбора времени бывает только на странице записи на пары; на
+      // клубах (#cuclubs) расписание спрятано, а на других разделах его нет.
+      if (!window.location.pathname.includes('/learn/timetable')) return;
       if (window.location.hash === '#cuclubs') return;
 
       const dialog = document.querySelector('[data-appearance="drawer"] .events-list');

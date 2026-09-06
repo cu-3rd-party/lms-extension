@@ -17,17 +17,23 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
   let identity = null;
 
   /**
-   * Плагин cu-clubs переиспользует адрес /learn/timetable: по хэшу #cuclubs он
-   * прячет `cu-student-timetable-events` и рисует на его месте страницу клубов.
-   * Наше меню — соседний узел, а не потомок, поэтому само оно не спрячется.
+   * Меню должно быть видно только на самой странице записи на пары.
+   *
+   * Два случая, когда его быть не должно, и оба надо проверять самим:
+   *
+   * 1. Уход на другой раздел. LMS — SPA, контейнер `.cu-container` переживает
+   *    смену маршрута, Angular меняет только своё содержимое. Наше меню ему
+   *    сосед, а не потомок, так что оно спокойно переезжает на чужую страницу.
+   *    Расширение туда заново не инжектится: `matches` плагина ловит только
+   *    /learn/timetable.
+   * 2. Страница клубов. Плагин cu-clubs переиспользует тот же адрес, по хэшу
+   *    #cuclubs прячет `cu-student-timetable-events` и рисует клубы на его
+   *    месте — а меню опять же остаётся снаружи.
    */
-  function isClubsPage() {
-    return window.location.hash === '#cuclubs';
-  }
-
-  function syncVisibility() {
-    const menu = document.getElementById(MENU_ID);
-    if (menu) menu.hidden = isClubsPage();
+  function shouldShow() {
+    return (
+      window.location.pathname.includes('/learn/timetable') && window.location.hash !== '#cuclubs'
+    );
   }
 
   // --- Разметка --------------------------------------------------------------
@@ -403,8 +409,6 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
         pollTimer = null;
         return;
       }
-      // Пока открыта страница клубов, меню скрыто — дёргать сервер незачем.
-      if (isClubsPage()) return;
       refreshOrders(root);
     }, POLL_INTERVAL_MS);
   }
@@ -417,7 +421,6 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
     const menu = buildMenu();
     anchor.parentElement.insertBefore(menu, anchor.nextSibling);
 
-    syncVisibility();
     renderContactOptions(menu);
     await restoreContact(menu);
     menu.querySelector('[data-role="save"]').addEventListener('click', () => saveContact(menu));
@@ -425,26 +428,28 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
       if (e.key === 'Enter') saveContact(menu);
     });
 
+    // Пока шли запросы, студент мог уйти на другую страницу.
+    if (!shouldShow()) {
+      menu.remove();
+      return;
+    }
+
     await refreshOrders(menu);
     startPolling(menu);
-
-    window.addEventListener('culms-swap-orders-changed', () => refreshOrders(menu));
-    window.addEventListener('culms-swap-request-contact', () => {
-      const contactBox = menu.querySelector('[data-role="contact"]');
-      contactBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      contactBox.classList.add('culms-swap-contact_attention');
-      setTimeout(() => contactBox.classList.remove('culms-swap-contact_attention'), 2500);
-    });
   }
 
   let mounting = false;
 
   function tryMount() {
-    if (document.getElementById(MENU_ID)) {
-      syncVisibility();
+    const existing = document.getElementById(MENU_ID);
+
+    if (!shouldShow()) {
+      // Опрос остановится сам: интервал проверяет, что меню ещё в документе.
+      if (existing) existing.remove();
       return;
     }
-    if (mounting || isClubsPage()) return;
+
+    if (existing || mounting) return;
 
     const anchor = document.querySelector(ANCHOR_SELECTOR);
     if (!anchor || !anchor.querySelector('table.cu-table tbody tr')) return;
@@ -457,8 +462,27 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
       });
   }
 
+  // Слушатели вешаются один раз, а не на каждое монтирование: меню снимается и
+  // ставится заново при каждом переходе, и подписки бы накапливались, держа
+  // ссылки на давно удалённые узлы.
+  window.addEventListener('culms-swap-orders-changed', () => {
+    const menu = document.getElementById(MENU_ID);
+    if (menu) refreshOrders(menu);
+  });
+
+  window.addEventListener('culms-swap-request-contact', () => {
+    const menu = document.getElementById(MENU_ID);
+    if (!menu) return;
+
+    const contactBox = menu.querySelector('[data-role="contact"]');
+    contactBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    contactBox.classList.add('culms-swap-contact_attention');
+    setTimeout(() => contactBox.classList.remove('culms-swap-contact_attention'), 2500);
+  });
+
   const observer = new MutationObserver(tryMount);
   observer.observe(document.body, { childList: true, subtree: true });
   window.addEventListener('hashchange', tryMount);
+  window.addEventListener('popstate', tryMount);
   tryMount();
 }
