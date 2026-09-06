@@ -194,11 +194,24 @@ if (typeof window.__culmsSwapApiInit === 'undefined') {
     });
 
     if (!response) throw new Error('нет ответа от background');
+
     if (!response.success) {
+      // 401 означает, что сервер не знает этот ключ: устройство вытеснено
+      // лимитом или базу пересоздали. Способ связи студент уже выбирал, так
+      // что перерегистрируемся молча и повторяем запрос один раз.
+      if (response.status === 401 && !options.retried && !options.anonymous) {
+        const contact = await getStoredContact();
+        if (contact) {
+          await register(contact);
+          return request(method, path, body, { ...options, retried: true });
+        }
+      }
+
       const error = new Error(response.error || 'запрос не удался');
       error.status = response.status;
       throw error;
     }
+
     return response.data;
   }
 
@@ -226,8 +239,15 @@ if (typeof window.__culmsSwapApiInit === 'undefined') {
     return data;
   }
 
-  /** Сохраняет контакт, регистрируя студента, если тот ещё не зарегистрирован. */
+  /**
+   * Сохраняет контакт. Если этот браузер ещё не знаком серверу — сначала
+   * регистрирует его: у студента может быть несколько устройств, и второе
+   * заводится ровно здесь.
+   */
   async function saveContact(contact) {
+    const stored = await getStoredContact();
+    if (!stored) return register(contact);
+
     try {
       const data = await request('PUT', '/api/v1/me/contact', contact);
       await setStoredContact(contact);
