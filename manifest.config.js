@@ -25,6 +25,8 @@ export default defineManifest({
     'https://storage.yandexcloud.net/*',
     // https://github.com/cu-3rd-party/lms-future-exams-backend
     'https://lms.exams.cu3rd.ru/*',
+    // https://github.com/cu-3rd-party/lms-swap-backend
+    'https://lms.swap.cu3rd.ru/*',
   ],
   background:
     BROWSER === 'firefox'
@@ -105,6 +107,10 @@ export default defineManifest({
         'plugins/longreads/rename_hw.js',
         'plugins/statements/advanced_statements.js',
         'plugins/timetable/timetable_status.js',
+        'plugins/timetable/swap_api.js',
+        'plugins/timetable/swap_order_button.js',
+        'plugins/timetable/swap_menu.js',
+        'plugins/timetable/swap.css',
         'plugins/_shared/fflate.umd.min.js',
         'plugins/_shared/pdf-lib.min.js',
       ],

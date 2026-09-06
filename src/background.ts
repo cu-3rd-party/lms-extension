@@ -52,6 +52,13 @@ type ScheduleResult =
 type IncomingMessage =
   | { action: 'fetchGistContent'; url: string }
   | { action: 'FETCH_JSON'; url: string }
+  | {
+      action: 'SWAP_API';
+      method: string;
+      url: string;
+      body?: unknown;
+      headers?: Record<string, string>;
+    }
   | { action: 'SEARCH_CONTACTS'; query: string }
   | { action: 'ANALYZE_SUBJECTS'; email: string }
   | { action: 'GET_WEEKLY_SCHEDULE'; email: string; date?: string }
@@ -64,6 +71,10 @@ type IncomingMessage =
   | { action: 'GRADES_EXPORT_EXECUTE' }
   | { action: 'SAFARI_NAVIGATION'; url: string }
   | { action: string; [key: string]: unknown };
+
+// Единственный внешний хост, куда background пускает запросы биржи обмена
+// парами. https://github.com/cu-3rd-party/lms-swap-backend
+const SWAP_BACKEND_ORIGIN = 'https://lms.swap.cu3rd.ru';
 
 // --- ФУНКЦИЯ СБОРА ОЦЕНОК ДЛЯ ЭКСПОРТА ---
 async function fetchAllGradesForExport() {
@@ -1100,7 +1111,6 @@ browser.webNavigation.onCompleted.addListener((details) => {
   }
 }, navFilter);
 
-
 // --- ОБРАБОТЧИК СООБЩЕНИЙ (ЕДИНЫЙ ДЛЯ ВСЕГО) ---
 browser.runtime.onMessage.addListener(((
   rawRequest: unknown,
@@ -1163,6 +1173,51 @@ browser.runtime.onMessage.addListener(((
       .then(async (response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         sendResponse({ success: true, data: await response.json() });
+      })
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Прокси для биржи обмена парами (см. plugins/timetable/swap_api.js).
+  // В отличие от FETCH_JSON умеет POST/PUT/DELETE и заголовки авторизации.
+  // Хост зафиксирован здесь, а не приходит из страницы: скомпрометированный
+  // content-скрипт иначе гонял бы через background запросы куда угодно.
+  if (request.action === 'SWAP_API') {
+    const swapRequest = request as {
+      action: 'SWAP_API';
+      method: string;
+      url: string;
+      body?: unknown;
+      headers?: Record<string, string>;
+    };
+
+    if (!swapRequest.url.startsWith(`${SWAP_BACKEND_ORIGIN}/`)) {
+      sendResponse({ success: false, error: 'запрещённый адрес' });
+      return true;
+    }
+
+    fetch(swapRequest.url, {
+      method: swapRequest.method,
+      headers: {
+        ...(swapRequest.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(swapRequest.headers ?? {}),
+      },
+      body: swapRequest.body === undefined ? undefined : JSON.stringify(swapRequest.body),
+    })
+      .then(async (response) => {
+        // 204 отдают отмена заказа и закрытие совпадения — тела там нет.
+        const data = response.status === 204 ? null : await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const detail =
+            data && typeof data === 'object' && 'detail' in data
+              ? String((data as { detail: unknown }).detail)
+              : `HTTP ${response.status}`;
+          sendResponse({ success: false, error: detail, status: response.status });
+          return;
+        }
+
+        sendResponse({ success: true, data, status: response.status });
       })
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;

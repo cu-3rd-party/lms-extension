@@ -76,4 +76,4 @@ const manifest = {
 | `course-view` | `.../learn/courses/view/*`          | Страница курса: автоскролл, друзья, экспорт и др.      |
 | `longreads`   | `.../learn/longreads/*`             | Страница задания: веса, переименование, адаптация      |
 | `statements`  | `.../learn/statements/*`            | Расширенные ведомости и архив                          |
-| `timetable`   | `.../learn/timetable`               | Чипы статусов слотов расписания                        |
+| `timetable`   | `.../learn/timetable`               | Чипы статусов слотов и биржа обмена парами             |
