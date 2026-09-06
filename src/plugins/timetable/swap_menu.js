@@ -45,7 +45,8 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
       <p class="culms-swap-menu__lead">
         Если нужная пара помечена «Нет мест», оставь заказ прямо в окне выбора времени.
         Когда найдётся тот, кто хочет твой слот, а отдаёт нужный тебе, — вы увидите
-        контакты друг друга и договоритесь о пересадке в LMS.
+        контакты друг друга. Дальше договариваетесь и идёте к куратору: местами
+        вас меняет он, через интерфейс LMS это сделать нельзя.
       </p>
 
       <div class="culms-swap-contact" data-role="contact">
@@ -302,8 +303,9 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
     const hint = document.createElement('p');
     hint.className = 'culms-swap-match__hint';
     hint.textContent =
-      'Напишите друг другу и пересядьте в LMS: сначала место освобождает один, ' +
-      'сразу за ним занимает второй.';
+      'Свяжитесь, убедитесь, что меняться хотят оба, и напишите куратору — ' +
+      'он поменяет вас местами вручную. Сами вы пересесть не сможете: оба слота ' +
+      'заняты под завязку, и LMS не даст занять чужое место, пока его не освободили.';
 
     const actions = document.createElement('div');
     actions.className = 'culms-swap-match__actions';
