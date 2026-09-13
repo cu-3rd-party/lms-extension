@@ -151,6 +151,7 @@ function refreshToggleStates() {
 
     updateAutoRenameUI(isAutoRenameEnabled);
     updateCourseFilters(data);
+    updateContestAuthStatus();
     if (renameTemplateSelect && data.autoRenameTemplate) {
       renameTemplateSelect.value = data.autoRenameTemplate;
     }
@@ -233,6 +234,7 @@ allKeys.forEach((key) => {
         updateAutoRenameUI(isEnabled);
       } else if (key === 'akhIntegrationEnabled' || key === 'contestIntegrationEnabled') {
         updateCourseFilters();
+        if (key === 'contestIntegrationEnabled') updateContestAuthStatus();
       }
     });
   }
@@ -261,6 +263,66 @@ if (renameTemplateSelect) {
       browser.storage.sync.set({ autoRenameTemplate: template });
     }
   });
+}
+
+// --- СТАТУС АВТОРИЗАЦИИ НА contest.yandex.ru ---
+// Показываем прямо в попапе при включении интеграции, а не бейджем в таблице задач:
+// без входа в Яндекс надпись была бы одинаковой у каждой контестной строки.
+const contestAuthStatus = document.getElementById('contest-auth-status');
+
+function setContestAuthStatus(text, modifier, linkText) {
+  if (!contestAuthStatus) return;
+
+  contestAuthStatus.textContent = text;
+  contestAuthStatus.className = modifier
+    ? `integration-status integration-status_${modifier}`
+    : 'integration-status';
+
+  if (linkText) {
+    contestAuthStatus.append(' ');
+    const link = document.createElement('a');
+    link.href = 'https://contest.yandex.ru/';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = linkText;
+    contestAuthStatus.appendChild(link);
+  }
+}
+
+function updateContestAuthStatus() {
+  if (!contestAuthStatus) return;
+
+  // Состояние берём из чекбокса: внутри iframe изменение тумблера до storage ещё не дошло
+  const toggle = toggles.contestIntegrationEnabled;
+  const isEnabled = toggle ? toggle.checked : false;
+  contestAuthStatus.style.display = isEnabled ? 'block' : 'none';
+  if (!isEnabled) return;
+
+  if (!contestAuthStatus.textContent) setContestAuthStatus('Проверяю вход в Яндекс...');
+
+  browser.runtime
+    .sendMessage({ action: 'CONTEST_CHECK_AUTH' })
+    .then((response) => {
+      const data = response && response.success ? response.data : null;
+
+      if (!data || data.state === 'unknown') {
+        setContestAuthStatus('Не удалось проверить вход в Яндекс.', 'error', 'Открыть контест');
+      } else if (data.state === 'anonymous') {
+        setContestAuthStatus(
+          'Вы не авторизованы на contest.yandex.ru — прогресс не будет виден.',
+          'error',
+          'Войти'
+        );
+      } else {
+        setContestAuthStatus(
+          data.login ? `Вход выполнен: ${data.login}` : 'Вход в Яндекс выполнен.',
+          'ok'
+        );
+      }
+    })
+    .catch(() => {
+      setContestAuthStatus('Не удалось проверить вход в Яндекс.', 'error', 'Открыть контест');
+    });
 }
 
 // --- ФИЛЬТР КУРСОВ ДЛЯ ВНЕШНИХ ИНТЕГРАЦИЙ ---

@@ -1087,6 +1087,14 @@ const YandexContestServices = {
     'https://my.centraluniversity.ru/api/micro-lms/tasks/student?state=inProgress&state=backlog&state=submitted&state=review&state=reworking',
   EXERCISE_TTL: 7 * 24 * 60 * 60 * 1000,
   CONTEST_TTL: 5 * 60 * 1000,
+  // Неуспешные состояния (нет входа, ошибка) кешируем куда короче: пользователь
+  // логинится и сразу обновляет страницу, ждать пять минут он не станет
+  CONTEST_FAIL_TTL: 60 * 1000,
+  AUTH_TTL: 60 * 1000,
+  // Демоконтест — публичная страница с обычной шапкой Яндекса, по ней и проверяем
+  // авторизацию: отдельной лёгкой страницы с шапкой у contest.yandex.ru нет
+  // (главная весит больше мегабайта, /contests/ и /my/ отдают 404)
+  AUTH_PROBE_URL: 'https://contest.yandex.ru/contest/90118/enter/',
   TASKS_TTL: 60 * 1000,
   /** Сколько карточек задач тянем параллельно, чтобы не устраивать burst из 20+ запросов */
   DETAIL_CONCURRENCY: 3,
@@ -1094,7 +1102,9 @@ const YandexContestServices = {
 
   _exerciseUrls: null as Record<string, { url: string | null; ts: number }> | null,
   _tasksCache: null as { ts: number; data: any[] } | null,
-  _contestCache: new Map<string, { ts: number; data: any }>(),
+  _contestCache: new Map<string, { ts: number; ttl: number; data: any }>(),
+  _authCache: null as { ts: number; data: any } | null,
+  _authInflight: null as Promise<any> | null,
   _contestInflight: new Map<string, Promise<any>>(),
   _progressInflight: null as Promise<any[]> | null,
 
@@ -1204,9 +1214,67 @@ const YandexContestServices = {
     return [...problems.values()];
   },
 
+  /**
+   * Авторизован ли пользователь на contest.yandex.ru.
+   *
+   * Проверяем по ПОЛОЖИТЕЛЬНОМУ признаку: в шапке авторизованного есть блок
+   * `user-menu`, а в ссылке на поддержку — его логин. Отсутствия признака
+   * достаточно, чтобы считать пользователя анонимным; ловить маркеры формы
+   * входа ненадёжно, они отличаются от страницы к странице.
+   */
+  isAuthenticatedHtml(html: string): boolean {
+    return /class="user-menu[\s"]/.test(html) || /cntst_login=[^&"\s]/.test(html);
+  },
+
+  parseLogin(html: string): string | null {
+    const match = html.match(/cntst_login=([^&"]*)/);
+    if (!match?.[1]) return null;
+    try {
+      return decodeURIComponent(match[1]) || null;
+    } catch (e) {
+      return match[1];
+    }
+  },
+
+  /**
+   * Состояние авторизации для попапа: 'authorized' | 'anonymous' | 'unknown'.
+   * Нужна отдельно от прогресса, потому что предупредить надо сразу при включении
+   * интеграции, когда курсы ещё не выбраны и запрашивать нечего.
+   */
+  async checkAuth(): Promise<any> {
+    if (this._authCache && Date.now() - this._authCache.ts < this.AUTH_TTL) {
+      return this._authCache.data;
+    }
+    if (this._authInflight) return this._authInflight;
+
+    this._authInflight = (async () => {
+      let data;
+      try {
+        const res = await fetch(this.AUTH_PROBE_URL, { credentials: 'include' });
+        if (!res.ok) {
+          data = { state: 'unknown', error: `HTTP ${res.status}` };
+        } else {
+          const html = await res.text();
+          data = this.isAuthenticatedHtml(html)
+            ? { state: 'authorized', login: this.parseLogin(html) }
+            : { state: 'anonymous' };
+        }
+      } catch (e: any) {
+        data = { state: 'unknown', error: e?.message || 'fetch failed' };
+      } finally {
+        this._authInflight = null;
+      }
+
+      this._authCache = { ts: Date.now(), data };
+      return data;
+    })();
+
+    return this._authInflight;
+  },
+
   async fetchContest(contestId: string): Promise<any> {
     const cached = this._contestCache.get(contestId);
-    if (cached && Date.now() - cached.ts < this.CONTEST_TTL) return cached.data;
+    if (cached && Date.now() - cached.ts < cached.ttl) return cached.data;
 
     const inflight = this._contestInflight.get(contestId);
     if (inflight) return inflight;
@@ -1219,13 +1287,14 @@ const YandexContestServices = {
         });
         const finalUrl = res.url || '';
 
-        if (/passport\.yandex\./.test(finalUrl)) {
-          data = { state: 'auth_required' };
-        } else if (/\/enter\b/.test(finalUrl)) {
-          // Контест не начат: Яндекс редиректит на страницу входа в соревнование
-          data = { state: 'not_entered' };
-        } else if (!res.ok) {
+        if (!res.ok) {
           data = { state: 'error', error: `HTTP ${res.status}` };
+        } else if (/\/enter\b/.test(finalUrl)) {
+          // На /enter/ Яндекс уводит ОБА случая — и не вошедшего в контест,
+          // и вообще неавторизованного, — поэтому различаем их по шапке страницы
+          data = this.isAuthenticatedHtml(await res.text())
+            ? { state: 'not_entered' }
+            : { state: 'auth_required' };
         } else {
           const problems = this.parseProblems(await res.text(), contestId);
           data = problems.length
@@ -1243,8 +1312,10 @@ const YandexContestServices = {
         this._contestInflight.delete(contestId);
       }
 
-      // Ошибки тоже кешируем: иначе упавший контест будет перезапрашиваться каждый тик
-      this._contestCache.set(contestId, { ts: Date.now(), data });
+      // Ошибки тоже кешируем: иначе упавший контест будет перезапрашиваться каждый тик.
+      // Но держим их недолго, чтобы после входа результат обновился быстро
+      const ttl = data.state === 'ok' ? this.CONTEST_TTL : this.CONTEST_FAIL_TTL;
+      this._contestCache.set(contestId, { ts: Date.now(), ttl, data });
       return data;
     })();
 
@@ -1570,6 +1641,16 @@ browser.runtime.onMessage.addListener(((
           .sort((a: any, b: any) => a.name.localeCompare(b.name, 'ru'));
         sendResponse({ success: true, data: courses });
       })
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  // Проверка авторизации на contest.yandex.ru для попапа.
+  // Намеренно НЕ спрятана за contestIntegrationEnabled: попап спрашивает её сразу
+  // при включении тумблера, когда внутри iframe изменение ещё не дошло до storage.
+  if (request.action === 'CONTEST_CHECK_AUTH') {
+    YandexContestServices.checkAuth()
+      .then((data) => sendResponse({ success: true, data }))
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }

@@ -112,6 +112,26 @@
         color: #999;
       }
 
+      .integration-status {
+        font-size: 13px;
+        line-height: 1.4;
+        margin: -4px 0 8px 0;
+        color: #666;
+      }
+
+      .integration-status_error {
+        color: #d93025;
+      }
+
+      .integration-status_ok {
+        color: #188038;
+      }
+
+      .integration-status a {
+        color: inherit;
+        font-weight: 600;
+      }
+
       .course-list {
         max-height: 150px;
         overflow-y: auto;
@@ -262,6 +282,7 @@
           <span class="slider"></span>
         </label>
       </div>
+      <div class="integration-status" id="contest-auth-status" style="display: none"></div>
       <div class="setting-container" id="contest-course-filter-container" style="display: none">
         <span class="setting-label">Курсы для Яндекс.Контеста:</span>
         <div class="course-list" id="contest-course-list"></div>

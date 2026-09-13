@@ -47,3 +47,15 @@ body.dark-theme .course-list {
 body.dark-theme .course-hint {
   color: #9aa0a6;
 }
+
+body.dark-theme .integration-status {
+  color: #9aa0a6;
+}
+
+body.dark-theme .integration-status_error {
+  color: #f28b82;
+}
+
+body.dark-theme .integration-status_ok {
+  color: #81c995;
+}

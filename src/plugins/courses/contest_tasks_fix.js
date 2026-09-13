@@ -22,13 +22,12 @@ if (typeof window.__culmsContestTasksInitialized === 'undefined') {
 
   const STATE_LABELS = {
     not_entered: { text: 'не начат', color: '#A0A0A0', hint: 'Вы ещё не вошли в контест' },
-    auth_required: {
-      text: 'нужен вход',
-      color: '#FF9800',
-      hint: 'Войдите в Яндекс, чтобы увидеть прогресс',
-    },
     error: { text: 'ошибка', color: '#A0A0A0', hint: 'Не удалось получить данные контеста' },
   };
+
+  // Про отсутствие авторизации на Яндексе сообщает попап расширения: иначе одна и та же
+  // надпись продублировалась бы в каждой строке таблицы
+  const SILENT_STATES = ['auth_required'];
 
   let entries = null;
   let entriesTs = 0;
@@ -134,7 +133,9 @@ if (typeof window.__culmsContestTasksInitialized === 'undefined') {
 
     for (const row of rows) {
       const entry = findEntry(row);
-      if (entry) {
+      if (entry && SILENT_STATES.includes(entry.state)) {
+        row.dataset[PROCESSED_ATTR] = entry.state;
+      } else if (entry) {
         renderBadge(row, entry);
         row.dataset[PROCESSED_ATTR] = 'done';
       } else {
