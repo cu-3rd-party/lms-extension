@@ -112,6 +112,36 @@
         color: #999;
       }
 
+      .course-list {
+        max-height: 150px;
+        overflow-y: auto;
+        padding: 6px 8px;
+        background-color: #f8f8f8;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+      }
+
+      .course-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 3px 0;
+        font-size: 14px;
+        line-height: 1.3;
+        cursor: pointer;
+      }
+
+      .course-item input {
+        margin: 2px 0 0 0;
+        flex-shrink: 0;
+      }
+
+      .course-hint {
+        font-size: 13px;
+        color: #777;
+        padding: 4px 0;
+      }
+
       .dropdown-container {
         position: relative;
         width: 100%;
@@ -220,6 +250,21 @@
           <input type="checkbox" id="akh-integration-toggle" />
           <span class="slider"></span>
         </label>
+      </div>
+      <div class="setting-container" id="akh-course-filter-container" style="display: none">
+        <span class="setting-label">Курсы для AKHCheck:</span>
+        <div class="course-list" id="akh-course-list"></div>
+      </div>
+      <div class="toggle-container">
+        <span class="toggle-label">Интеграция с Яндекс.Контестом:</span>
+        <label class="switch">
+          <input type="checkbox" id="contest-integration-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="setting-container" id="contest-course-filter-container" style="display: none">
+        <span class="setting-label">Курсы для Яндекс.Контеста:</span>
+        <div class="course-list" id="contest-course-list"></div>
       </div>
       <div class="toggle-container">
         <span class="toggle-label">Статус заданий в обзоре курса:</span>

@@ -21,6 +21,7 @@ export default defineManifest({
     'https://calendar.yandex.ru/*',
     'https://passport.yandex.ru/*',
     'https://akhcheck.ru/*',
+    'https://contest.yandex.ru/*',
     'https://back.akhcheck.ru/*',
     'https://storage.yandexcloud.net/*',
     // https://github.com/cu-3rd-party/lms-future-exams-backend
@@ -90,6 +91,7 @@ export default defineManifest({
         'plugins/emoji-swap/emoji_swap.js',
         'plugins/courses/tasks_fix.js',
         'plugins/courses/apricot_tasks_fix.js',
+        'plugins/courses/contest_tasks_fix.js',
         'plugins/course-view/courses_fix.js',
         'plugins/course-view/course_overview_task_status.js',
         'plugins/course-view/course_overview_autoscroll.js',

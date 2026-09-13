@@ -38,3 +38,12 @@ body.dark-theme .slider {
 body.dark-theme input:checked + .slider {
   background-color: #2196f3;
 }
+
+body.dark-theme .course-list {
+  background-color: #3c4043;
+  border-color: #5f6368;
+}
+
+body.dark-theme .course-hint {
+  color: #9aa0a6;
+}

@@ -1050,6 +1050,18 @@ function loadApricotModule() {
   });
 }
 
-browser.storage.sync.get('akhIntegrationEnabled').then((data) => {
-  if (data.akhIntegrationEnabled) loadApricotModule();
+browser.storage.sync.get(['akhIntegrationEnabled', 'akhCourseFilter']).then((data) => {
+  if (!data.akhIntegrationEnabled) return;
+
+  // Пустой список означает «курсы не выбраны» — тогда модуль даже не грузим,
+  // чтобы он не ходил в akhcheck.ru впустую
+  const courses = Array.isArray(data.akhCourseFilter) ? data.akhCourseFilter : [];
+  if (courses.length === 0) return;
+
+  // apricot_tasks_fix.js работает в page-context и до storage не дотянется,
+  // поэтому список имён курсов передаём через общий для обоих миров DOM
+  document.documentElement.dataset.culmsAkhCourses = JSON.stringify(
+    courses.map((c) => c?.name).filter(Boolean)
+  );
+  loadApricotModule();
 });

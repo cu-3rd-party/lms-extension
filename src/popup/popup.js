@@ -94,6 +94,7 @@ const toggles = {
   autoRenameEnabled: document.getElementById('auto-rename-toggle'),
   snowEnabled: document.getElementById('snow-toggle'),
   akhIntegrationEnabled: document.getElementById('akh-integration-toggle'),
+  contestIntegrationEnabled: document.getElementById('contest-integration-toggle'),
   courseOverviewTaskStatusToggle: document.getElementById('course-overview-task-status-toggle'),
   emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
   futureExamsViewToggle: document.getElementById('future-exams-view-toggle'),
@@ -114,7 +115,13 @@ const reloadNotice = document.getElementById('reload-notice');
 const gradesExportBtn = document.getElementById('grades-export-btn');
 const gradesExportStatus = document.getElementById('grades-export-status');
 
-const allKeys = [...Object.keys(toggles), 'futureExamsDisplayFormat', 'autoRenameTemplate'];
+const allKeys = [
+  ...Object.keys(toggles),
+  'futureExamsDisplayFormat',
+  'autoRenameTemplate',
+  'akhCourseFilter',
+  'contestCourseFilter',
+];
 let pendingChanges = {};
 
 function updateAutoRenameUI(isEnabled) {
@@ -143,6 +150,7 @@ function refreshToggleStates() {
     }
 
     updateAutoRenameUI(isAutoRenameEnabled);
+    updateCourseFilters(data);
     if (renameTemplateSelect && data.autoRenameTemplate) {
       renameTemplateSelect.value = data.autoRenameTemplate;
     }
@@ -223,6 +231,8 @@ allKeys.forEach((key) => {
         updateFormatDisplayVisibility();
       } else if (key === 'autoRenameEnabled') {
         updateAutoRenameUI(isEnabled);
+      } else if (key === 'akhIntegrationEnabled' || key === 'contestIntegrationEnabled') {
+        updateCourseFilters();
       }
     });
   }
@@ -249,6 +259,134 @@ if (renameTemplateSelect) {
       if (reloadNotice) reloadNotice.style.display = 'block';
     } else {
       browser.storage.sync.set({ autoRenameTemplate: template });
+    }
+  });
+}
+
+// --- ФИЛЬТР КУРСОВ ДЛЯ ВНЕШНИХ ИНТЕГРАЦИЙ ---
+// Обе интеграции (AKHCheck и Яндекс.Контест) сканируют только выбранные здесь курсы.
+// Пустой список означает «не выбрано»: интеграция не делает ни одного запроса.
+const COURSE_FILTERS = [
+  {
+    key: 'akhCourseFilter',
+    toggleKey: 'akhIntegrationEnabled',
+    container: document.getElementById('akh-course-filter-container'),
+    list: document.getElementById('akh-course-list'),
+  },
+  {
+    key: 'contestCourseFilter',
+    toggleKey: 'contestIntegrationEnabled',
+    container: document.getElementById('contest-course-filter-container'),
+    list: document.getElementById('contest-course-list'),
+  },
+];
+
+// Список курсов общий для обоих селекторов, поэтому тянем его один раз на открытие попапа
+let coursesPromise = null;
+
+function loadCourses() {
+  if (!coursesPromise) {
+    coursesPromise = browser.runtime
+      .sendMessage({ action: 'LMS_FETCH_COURSES' })
+      .then((response) => {
+        if (response && response.success) return response.data;
+        coursesPromise = null; // разрешаем повторную попытку
+        return null;
+      })
+      .catch(() => {
+        coursesPromise = null;
+        return null;
+      });
+  }
+  return coursesPromise;
+}
+
+function saveSetting(key, value) {
+  if (isInsideIframe) {
+    pendingChanges = { ...pendingChanges, [key]: value };
+    if (reloadNotice) reloadNotice.style.display = 'block';
+  } else {
+    browser.storage.sync.set({ [key]: value });
+  }
+}
+
+function setCourseHint(filter, text) {
+  filter.list.textContent = '';
+  filter.list.dataset.signature = '';
+  const hint = document.createElement('div');
+  hint.className = 'course-hint';
+  hint.textContent = text;
+  filter.list.appendChild(hint);
+}
+
+function renderCourseFilter(filter, courses, selected) {
+  const selectedIds = new Set(selected.map((c) => c && c.id));
+  // Курс, выбранный раньше, но пропавший из активных (архив, смена семестра),
+  // оставляем в списке — иначе он молча выпал бы из фильтра
+  const missing = selected.filter((c) => c && !courses.some((x) => x.id === c.id));
+  const items = [...courses, ...missing];
+
+  // Перерисовываем только при реальных изменениях, иначе сохранение галочки
+  // тут же вызовет storage.onChanged и сбросит скролл списка
+  const signature = JSON.stringify([items.map((c) => c.id), [...selectedIds].sort()]);
+  if (filter.list.dataset.signature === signature) return;
+
+  filter.list.textContent = '';
+  for (const course of items) {
+    const item = document.createElement('label');
+    item.className = 'course-item';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = selectedIds.has(course.id);
+    checkbox.dataset.course = JSON.stringify({ id: course.id, name: course.name });
+    checkbox.addEventListener('change', () => {
+      const next = Array.from(filter.list.querySelectorAll('input:checked')).map((input) =>
+        JSON.parse(input.dataset.course)
+      );
+      filter.list.dataset.signature = '';
+      saveSetting(filter.key, next);
+    });
+
+    const name = document.createElement('span');
+    name.textContent = course.name;
+
+    item.append(checkbox, name);
+    filter.list.appendChild(item);
+  }
+  filter.list.dataset.signature = signature;
+}
+
+function updateCourseFilters(data) {
+  const selections = data
+    ? Promise.resolve(data)
+    : browser.storage.sync.get(COURSE_FILTERS.map((f) => f.key));
+
+  selections.then((stored) => {
+    for (const filter of COURSE_FILTERS) {
+      if (!filter.container || !filter.list) continue;
+
+      // Читаем состояние из самого чекбокса: внутри iframe переключатель мог
+      // измениться, а до storage изменение ещё не дошло
+      const toggle = toggles[filter.toggleKey];
+      const isEnabled = toggle ? toggle.checked : !!stored[filter.toggleKey];
+      filter.container.style.display = isEnabled ? 'block' : 'none';
+      if (!isEnabled) continue;
+
+      const selected = Array.isArray(stored[filter.key]) ? stored[filter.key] : [];
+      if (!filter.list.childElementCount) setCourseHint(filter, 'Загружаю курсы...');
+
+      loadCourses().then((courses) => {
+        if (!courses) {
+          setCourseHint(filter, 'Не удалось получить курсы. Откройте LMS и войдите в неё.');
+          return;
+        }
+        if (!courses.length) {
+          setCourseHint(filter, 'Активных курсов не найдено.');
+          return;
+        }
+        renderCourseFilter(filter, courses, selected);
+      });
     }
   });
 }
@@ -315,6 +453,9 @@ if (resetBtn) {
       autoRenameEnabled: false,
       autoRenameTemplate: 'dz_fi',
       akhIntegrationEnabled: false,
+      akhCourseFilter: [],
+      contestIntegrationEnabled: false,
+      contestCourseFilter: [],
       courseOverviewTaskStatusToggle: false,
       advancedStatementsEnabled: true,
       endOfCourseCalcEnabled: true,

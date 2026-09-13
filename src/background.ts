@@ -1065,6 +1065,258 @@ const AkhCheckServices = {
 };
 
 /**
+ * Интеграция с Яндекс.Контестом.
+ *
+ * Задачи LMS с внешним заданием хранят ссылку в exercise.exerciseUrl. Ссылка может
+ * вести куда угодно (git.culab.ru, self-service.culab.ru, ...), контестными считаются
+ * только ссылки на contest.yandex.ru.
+ *
+ * Прогресс берётся со страницы /contest/<id>/problems/ — она серверная и содержит
+ * статус по КАЖДОЙ задаче контеста, поэтому одного запроса хватает на весь контест.
+ * В service worker нет DOMParser, поэтому разбор regex-ом по BEM-разметке.
+ *
+ * Бюджет запросов (это самая дорогая часть, отсюда трёхуровневый кеш):
+ *   - список задач студента            — 1 запрос, кеш 60 c;
+ *   - exerciseUrl для каждой задачи    — 1 запрос на упражнение, кеш 7 дней
+ *                                        (включая отрицательный результат);
+ *   - страница контеста                — 1 запрос на контест, кеш 5 минут.
+ * На повторных открытиях /learn/tasks сеть не трогается вообще, пока кеши живы.
+ */
+const YandexContestServices = {
+  TASKS_URL:
+    'https://my.centraluniversity.ru/api/micro-lms/tasks/student?state=inProgress&state=backlog&state=submitted&state=review&state=reworking',
+  EXERCISE_TTL: 7 * 24 * 60 * 60 * 1000,
+  CONTEST_TTL: 5 * 60 * 1000,
+  TASKS_TTL: 60 * 1000,
+  /** Сколько карточек задач тянем параллельно, чтобы не устраивать burst из 20+ запросов */
+  DETAIL_CONCURRENCY: 3,
+  STORAGE_KEY: 'contest_exercise_urls',
+
+  _exerciseUrls: null as Record<string, { url: string | null; ts: number }> | null,
+  _tasksCache: null as { ts: number; data: any[] } | null,
+  _contestCache: new Map<string, { ts: number; data: any }>(),
+  _contestInflight: new Map<string, Promise<any>>(),
+  _progressInflight: null as Promise<any[]> | null,
+
+  async _loadExerciseUrls(): Promise<Record<string, { url: string | null; ts: number }>> {
+    if (this._exerciseUrls) return this._exerciseUrls;
+    const res = await browser.storage.local.get(this.STORAGE_KEY);
+    this._exerciseUrls = (res[this.STORAGE_KEY] as Record<string, any>) || {};
+    return this._exerciseUrls;
+  },
+
+  async _saveExerciseUrls() {
+    await browser.storage.local.set({ [this.STORAGE_KEY]: this._exerciseUrls || {} });
+  },
+
+  /** Список актуальных задач студента (тот же запрос, что делает сама LMS) */
+  async fetchTasks(): Promise<any[]> {
+    if (this._tasksCache && Date.now() - this._tasksCache.ts < this.TASKS_TTL) {
+      return this._tasksCache.data;
+    }
+    const res = await fetch(this.TASKS_URL, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) throw new Error(`LMS tasks: HTTP ${res.status}`);
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : [];
+    this._tasksCache = { ts: Date.now(), data: list };
+    return list;
+  },
+
+  /**
+   * exerciseUrl для задачи. Кешируется по exercise.id, а не по taskId:
+   * упражнение одно на всю группу, а ссылка в нём практически неизменна.
+   */
+  async fetchExerciseUrl(task: any): Promise<string | null> {
+    const exerciseId = task?.exercise?.id;
+    if (!exerciseId) return null;
+
+    const cache = await this._loadExerciseUrls();
+    const hit = cache[exerciseId];
+    if (hit && Date.now() - hit.ts < this.EXERCISE_TTL) return hit.url;
+
+    try {
+      const res = await fetch(`https://my.centraluniversity.ru/api/micro-lms/tasks/${task.id}`, {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const detail = await res.json();
+      const url = detail?.exercise?.exerciseUrl || null;
+      // Отрицательный результат тоже кешируем — иначе задачи без ссылки
+      // будут перезапрашиваться при каждом открытии страницы
+      cache[exerciseId] = { url, ts: Date.now() };
+      return url;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  /** https://contest.yandex.ru/contest/98127 -> "98127" */
+  parseContestId(url: string | null): string | null {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname !== 'contest.yandex.ru') return null;
+      return parsed.pathname.match(/\/contest\/(\d+)/)?.[1] ?? null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  _decodeEntities(text: string): string {
+    return text
+      .replace(/&quot;/g, '"')
+      .replace(/&#(\d+);/g, (_m, code) => String.fromCharCode(Number(code)))
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&');
+  },
+
+  /**
+   * Разбор /contest/<id>/problems/. У каждой вкладки задачи лежит div.solution-status,
+   * модификатор _color_green которого означает полное решение.
+   */
+  parseProblems(html: string, contestId: string): Array<Record<string, any>> {
+    const problems = new Map<string, Record<string, any>>();
+    const liRe = /<li\s+class="tabs-menu__tab[^"]*"[^>]*>([\s\S]*?)<\/li>/g;
+    const hrefRe = new RegExp(`href="/contest/${contestId}/problems/([^/"]+)/"`);
+
+    let match: RegExpExecArray | null;
+    while ((match = liRe.exec(html)) !== null) {
+      const inner = match[1] ?? '';
+      // Вкладки «Задачи»/«Посылки» ведут на /problems/ без алиаса и сюда не попадают
+      const alias = inner.match(hrefRe)?.[1];
+      if (!alias || problems.has(alias)) continue;
+
+      const name = inner.match(/tabs-menu__tab-content-text"[^>]*>([\s\S]*?)</)?.[1];
+      const color = inner.match(/solution-status_color_([a-z]+)/)?.[1] ?? null;
+      problems.set(alias, {
+        alias,
+        name: this._decodeEntities(name ? name.trim() : alias),
+        color,
+        solved: color === 'green',
+      });
+    }
+    return [...problems.values()];
+  },
+
+  async fetchContest(contestId: string): Promise<any> {
+    const cached = this._contestCache.get(contestId);
+    if (cached && Date.now() - cached.ts < this.CONTEST_TTL) return cached.data;
+
+    const inflight = this._contestInflight.get(contestId);
+    if (inflight) return inflight;
+
+    const request = (async () => {
+      let data;
+      try {
+        const res = await fetch(`https://contest.yandex.ru/contest/${contestId}/problems/`, {
+          credentials: 'include',
+        });
+        const finalUrl = res.url || '';
+
+        if (/passport\.yandex\./.test(finalUrl)) {
+          data = { state: 'auth_required' };
+        } else if (/\/enter\b/.test(finalUrl)) {
+          // Контест не начат: Яндекс редиректит на страницу входа в соревнование
+          data = { state: 'not_entered' };
+        } else if (!res.ok) {
+          data = { state: 'error', error: `HTTP ${res.status}` };
+        } else {
+          const problems = this.parseProblems(await res.text(), contestId);
+          data = problems.length
+            ? {
+                state: 'ok',
+                total: problems.length,
+                solved: problems.filter((p) => p.solved).length,
+                problems,
+              }
+            : { state: 'error', error: 'EMPTY_PROBLEM_LIST' };
+        }
+      } catch (e: any) {
+        data = { state: 'error', error: e?.message || 'fetch failed' };
+      } finally {
+        this._contestInflight.delete(contestId);
+      }
+
+      // Ошибки тоже кешируем: иначе упавший контест будет перезапрашиваться каждый тик
+      this._contestCache.set(contestId, { ts: Date.now(), data });
+      return data;
+    })();
+
+    this._contestInflight.set(contestId, request);
+    return request;
+  },
+
+  /**
+   * Курсы, выбранные пользователем в попапе. Пустой список означает «не выбрано»,
+   * то есть сканировать нечего — именно за счёт этого фильтра и экономятся запросы
+   * за карточками задач.
+   */
+  async getSelectedCourseIds(): Promise<Set<number>> {
+    const res = await browser.storage.sync.get('contestCourseFilter');
+    const filter = Array.isArray(res.contestCourseFilter) ? res.contestCourseFilter : [];
+    return new Set(filter.map((c: any) => c?.id).filter((id: any) => id != null));
+  },
+
+  /**
+   * Полный прогресс по контестным задачам выбранных курсов.
+   * Возвращает записи, которые контент-скрипт сопоставляет со строками таблицы по названию.
+   */
+  async fetchProgress(): Promise<any[]> {
+    if (this._progressInflight) return this._progressInflight;
+
+    this._progressInflight = (async () => {
+      try {
+        const selectedCourses = await this.getSelectedCourseIds();
+        if (selectedCourses.size === 0) return [];
+
+        // Фильтруем ДО запроса карточек: это единственный запрос, растущий линейно
+        // с числом задач, и курсовой фильтр режет его в разы
+        const tasks = (await this.fetchTasks()).filter((t: any) =>
+          selectedCourses.has(t?.course?.id)
+        );
+
+        const queue = [...tasks];
+        const contestTasks: Array<{ task: any; contestId: string }> = [];
+        await Promise.all(
+          Array.from({ length: this.DETAIL_CONCURRENCY }, async () => {
+            while (queue.length) {
+              const task = queue.shift();
+              if (!task) break;
+              const contestId = this.parseContestId(await this.fetchExerciseUrl(task));
+              if (contestId) contestTasks.push({ task, contestId });
+            }
+          })
+        );
+        await this._saveExerciseUrls();
+
+        const contestIds = [...new Set(contestTasks.map((t) => t.contestId))];
+        const contests = new Map<string, any>();
+        for (const id of contestIds) contests.set(id, await this.fetchContest(id));
+
+        return contestTasks.map(({ task, contestId }) => ({
+          taskId: task.id,
+          taskName: task.exercise?.name || '',
+          courseName: task.course?.name || '',
+          contestId,
+          contestUrl: `https://contest.yandex.ru/contest/${contestId}/problems/`,
+          ...contests.get(contestId),
+        }));
+      } finally {
+        this._progressInflight = null;
+      }
+    })();
+
+    return this._progressInflight;
+  },
+};
+
+/**
  * Центральный обработчик навигации.
  * Запускает все плагины, чей matches(url) вернул true.
  */
@@ -1293,6 +1545,44 @@ browser.runtime.onMessage.addListener(((
         }
         sendResponse({ success: true });
       }
+    });
+    return true;
+  }
+
+  // Список активных курсов для селекторов фильтра в попапе.
+  // URL зафиксирован здесь, а не приходит из страницы — как и в SWAP_API.
+  if (request.action === 'LMS_FETCH_COURSES') {
+    fetch('https://my.centraluniversity.ru/api/micro-lms/performance/student?isArchived=false', {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const raw = Array.isArray(data?.courses)
+          ? data.courses
+          : Array.isArray(data?.items)
+            ? data.items
+            : [];
+        const courses = raw
+          .filter((c: any) => c?.id && c?.name)
+          .map((c: any) => ({ id: c.id, name: c.name }))
+          .sort((a: any, b: any) => a.name.localeCompare(b.name, 'ru'));
+        sendResponse({ success: true, data: courses });
+      })
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (request.action === 'CONTEST_FETCH_PROGRESS') {
+    browser.storage.sync.get('contestIntegrationEnabled').then((settings) => {
+      if (!settings.contestIntegrationEnabled) {
+        sendResponse({ success: false, error: 'CONTEST_DISABLED' });
+        return;
+      }
+      YandexContestServices.fetchProgress()
+        .then((data) => sendResponse({ success: true, data }))
+        .catch((err) => sendResponse({ success: false, error: err.message }));
     });
     return true;
   }

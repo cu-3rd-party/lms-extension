@@ -57,7 +57,34 @@ if (typeof window.__akhCheckApi === 'undefined') {
 // 2. Основная логика
 (async function () {
   const APRICOT_COURSE_ID = 98;
-  const TARGET_COURSE = 'Основы промышленной разработки';
+
+  // Курсы, выбранные в попапе. Скрипт работает в page-context и до storage не дотянется,
+  // поэтому tasks_fix.js кладёт список имён в data-атрибут <html> — DOM у обоих миров общий.
+  function getSelectedCourses() {
+    try {
+      const raw = document.documentElement.dataset.culmsAkhCourses;
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.map(normalizeCourseName) : [];
+    } catch (_e) {
+      return [];
+    }
+  }
+
+  // Плагин emoji-swap подменяет кружки на сердечки прямо в DOM, поэтому имя курса
+  // из таблицы и имя из API нужно привести к общему виду перед сравнением.
+  function normalizeCourseName(name) {
+    if (!name) return '';
+    return name
+      .split('❤️')
+      .join('🔴')
+      .split('💙')
+      .join('🔵')
+      .split('🖤')
+      .join('⚫️')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
 
   const STATUS_MAP = {
     Accepted: { text: 'ACCEPTED', color: '#4CAF50', priority: 1 },
@@ -222,7 +249,20 @@ if (typeof window.__akhCheckApi === 'undefined') {
     );
     if (rows.length === 0) return;
 
-    rows.forEach((r) => (r.dataset.apricotProcessed = 'processing'));
+    // Отсекаем чужие курсы до сети: если среди новых строк нет ни одной из выбранных,
+    // запрашивать прогресс незачем
+    const selectedCourses = getSelectedCourses();
+    const targetRows = rows.filter((r) =>
+      selectedCourses.includes(
+        normalizeCourseName(r.querySelector('.task-table__course-name')?.textContent)
+      )
+    );
+    rows.forEach((r) => {
+      if (!targetRows.includes(r)) r.dataset.apricotProcessed = 'skip';
+    });
+    if (targetRows.length === 0) return;
+
+    targetRows.forEach((r) => (r.dataset.apricotProcessed = 'processing'));
     isFetching = true;
 
     let allProgress, courseDetails;
@@ -237,7 +277,7 @@ if (typeof window.__akhCheckApi === 'undefined') {
       console.warn('[CU LMS] AKH Fetch Failed:', e.message);
       showAkhAuthNotification();
 
-      rows.forEach((r) => r.removeAttribute('data-apricot-processed'));
+      targetRows.forEach((r) => r.removeAttribute('data-apricot-processed'));
       isFetching = false;
       return;
     } finally {
@@ -253,13 +293,7 @@ if (typeof window.__akhCheckApi === 'undefined') {
     const taskGroups = courseData.taskGroups?.result || [];
     const courseTasks = courseDetails.tasks || [];
 
-    for (const row of rows) {
-      const courseName = row.querySelector('.task-table__course-name')?.textContent || '';
-      if (!courseName.includes(TARGET_COURSE)) {
-        row.dataset.apricotProcessed = 'skip';
-        continue;
-      }
-
+    for (const row of targetRows) {
       const lmsNameRaw = row.querySelector('.task-table__task-name')?.textContent || '';
       const lmsName = normalize(lmsNameRaw);
 
