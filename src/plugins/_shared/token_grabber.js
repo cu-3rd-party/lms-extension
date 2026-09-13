@@ -1,7 +1,12 @@
 // plugins/apricot/token_grabber.js
-(function () {
+(async function () {
   const extApi = typeof chrome !== 'undefined' ? chrome : browser;
   if (!extApi || !extApi.runtime) return;
+
+  const data = await new Promise((resolve) =>
+    extApi.storage.sync.get('akhIntegrationEnabled', resolve)
+  );
+  if (!data.akhIntegrationEnabled) return;
 
   const access = localStorage.getItem('auth-token') || localStorage.getItem('access');
   const refresh =

@@ -1050,5 +1050,6 @@ function loadApricotModule() {
   });
 }
 
-// Запускаем
-loadApricotModule();
+browser.storage.sync.get('akhIntegrationEnabled').then((data) => {
+  if (data.akhIntegrationEnabled) loadApricotModule();
+});

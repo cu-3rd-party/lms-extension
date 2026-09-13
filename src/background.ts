@@ -1256,40 +1256,44 @@ browser.runtime.onMessage.addListener(((
       .catch((e) => sendResponse({ success: false }));
     return true;
   }
-  if (request.action === 'AKH_FETCH_COURSE_DETAILS') {
-    const { courseId } = request as any;
-    // Добавляем / в конце: .../course/98/
-    AkhCheckServices.fetch(`https://back.akhcheck.ru/api/teaching/course/${courseId}`)
-      .then((data) => sendResponse({ success: true, data }))
-      .catch((err) => sendResponse({ success: false, error: err.message }));
-    return true;
-  }
+  if (
+    request.action === 'AKH_FETCH_COURSE_DETAILS' ||
+    request.action === 'AKH_FETCH_PROGRESS' ||
+    request.action === 'AKH_FETCH_ALL_PROGRESS' ||
+    request.action === 'AKH_SAVE_TOKENS' ||
+    request.action === 'AKH_SAVE_TOKEN'
+  ) {
+    browser.storage.sync.get('akhIntegrationEnabled').then((settings) => {
+      if (!settings.akhIntegrationEnabled) {
+        sendResponse({ success: false, error: 'AKH_DISABLED' });
+        return;
+      }
 
-  if (request.action === 'AKH_FETCH_PROGRESS') {
-    const { taskId } = request as any;
-    // Здесь слэш уже есть: .../progress/924/
-    AkhCheckServices.fetch(`https://back.akhcheck.ru/api/teaching/progress/${taskId}`)
-      .then((data) => sendResponse({ success: true, data }))
-      .catch((err) => sendResponse({ success: false, error: err.message }));
-    return true;
-  }
-  if (request.action === 'AKH_FETCH_ALL_PROGRESS') {
-    AkhCheckServices.fetchAllProgress()
-      .then((data) => sendResponse({ success: true, data }))
-      .catch((err) => sendResponse({ success: false, error: err.message }));
-    return true;
-  }
-
-  if (request.action === 'AKH_SAVE_TOKENS' || request.action === 'AKH_SAVE_TOKEN') {
-    const { token, access, refresh } = request as any;
-    // Поддержка и старого ключа token, и нового access
-    const actualAccess = access || token;
-
-    if (actualAccess) {
-      AkhCheckServices.saveTokens(actualAccess, refresh || null).then(() => {
-        console.log('[AKH] Tokens updated from tab (Access & Refresh)');
-      });
-    }
+      if (request.action === 'AKH_FETCH_COURSE_DETAILS') {
+        const { courseId } = request as any;
+        AkhCheckServices.fetch(`https://back.akhcheck.ru/api/teaching/course/${courseId}`)
+          .then((data) => sendResponse({ success: true, data }))
+          .catch((err) => sendResponse({ success: false, error: err.message }));
+      } else if (request.action === 'AKH_FETCH_PROGRESS') {
+        const { taskId } = request as any;
+        AkhCheckServices.fetch(`https://back.akhcheck.ru/api/teaching/progress/${taskId}`)
+          .then((data) => sendResponse({ success: true, data }))
+          .catch((err) => sendResponse({ success: false, error: err.message }));
+      } else if (request.action === 'AKH_FETCH_ALL_PROGRESS') {
+        AkhCheckServices.fetchAllProgress()
+          .then((data) => sendResponse({ success: true, data }))
+          .catch((err) => sendResponse({ success: false, error: err.message }));
+      } else {
+        const { token, access, refresh } = request as any;
+        const actualAccess = access || token;
+        if (actualAccess) {
+          AkhCheckServices.saveTokens(actualAccess, refresh || null).then(() => {
+            console.log('[AKH] Tokens updated from tab (Access & Refresh)');
+          });
+        }
+        sendResponse({ success: true });
+      }
+    });
     return true;
   }
 
