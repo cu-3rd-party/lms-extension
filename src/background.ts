@@ -1086,6 +1086,10 @@ const YandexContestServices = {
   TASKS_URL:
     'https://my.centraluniversity.ru/api/micro-lms/tasks/student?state=inProgress&state=backlog&state=submitted&state=review&state=reworking',
   EXERCISE_TTL: 7 * 24 * 60 * 60 * 1000,
+  // «Ссылки нет» кешируем на час, а не на неделю: преподаватель нередко публикует
+  // задачу раньше, чем вписывает ссылку на контест, и недельный отрицательный кеш
+  // прятал бы её до следующей недели
+  EXERCISE_MISS_TTL: 60 * 60 * 1000,
   CONTEST_TTL: 5 * 60 * 1000,
   // Неуспешные состояния (нет входа, ошибка) кешируем куда короче: пользователь
   // логинится и сразу обновляет страницу, ждать пять минут он не станет
@@ -1099,6 +1103,9 @@ const YandexContestServices = {
   /** Сколько карточек задач тянем параллельно, чтобы не устраивать burst из 20+ запросов */
   DETAIL_CONCURRENCY: 3,
   STORAGE_KEY: 'contest_exercise_urls',
+  // Поднимается при смене схемы или правил кеширования: несовместимые записи
+  // (например, старые «ссылки нет» с недельным сроком) отбрасываются при загрузке
+  CACHE_VERSION: 2,
 
   _exerciseUrls: null as Record<string, { url: string | null; ts: number }> | null,
   _tasksCache: null as { ts: number; data: any[] } | null,
@@ -1110,13 +1117,20 @@ const YandexContestServices = {
 
   async _loadExerciseUrls(): Promise<Record<string, { url: string | null; ts: number }>> {
     if (this._exerciseUrls) return this._exerciseUrls;
+
     const res = await browser.storage.local.get(this.STORAGE_KEY);
-    this._exerciseUrls = (res[this.STORAGE_KEY] as Record<string, any>) || {};
+    const stored = res[this.STORAGE_KEY] as { version?: number; items?: Record<string, any> };
+    // Записи предыдущих версий выбрасываем целиком: иначе «ссылки нет», записанное
+    // со старым недельным сроком, продолжало бы прятать задачу и после обновления
+    this._exerciseUrls = stored?.version === this.CACHE_VERSION ? stored.items || {} : {};
+
     return this._exerciseUrls;
   },
 
   async _saveExerciseUrls() {
-    await browser.storage.local.set({ [this.STORAGE_KEY]: this._exerciseUrls || {} });
+    await browser.storage.local.set({
+      [this.STORAGE_KEY]: { version: this.CACHE_VERSION, items: this._exerciseUrls || {} },
+    });
   },
 
   /** Список актуальных задач студента (тот же запрос, что делает сама LMS) */
@@ -1145,7 +1159,8 @@ const YandexContestServices = {
 
     const cache = await this._loadExerciseUrls();
     const hit = cache[exerciseId];
-    if (hit && Date.now() - hit.ts < this.EXERCISE_TTL) return hit.url;
+    const ttl = hit?.url ? this.EXERCISE_TTL : this.EXERCISE_MISS_TTL;
+    if (hit && Date.now() - hit.ts < ttl) return hit.url;
 
     try {
       const res = await fetch(`https://my.centraluniversity.ru/api/micro-lms/tasks/${task.id}`, {
@@ -1155,8 +1170,8 @@ const YandexContestServices = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const detail = await res.json();
       const url = detail?.exercise?.exerciseUrl || null;
-      // Отрицательный результат тоже кешируем — иначе задачи без ссылки
-      // будут перезапрашиваться при каждом открытии страницы
+      // Отрицательный результат тоже кешируем, иначе задачи без ссылки
+      // перезапрашивались бы при каждом открытии страницы, но ненадолго (EXERCISE_MISS_TTL)
       cache[exerciseId] = { url, ts: Date.now() };
       return url;
     } catch (e) {
