@@ -473,20 +473,21 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
           }
 
           const activityName = task.exercise?.activity?.name || '';
-          // Список слов-триггеров, которые считаем "Семинаром/Аудиторной"
           const seminarKeywords = ['Аудиторная', 'Семинар', 'Активность'];
+          const seminarLowPriority = ['В работе', 'Задано'];
 
-          if (seminarKeywords.some((keyword) => activityName.includes(keyword))) {
+          if (
+            seminarKeywords.some((keyword) => activityName.includes(keyword)) &&
+            seminarLowPriority.includes(originalText)
+          ) {
             setStatusText(statusBadge, 'Аудиторная');
             statusBadge.setAttribute('data-culms-status', 'seminar');
             row.setAttribute('data-culms-row-type', 'seminar');
-            // Убираем кастомные классы, если это Семинар
             statusBadge.classList.remove(
               'task-state_custom_in-progress',
               'task-state_custom_assigned'
             );
           }
-          // Остальные статусы теперь отрисовываются сайтом нативно
         }
 
         const weight = task.exercise?.activity?.weight;
@@ -578,10 +579,13 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     }
 
     const activityName = task.exercise?.activity?.name || '';
-    // Список слов-триггеров, которые считаем "Семинаром/Аудиторной"
     const seminarKeywords = ['Аудиторная', 'Семинар', 'Активность'];
+    const seminarLowPriority = ['В работе', 'Задано'];
 
-    if (seminarKeywords.some((keyword) => activityName.includes(keyword))) {
+    if (
+      seminarKeywords.some((keyword) => activityName.includes(keyword)) &&
+      seminarLowPriority.includes(originalText)
+    ) {
       setStatusText(statusBadge, 'Аудиторная');
       statusBadge.setAttribute('data-culms-status', 'seminar');
       row.setAttribute('data-culms-row-type', 'seminar');
