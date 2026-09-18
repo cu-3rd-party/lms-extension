@@ -160,14 +160,46 @@
     handlePageRender();
   }
 
-  function injectSidebarTab() {
-    const navList = document.querySelector('ul.nav-list');
-    if (!navList || document.querySelector('.cu-clubs-tab')) return;
+  const TIMETABLE_PATH = '/learn/timetable';
 
-    const templateLi = document
-      .querySelector('[automation-id="sidebar-item-timetable"]')
-      ?.closest('.nav-list__item');
+  /**
+   * Нативный пункт «Запись на пары» — шаблон для нашей вкладки.
+   *
+   * Раньше искали по `[automation-id="sidebar-item-timetable"]`, но LMS ставит
+   * automation-id только в свёрнутом сайдбаре: в развёрнутом пункты рендерятся
+   * через `cu-sidebar-tree-item` и уже без этого атрибута. Из-за этого вкладка
+   * «Клубы» появлялась только на свёрнутом меню.
+   *
+   * Сравниваем именно pathname, а не href целиком: если сайдбар пересобирается,
+   * пока в адресе висит наш `#cuclubs`, Angular дописывает текущий фрагмент во
+   * все ссылки меню (`/learn/timetable` → `/learn/timetable#cuclubs`). При
+   * точном сравнении шаблон переставал находиться, и после сворачивания меню на
+   * странице клубов вкладка уже не возвращалась.
+   *
+   * Свою вкладку исключаем по `data-cu-clubs`: её href в этот момент совпадает
+   * с нативным символ в символ.
+   */
+  function findNativeTimetableLink() {
+    const links = document.querySelectorAll('li.nav-list__item a[href*="/learn/timetable"]');
+    return (
+      Array.from(links).find(
+        (link) =>
+          !link.dataset.cuClubs && new URL(link.href, location.origin).pathname === TIMETABLE_PATH
+      ) || null
+    );
+  }
+
+  function injectSidebarTab() {
+    const templateLi = findNativeTimetableLink()?.closest('.nav-list__item');
     if (!templateLi) return;
+
+    const navList = templateLi.closest('ul.nav-list');
+    if (!navList) return;
+
+    // Сайдбар пересобирается при сворачивании/разворачивании, поэтому проверяем
+    // наличие вкладки именно в текущем списке, а осиротевшие копии убираем.
+    if (navList.querySelector(':scope > .cu-clubs-tab')) return;
+    document.querySelectorAll('.cu-clubs-tab').forEach((node) => node.remove());
 
     const li = templateLi.cloneNode(true);
     li.classList.add('cu-clubs-tab');
@@ -175,11 +207,19 @@
     const navTab = li.querySelector('cu-navtab');
     if (navTab) navTab.setAttribute('automation-id', 'sidebar-item-cu-clubs');
 
+    // На случай, если шаблон когда-нибудь окажется пунктом с подменю.
+    li.querySelectorAll('.cu-navtab__chevron, button[iconstart]').forEach((node) => node.remove());
+
     const link = li.querySelector('a');
     if (link) {
+      link.dataset.cuClubs = 'true';
       link.setAttribute('aria-label', 'Клубы ЦУ');
       link.setAttribute('href', '/learn/timetable#cuclubs');
       link.style.setProperty('--t-icon-start', `url("${CU_CLUBS_ICON}")`);
+
+      // В развёрнутом сайдбаре у пункта есть подпись — её тоже надо заменить.
+      const label = link.querySelector('.cu-navtab__main-element-text');
+      if (label) label.textContent = 'Клубы ЦУ';
 
       link.classList.remove('cu-navtab__main-element_active');
       delete link.dataset.clubsFix;
@@ -189,9 +229,7 @@
         if (window.location.pathname.includes('/learn/timetable')) {
           window.location.hash = 'cuclubs';
         } else {
-          const nativeTimetableTab = document.querySelector(
-            '[automation-id="sidebar-item-timetable"] a'
-          );
+          const nativeTimetableTab = findNativeTimetableLink();
           if (nativeTimetableTab) {
             nativeTimetableTab.click();
             setTimeout(() => {
@@ -211,13 +249,13 @@
     const isClubsPage =
       window.location.pathname.includes('/learn/timetable') && window.location.hash === '#cuclubs';
 
-    const customTab = document.querySelector('[automation-id="sidebar-item-cu-clubs"] a');
+    const customTab = document.querySelector('.cu-clubs-tab a');
     if (customTab) {
       if (isClubsPage) customTab.classList.add('cu-navtab__main-element_active');
       else customTab.classList.remove('cu-navtab__main-element_active');
     }
 
-    const timetableTab = document.querySelector('[automation-id="sidebar-item-timetable"] a');
+    const timetableTab = findNativeTimetableLink();
     if (timetableTab) {
       if (isClubsPage) {
         timetableTab.classList.remove('cu-navtab__main-element_active');
@@ -235,28 +273,83 @@
     }
   }
 
+  const CLUBS_CRUMB_CLASS = 'cu-clubs-crumb';
+
+  /**
+   * Крошку «Клубы» рисуем своим элементом, а нативную прячем.
+   *
+   * Раньше мы переписывали текст прямо в нативной крошке и возвращали его из
+   * `dataset.originalText`. Узел принадлежит Angular и переиспользуется между
+   * страницами, поэтому «восстановление» периодически срабатывало уже после
+   * того, как Angular отрисовал крошку нового раздела, и затирало её: на
+   * странице курса в хлебных крошках оставалось «Запись на пары».
+   * Свой узел Angular не трогает, а восстанавливать нечего — мы его просто
+   * удаляем и снимаем `display: none` с нативного.
+   */
+  function syncClubsBreadcrumb(container, isClubsPage) {
+    const ours = container.querySelector('.' + CLUBS_CRUMB_CLASS);
+
+    if (!isClubsPage) {
+      if (ours) ours.remove();
+      container.querySelectorAll('[data-cu-clubs-hidden]').forEach((node) => {
+        node.style.removeProperty('display');
+        delete node.dataset.cuClubsHidden;
+      });
+      return;
+    }
+
+    const native = container.querySelector(
+      '.breadcrumbs__item_last:not(.' + CLUBS_CRUMB_CLASS + ')'
+    );
+    if (!native) return;
+
+    if (!ours) {
+      // cloneNode(false) сохраняет `_ngcontent-*`, без которых крошка потеряет стили.
+      const crumb = native.cloneNode(false);
+      crumb.classList.add(CLUBS_CRUMB_CLASS);
+      crumb.style.removeProperty('display');
+      delete crumb.dataset.cuClubsHidden;
+      crumb.setAttribute('href', TIMETABLE_PATH + '#cuclubs');
+      crumb.textContent = 'Клубы';
+      native.after(crumb);
+    }
+
+    if (!native.dataset.cuClubsHidden) {
+      native.dataset.cuClubsHidden = 'true';
+      native.style.setProperty('display', 'none', 'important');
+    }
+  }
+
   function handlePageRender() {
     injectSidebarTab();
     updateSidebarState();
 
+    // Пока `#cuclubs` висит в адресе, Angular подставляет его во все ссылки
+    // сайдбара (`/learn/tasks#cuclubs` и т.д.), так что за пределами страницы
+    // клубов хэш надо убирать. `replaceState` не поднимает `hashchange`, поэтому
+    // рекурсивного перерендера не будет.
+    if (window.location.hash === '#cuclubs' && !window.location.pathname.includes(TIMETABLE_PATH)) {
+      window.history.replaceState(
+        window.history.state,
+        '',
+        window.location.pathname + window.location.search
+      );
+    }
+
     const isClubsPage =
-      window.location.pathname.includes('/learn/timetable') && window.location.hash === '#cuclubs';
+      window.location.pathname.includes(TIMETABLE_PATH) && window.location.hash === '#cuclubs';
     const container = document.querySelector('.cu-container.sidebar__content');
     const standardTimetable = document.querySelector('cu-student-timetable-events');
 
     if (!container) return;
+
+    syncClubsBreadcrumb(container, isClubsPage);
 
     let clubsContainer = document.getElementById('cu-clubs-container');
 
     if (isClubsPage) {
       if (standardTimetable && standardTimetable.style.display !== 'none') {
         standardTimetable.style.display = 'none';
-      }
-
-      const breadcrumbLast = container.querySelector('.breadcrumbs__item_last');
-      if (breadcrumbLast && breadcrumbLast.textContent.trim() !== 'Клубы') {
-        breadcrumbLast.dataset.originalText = breadcrumbLast.textContent;
-        breadcrumbLast.textContent = 'Клубы';
       }
 
       if (!clubsContainer) {
@@ -277,15 +370,6 @@
       }
       if (clubsContainer && clubsContainer.style.display !== 'none') {
         clubsContainer.style.display = 'none';
-      }
-
-      const breadcrumbLast = container.querySelector('.breadcrumbs__item_last');
-      if (
-        breadcrumbLast &&
-        breadcrumbLast.dataset.originalText &&
-        breadcrumbLast.textContent === 'Клубы'
-      ) {
-        breadcrumbLast.textContent = breadcrumbLast.dataset.originalText;
       }
     }
   }
