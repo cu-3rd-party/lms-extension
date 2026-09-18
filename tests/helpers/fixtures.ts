@@ -1,4 +1,18 @@
 import { test as base, type BrowserContext } from '@playwright/test';
+
+// Тесты импортируют всё из этого модуля (см. tests/README.md), поэтому
+// пробрасываем наружу и `expect`, и хелперы из extension.ts.
+export { expect } from '@playwright/test';
+export {
+  LMS_URL,
+  ISSUE_185_ACTIVITY_URL,
+  clearAllExtensionStorage,
+  clearExtensionStorage,
+  getExtensionStorage,
+  getExtensionPopupUrl,
+  resolveExtensionId,
+  setExtensionStorage,
+} from './extension.js';
 import {
   LMS_URL,
   clearAllExtensionStorage,

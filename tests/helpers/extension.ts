@@ -123,6 +123,25 @@ export async function setExtensionStorage(
   await page.close();
 }
 
+export async function getExtensionStorage<T = unknown>(
+  context: BrowserContext,
+  extensionId: string,
+  area: StorageArea,
+  key: string
+): Promise<T | undefined> {
+  const page = await openExtensionPopup(context, extensionId);
+  const value = await page.evaluate(
+    async ({ area, key }) => {
+      const data =
+        area === 'local' ? await chrome.storage.local.get(key) : await chrome.storage.sync.get(key);
+      return data[key];
+    },
+    { area, key }
+  );
+  await page.close();
+  return value as T | undefined;
+}
+
 export async function clearExtensionStorage(
   context: BrowserContext,
   extensionId: string,

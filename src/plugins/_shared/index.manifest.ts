@@ -9,6 +9,7 @@ const manifest = {
   scripts: [
     // browser-polyfill must be first so subsequent scripts can use `browser.*`
     'browser-polyfill.js',
+    'plugins/_shared/course_names.js',
     'plugins/_shared/version_check.js',
     'plugins/_shared/reset.js',
     'plugins/_shared/friends_tab.js',

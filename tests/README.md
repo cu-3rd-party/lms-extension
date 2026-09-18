@@ -65,7 +65,8 @@ tests/
 │   └── issue-*.test.ts          # браузерные регрессии под отдельные фиксы
 ├── .cookies.json                # основной файл куки для Playwright
 ├── course-archive.test.ts       # архивация/разархивация курсов
-├── course-card-simplifier.test.ts
+├── course-cards.test.ts         # старый дизайн карточек, иконки и свой архив
+├── course-names.test.ts         # свои названия курсов и обратное преобразование
 ├── dark-theme.test.ts           # переключение тёмной темы
 ├── future-exams.test.ts
 └── tasks-fix.test.ts
@@ -92,6 +93,8 @@ test.afterEach(async ({ context, extensionId }) => {
 
 - `clearExtensionStorage(context, extensionId, area, key)` — удаляет ключ из `chrome.storage`
 - `setExtensionStorage(context, extensionId, area, key, value)` — записывает значение в `chrome.storage`
+- `getExtensionStorage(context, extensionId, area, key)` — читает значение из `chrome.storage`
+  (нужно, когда проверяется то, что расширение записало само, — например ужатые картинки курсов)
 
 Оба хелпера теперь падают с явной ошибкой, если Chrome не выдал `extensionId`. Это защищает от ложных ручных проверок, когда расширение не поднялось, а запись в storage тихо не выполнилась.
 Оба хелпера открывают popup-страницу расширения и вызывают `chrome.storage` оттуда.
