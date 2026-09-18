@@ -48,6 +48,24 @@ body.dark-theme .course-hint {
   color: #9aa0a6;
 }
 
+body.dark-theme .setting-label {
+  color: #9aa0a6;
+}
+
+body.dark-theme .section-actions {
+  border-top-color: #3c4043;
+}
+
+body.dark-theme .btn-reset {
+  color: #f28b82;
+  background-color: #3a2b2b;
+  border-color: #5c3f3f;
+}
+
+body.dark-theme .btn-reset:hover {
+  background-color: #4a3636;
+}
+
 body.dark-theme .integration-status {
   color: #9aa0a6;
 }

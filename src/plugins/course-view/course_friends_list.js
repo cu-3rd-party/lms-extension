@@ -339,6 +339,14 @@
         }
       }
 
+      // Курс мог быть переименован в расширении — друзья сопоставляются по
+      // настоящему названию, поэтому сперва спрашиваем его по id.
+      if (window.cuLmsCourseNames) {
+        courseName =
+          window.cuLmsCourseNames.getOriginalById(courseId) ||
+          window.cuLmsCourseNames.toOriginal(courseName);
+      }
+
       if (!courseName) return;
 
       // Удаляем дубликаты, если они вдруг образовались

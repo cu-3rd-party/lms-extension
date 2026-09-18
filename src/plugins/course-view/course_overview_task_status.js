@@ -121,6 +121,11 @@ async function activateCourseOverviewTaskStatus() {
       const taskPerf = performanceData.tasks.find((t) => t.exerciseId === targetExercise.id);
 
       if (taskPerf) {
+        // Скип хранится по id задачи (см. tasks_fix.js): названия внутри курса
+        // не уникальны. `student-performance` отдаёт тот же id, что и
+        // `/tasks/student`, поэтому ключи сходятся. Старые ключи-названия
+        // продолжаем понимать ради уже скипнутых заданий.
+        const idIdentifier = taskPerf.id != null ? `id:${taskPerf.id}` : null;
         const taskIdentifier = getTaskIdentifier(targetExercise.name, courseName);
         const legacyTaskIdentifier = getLegacyTaskIdentifier(targetExercise.name, courseName);
 
@@ -129,7 +134,11 @@ async function activateCourseOverviewTaskStatus() {
           Math.min((taskPerf.score || 0) + (taskPerf.extraScore || 0), 10).toFixed(2)
         );
 
-        if (skippedTasks.has(taskIdentifier) || skippedTasks.has(legacyTaskIdentifier)) {
+        if (
+          (idIdentifier && skippedTasks.has(idIdentifier)) ||
+          skippedTasks.has(taskIdentifier) ||
+          skippedTasks.has(legacyTaskIdentifier)
+        ) {
           state = 'skipped';
         }
 

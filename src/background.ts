@@ -1406,23 +1406,44 @@ const YandexContestServices = {
  * Центральный обработчик навигации.
  * Запускает все плагины, чей matches(url) вернул true.
  */
+/**
+ * Внедряет один плагин: сперва стили, затем скрипты.
+ *
+ * Порядок важен. Раньше `insertCSS` и `executeScript` запускались двумя
+ * независимыми промисами, и скрипт нередко успевал отработать раньше, чем
+ * приезжал стиль: плагин карточек создавал обложки, у которых ещё не было
+ * `position: absolute`, — они становились обычными блоками и растягивались на
+ * всю строку, а через мгновение вставали на место. Выглядело как анимация.
+ *
+ * Плагины между собой по-прежнему внедряются параллельно.
+ */
+async function injectPlugin(tabId: number, plugin: (typeof plugins)[number]): Promise<void> {
+  if (plugin.cssFiles?.length) {
+    try {
+      await browser.scripting.insertCSS({ target: { tabId }, files: plugin.cssFiles as string[] });
+    } catch (err) {
+      console.log(`[BG] CSS error (${plugin.id}):`, err);
+    }
+  }
+
+  if (plugin.scripts?.length) {
+    try {
+      await browser.scripting.executeScript({
+        target: { tabId },
+        files: plugin.scripts as string[],
+      });
+    } catch (err) {
+      console.error(`[BG] Script error (${plugin.id}):`, err);
+    }
+  }
+}
+
 function handleNavigation(tabId: number, url: string): void {
   if (!url?.startsWith('https://my.centraluniversity.ru/')) return;
 
   for (const plugin of plugins) {
     if (!plugin.matches(url)) continue;
-
-    if (plugin.cssFiles?.length) {
-      browser.scripting
-        .insertCSS({ target: { tabId }, files: plugin.cssFiles as string[] })
-        .catch((err) => console.log(`[BG] CSS error (${plugin.id}):`, err));
-    }
-
-    if (plugin.scripts?.length) {
-      browser.scripting
-        .executeScript({ target: { tabId }, files: plugin.scripts as string[] })
-        .catch((err) => console.error(`[BG] Script error (${plugin.id}):`, err));
-    }
+    void injectPlugin(tabId, plugin);
   }
 }
 

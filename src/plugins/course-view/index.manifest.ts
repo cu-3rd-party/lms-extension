@@ -3,7 +3,9 @@ import type { PluginManifest } from '../types';
 const manifest = {
   id: 'courseView',
   matches: (url: string) => url.includes('/learn/courses/view'),
+  cssFiles: ['plugins/course-view/course_cards.css'],
   scripts: [
+    'plugins/course-view/course_cards.js',
     'plugins/course-view/courses_fix.js',
     'plugins/course-view/course_overview_task_status.js',
     'plugins/course-view/course_overview_autoscroll.js',

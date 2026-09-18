@@ -158,8 +158,55 @@
 
       .course-hint {
         font-size: 13px;
+        line-height: 1.4;
         color: #777;
-        padding: 4px 0;
+        margin: 0 0 10px 0;
+        padding: 0;
+      }
+
+      /* Подпись + контрол: до этого у обоих классов не было ни одного
+         правила, поэтому элементы в разделе слипались. */
+      .setting-container {
+        margin-bottom: 12px;
+      }
+
+      .setting-label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 13px;
+        color: #666;
+      }
+
+      /* Группа настроек, раскрывающаяся под тумблером. */
+      .setting-group {
+        margin: 0 0 14px 0;
+        padding-left: 2px;
+      }
+
+      .btn-reset {
+        display: block;
+        width: 100%;
+        margin-top: 8px;
+        padding: 8px 12px;
+        font-family: 'Inter', sans-serif;
+        font-size: 13px;
+        color: #d93025;
+        background-color: #fdf0f0;
+        border: 1px solid #f3d0d0;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .btn-reset:hover {
+        background-color: #f9e0e0;
+      }
+
+      /* Отбиваем блок действий от настроек над ним. */
+      .section-actions {
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid #eee;
       }
 
       .dropdown-container {
@@ -363,6 +410,74 @@
             <option value="week">Неделя</option>
           </select>
         </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Карточки курсов</h3>
+
+      <div class="toggle-container">
+        <span class="toggle-label">Старый дизайн карточек:</span>
+        <label class="switch">
+          <input type="checkbox" id="old-courses-design-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div id="old-courses-design-container" class="setting-group" style="display: none">
+        <p class="course-hint">Карточки становятся обложками с подписью снизу.</p>
+        <div class="setting-container">
+          <span class="setting-label">Заполнение картинки:</span>
+          <div class="dropdown-container">
+            <select class="dropdown-select" id="sticker-fit-select">
+              <option value="cover" selected>Обрезать (Cover)</option>
+              <option value="contain">Вместить (Contain)</option>
+              <option value="fill">Растянуть (Fill)</option>
+              <option value="scale-down">Не увеличивать (Scale-down)</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-container">
+          <span class="setting-label">Масштаб картинки:</span>
+          <div class="dropdown-container">
+            <select class="dropdown-select" id="sticker-scale-select">
+              <option value="50">50%</option>
+              <option value="75">75%</option>
+              <option value="100" selected>100%</option>
+              <option value="125">125%</option>
+              <option value="150">150%</option>
+              <option value="200">200%</option>
+              <option value="300">300%</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="toggle-container">
+        <span class="toggle-label">Свои названия курсов:</span>
+        <label class="switch">
+          <input type="checkbox" id="custom-course-names-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div id="custom-course-names-container" class="setting-group" style="display: none">
+        <p class="course-hint">
+          Свои названия подставляются везде: список курсов, задания, крошки, заголовок курса.
+          Расширение и сам сайт продолжают работать с настоящими названиями.
+        </p>
+      </div>
+
+      <div class="section-actions">
+        <p class="course-hint">
+          Картинки, названия и архив меняются в редакторе — вне его карточка просто открывает курс.
+          Архив действует и без старого дизайна.
+        </p>
+        <button id="open-card-editor-btn" class="action-button">Открыть редактор курсов</button>
+
+        <button id="reset-course-names-btn" class="btn-reset">Сбросить свои названия</button>
+        <button id="reset-course-icons-btn" class="btn-reset">Сбросить все иконки курсов</button>
+        <button id="reset-archived-courses-btn" class="btn-reset">
+          Вернуть все курсы из архива
+        </button>
       </div>
     </div>
 

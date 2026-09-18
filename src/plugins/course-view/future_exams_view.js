@@ -69,7 +69,11 @@ async function viewFutureExams(displayFormat) {
       return;
     }
 
-    const courseTitle = titleElement.textContent.trim();
+    // Расписание контрольных ищется по названию курса, поэтому берём
+    // оригинальное: пользователь мог переименовать курс в расширении.
+    const courseTitle = window.cuLmsCourseNames
+      ? window.cuLmsCourseNames.originalFor(titleElement, titleElement.textContent.trim())
+      : titleElement.textContent.trim();
     const items = getUpcomingScheduleItems(
       courseTitle,
       schedule,

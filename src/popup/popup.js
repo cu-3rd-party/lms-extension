@@ -62,7 +62,13 @@ const browserApi = {
 };
 
 // Настройки, которые применяются "на лету" без перезагрузки (можно сохранять сразу)
-const LIVE_SETTINGS = ['themeEnabled', 'oledEnabled', 'darkPdfEnabled'];
+const LIVE_SETTINGS = [
+  'themeEnabled',
+  'oledEnabled',
+  'darkPdfEnabled',
+  'oldCoursesDesignToggle',
+  'customCourseNamesToggle',
+];
 
 // --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP ---
 const darkThemeLinkID = 'popup-dark-theme-style';
@@ -97,6 +103,8 @@ const toggles = {
   contestIntegrationEnabled: document.getElementById('contest-integration-toggle'),
   courseOverviewTaskStatusToggle: document.getElementById('course-overview-task-status-toggle'),
   emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
+  oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
+  customCourseNamesToggle: document.getElementById('custom-course-names-toggle'),
   futureExamsViewToggle: document.getElementById('future-exams-view-toggle'),
   courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
   advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
@@ -112,6 +120,10 @@ const futureExamsDisplayFormat = document.getElementById('future-exams-display-f
 const autoRenameFormatContainer = document.getElementById('auto-rename-format-container');
 const renameTemplateSelect = document.getElementById('rename-template-select');
 const reloadNotice = document.getElementById('reload-notice');
+const oldCoursesDesignContainer = document.getElementById('old-courses-design-container');
+const customCourseNamesContainer = document.getElementById('custom-course-names-container');
+const stickerFitSelect = document.getElementById('sticker-fit-select');
+const stickerScaleSelect = document.getElementById('sticker-scale-select');
 const gradesExportBtn = document.getElementById('grades-export-btn');
 const gradesExportStatus = document.getElementById('grades-export-status');
 
@@ -121,8 +133,22 @@ const allKeys = [
   'autoRenameTemplate',
   'akhCourseFilter',
   'contestCourseFilter',
+  'stickerObjectFit',
+  'stickerScale',
 ];
 let pendingChanges = {};
+
+function updateOldCoursesDesignUI(isEnabled) {
+  if (oldCoursesDesignContainer) {
+    oldCoursesDesignContainer.style.display = isEnabled ? 'block' : 'none';
+  }
+}
+
+function updateCustomCourseNamesUI(isEnabled) {
+  if (customCourseNamesContainer) {
+    customCourseNamesContainer.style.display = isEnabled ? 'block' : 'none';
+  }
+}
 
 function updateAutoRenameUI(isEnabled) {
   if (autoRenameFormatContainer) {
@@ -150,6 +176,10 @@ function refreshToggleStates() {
     }
 
     updateAutoRenameUI(isAutoRenameEnabled);
+    updateOldCoursesDesignUI(!!data.oldCoursesDesignToggle);
+    updateCustomCourseNamesUI(!!data.customCourseNamesToggle);
+    if (stickerFitSelect) stickerFitSelect.value = data.stickerObjectFit || 'cover';
+    if (stickerScaleSelect) stickerScaleSelect.value = String(data.stickerScale || 100);
     updateCourseFilters(data);
     updateContestAuthStatus();
     if (renameTemplateSelect && data.autoRenameTemplate) {
@@ -232,6 +262,10 @@ allKeys.forEach((key) => {
         updateFormatDisplayVisibility();
       } else if (key === 'autoRenameEnabled') {
         updateAutoRenameUI(isEnabled);
+      } else if (key === 'oldCoursesDesignToggle') {
+        updateOldCoursesDesignUI(isEnabled);
+      } else if (key === 'customCourseNamesToggle') {
+        updateCustomCourseNamesUI(isEnabled);
       } else if (key === 'akhIntegrationEnabled' || key === 'contestIntegrationEnabled') {
         updateCourseFilters();
         if (key === 'contestIntegrationEnabled') updateContestAuthStatus();
@@ -523,6 +557,10 @@ if (resetBtn) {
       endOfCourseCalcEnabled: true,
       emojiHeartsEnabled: false,
       snowEnabled: false,
+      oldCoursesDesignToggle: false,
+      customCourseNamesToggle: false,
+      stickerObjectFit: 'cover',
+      stickerScale: 100,
       futureExamsViewToggle: false,
       futureExamsDisplayFormat: 'date',
       courseOverviewAutoscrollToggle: false,
@@ -555,11 +593,87 @@ if (resetBtn) {
 
       if (autoRenameFormatContainer) autoRenameFormatContainer.style.display = 'none';
       if (futureExamsDisplayContainer) futureExamsDisplayContainer.style.display = 'none';
+      if (oldCoursesDesignContainer) oldCoursesDesignContainer.style.display = 'none';
+      if (customCourseNamesContainer) customCourseNamesContainer.style.display = 'none';
+      if (stickerFitSelect) stickerFitSelect.value = defaultSettings.stickerObjectFit;
+      if (stickerScaleSelect) stickerScaleSelect.value = String(defaultSettings.stickerScale);
 
       if (reloadNotice) reloadNotice.style.display = 'block';
     } else {
       browser.storage.sync.set(defaultSettings);
     }
+  });
+}
+
+// Обе настройки плагин применяет на лету, поэтому сохраняем сразу,
+// не откладывая до закрытия меню.
+if (stickerFitSelect) {
+  stickerFitSelect.addEventListener('change', () => {
+    browser.storage.sync.set({ stickerObjectFit: stickerFitSelect.value });
+  });
+}
+
+if (stickerScaleSelect) {
+  stickerScaleSelect.addEventListener('change', () => {
+    browser.storage.sync.set({ stickerScale: Number(stickerScaleSelect.value) });
+  });
+}
+
+const openCardEditorBtn = document.getElementById('open-card-editor-btn');
+if (openCardEditorBtn) {
+  openCardEditorBtn.addEventListener('click', () => {
+    const targetUrl =
+      'https://my.centraluniversity.ru/learn/courses/view/actual/all?customCardEditor=true';
+
+    // Без старого дизайна редактировать нечего — включаем его заодно.
+    if (toggles.oldCoursesDesignToggle) toggles.oldCoursesDesignToggle.checked = true;
+    updateOldCoursesDesignUI(true);
+
+    browser.storage.sync.set({ oldCoursesDesignToggle: true }).then(() => {
+      if (isInsideIframe) {
+        pendingChanges = { ...pendingChanges, oldCoursesDesignToggle: true };
+        window.parent.postMessage(
+          { action: 'receivePendingChanges', payload: pendingChanges, shouldReload: false },
+          '*'
+        );
+        setTimeout(() => {
+          window.parent.location.href = targetUrl;
+        }, 50);
+      } else {
+        browserApi.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+          if (tabs.length > 0) {
+            browserApi.tabs.update(tabs[0].id, { url: targetUrl });
+            window.close();
+          }
+        });
+      }
+    });
+  });
+}
+
+// Архив курсов — тоже local: это просто список id, но живёт рядом с иконками.
+const resetArchivedCoursesBtn = document.getElementById('reset-archived-courses-btn');
+if (resetArchivedCoursesBtn) {
+  resetArchivedCoursesBtn.addEventListener('click', () => {
+    if (!confirm('Вернуть в список актуальных все курсы, убранные в архив?')) return;
+    browser.storage.local.remove('archivedCourseIds');
+  });
+}
+
+const resetCourseNamesBtn = document.getElementById('reset-course-names-btn');
+if (resetCourseNamesBtn) {
+  resetCourseNamesBtn.addEventListener('click', () => {
+    if (!confirm('Вернуть всем курсам их настоящие названия?')) return;
+    browser.storage.local.remove('courseNames');
+  });
+}
+
+const resetCourseIconsBtn = document.getElementById('reset-course-icons-btn');
+if (resetCourseIconsBtn) {
+  resetCourseIconsBtn.addEventListener('click', () => {
+    if (!confirm('Сбросить свои иконки для всех курсов?')) return;
+    // courseIcons живёт в local, а не в sync: картинки не влезают в квоту sync.
+    browser.storage.local.remove('courseIcons');
   });
 }
 
