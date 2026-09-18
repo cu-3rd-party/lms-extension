@@ -133,11 +133,24 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   async function runLogic() {
     try {
       refreshDynamicStyles();
+      // Иконки кнопок лежат в самом расширении — прогреваем кеш параллельно,
+      // чтобы первая отрисовка кнопок их не ждала.
+      void Promise.all([getIconSVG('skip'), getIconSVG('cancelskip')]).catch(() => {});
+
+      // Настройки и данные запрашиваем сразу, параллельно с ожиданием строк.
+      // Раньше оба шага начинались уже ПОСЛЕ их появления, и таблица успевала
+      // постоять без процентов, дедлайнов и кнопок — всё «доезжало» на глазах.
+      // Angular рисует таблицу дольше, чем идёт наш запрос, поэтому к моменту
+      // появления строк данные обычно уже готовы.
+      const settingsPromise = browser.storage.sync.get('emojiHeartsEnabled');
+      const tasksPromise = fetchTasksData();
+
       await waitForElement('tr[class*="task-table__task"]');
       window.cuLmsLog('Task Status Updater: Task rows found. Starting DOM modification.');
-      const settings = await browser.storage.sync.get('emojiHeartsEnabled');
+
+      const [settings, tasksData] = await Promise.all([settingsPromise, tasksPromise]);
       const isEmojiSwapEnabled = !!settings.emojiHeartsEnabled;
-      const tasksData = await fetchTasksData();
+
       buildTableStructure();
       if (tasksData && tasksData.length > 0) {
         await populateTableData(tasksData, isEmojiSwapEnabled);
@@ -397,9 +410,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   async function populateTableData(tasksData, isEmojiSwapEnabled) {
     const skippedTasks = getSkippedTasks();
-    const rows = document.querySelectorAll('tr[class*="task-table__task"]');
+    const rows = Array.from(document.querySelectorAll('tr[class*="task-table__task"]'));
+    // Считаем соответствие строк и задач заранее и в порядке DOM: обработка
+    // строк идёт параллельно, а «расходование» кандидатов требует порядка.
+    const rowTasks = matchRowsToTasks(rows, tasksData);
 
-    const processingPromises = Array.from(rows).map(async (row) => {
+    const processingPromises = rows.map(async (row) => {
       // Ищем по новому тегу
       const statusBadge = row.querySelector('cu-task-state-badge');
       const weightCell = row.querySelector('[data-culms-weight-cell]');
@@ -418,11 +434,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       row.removeAttribute('data-culms-row-type');
 
       const htmlNames = extractTaskAndCourseNamesFromElement(statusBadge);
-      const task = findMatchingTask(htmlNames, tasksData);
-
-      const taskIdentifier = getTaskIdentifier(htmlNames.taskName, htmlNames.courseName);
-      const legacyIdentifier = getLegacyTaskIdentifier(htmlNames.taskName, htmlNames.courseName);
-      const isSkipped = skippedTasks.has(taskIdentifier) || skippedTasks.has(legacyIdentifier);
+      const task = rowTasks.get(row);
+      const isSkipped = isTaskSkipped(skippedTasks, task, htmlNames);
 
       if (task) {
         if (lateDaysCell) {
@@ -514,12 +527,10 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   // --- ЛОГИКА ПРОПУСКА ЗАДАЧ И МОДАЛЬНОГО ОКНА ---
   function onSkipButtonClick(task, row, statusBadge, button) {
-    const taskIdentifier = getTaskIdentifier(task.exercise.name, task.course.name);
-    const legacyIdentifier = getLegacyTaskIdentifier(task.exercise.name, task.course.name);
-
-    // Проверяем по обоим форматам ID
-    const isCurrentlySkipped =
-      getSkippedTasks().has(taskIdentifier) || getSkippedTasks().has(legacyIdentifier);
+    const isCurrentlySkipped = isTaskSkipped(getSkippedTasks(), task, {
+      taskName: task.exercise?.name,
+      courseName: task.course?.name,
+    });
 
     if (isCurrentlySkipped) {
       handleCancelSkipTask(task, row, statusBadge, button);
@@ -541,7 +552,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       (confirmed) => {
         if (confirmed) {
           // Передаем task.name и course.name в явном виде
-          addSkippedTask(task.exercise.name, task.course.name);
+          addSkippedTask(task);
           setStatusText(statusBadge, SKIPPED_STATUS_TEXT);
           statusBadge.setAttribute('data-culms-status', 'skipped');
           statusBadge.classList.remove(
@@ -558,7 +569,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   function handleCancelSkipTask(task, row, statusBadge, button) {
     // Передаем task.name и course.name в явном виде, чтобы сработало удаление
-    removeSkippedTask(task.exercise.name, task.course.name);
+    removeSkippedTask(task);
 
     setStatusText(statusBadge, statusBadge.dataset.originalStatus);
 
@@ -634,6 +645,27 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     return `${strip(courseName)}::${strip(taskName)}`;
   }
 
+  /**
+   * Ключ скипа. Привязываемся к id задачи: названия внутри курса не уникальны
+   * («Семинар», «ДЗ», «Перезачет» повторяются), и ключ `курс::задание` помечал
+   * скипнутыми сразу все одноимённые задания.
+   */
+  function getTaskStorageKey(task) {
+    return task && task.id != null ? `id:${task.id}` : null;
+  }
+
+  /** Скипнута ли задача: сперва по id, затем по старым ключам-названиям. */
+  function isTaskSkipped(skippedTasks, task, htmlNames) {
+    const idKey = getTaskStorageKey(task);
+    if (idKey && skippedTasks.has(idKey)) return true;
+
+    const nameKey = getTaskIdentifier(htmlNames?.taskName, htmlNames?.courseName);
+    const legacyKey = getLegacyTaskIdentifier(htmlNames?.taskName, htmlNames?.courseName);
+    return Boolean(
+      (nameKey && skippedTasks.has(nameKey)) || (legacyKey && skippedTasks.has(legacyKey))
+    );
+  }
+
   function getSkippedTasks() {
     try {
       const skipped = localStorage.getItem(SKIPPED_TASKS_KEY);
@@ -647,31 +679,87 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     localStorage.setItem(SKIPPED_TASKS_KEY, JSON.stringify(Array.from(skippedSet)));
   }
 
-  function addSkippedTask(taskName, courseName) {
-    if (!taskName || !courseName) return;
+  function addSkippedTask(task) {
     const skipped = getSkippedTasks();
-    skipped.add(getTaskIdentifier(taskName, courseName));
+    const idKey = getTaskStorageKey(task);
+    // Без id (задача не нашлась в API) деваться некуда — пишем по названиям.
+    skipped.add(idKey || getTaskIdentifier(task?.exercise?.name, task?.course?.name));
     saveSkippedTasks(skipped);
   }
 
-  function removeSkippedTask(taskName, courseName) {
-    if (!taskName || !courseName) return;
+  function removeSkippedTask(task) {
     const skipped = getSkippedTasks();
-    skipped.delete(getTaskIdentifier(taskName, courseName));
-    // На всякий случай подчищаем и по старой логике
-    skipped.delete(getLegacyTaskIdentifier(taskName, courseName));
+    const idKey = getTaskStorageKey(task);
+    if (idKey) skipped.delete(idKey);
+    // Подчищаем и записи, сделанные до перехода на id.
+    skipped.delete(getTaskIdentifier(task?.exercise?.name, task?.course?.name));
+    skipped.delete(getLegacyTaskIdentifier(task?.exercise?.name, task?.course?.name));
     saveSkippedTasks(skipped);
   }
 
-  function findMatchingTask(htmlNames, tasksData) {
-    if (!htmlNames?.taskName || !htmlNames?.courseName) return null;
-    const cleanHtmlTaskName = normalizeText(htmlNames.taskName).toLowerCase();
-    const cleanHtmlCourseName = normalizeText(htmlNames.courseName).toLowerCase();
-    return tasksData.find((task) => {
-      const cleanApiTaskName = normalizeText(task.exercise?.name).toLowerCase();
-      const cleanApiCourseName = normalizeText(task.course?.name).toLowerCase();
-      return cleanApiTaskName === cleanHtmlTaskName && cleanApiCourseName === cleanHtmlCourseName;
+  /** Насколько задача из API похожа на то, что реально видно в строке. */
+  function scoreRowMatch(row, task) {
+    let score = 0;
+
+    const scoreText = normalizeText(row.querySelector('.task-table__score')?.textContent || '');
+    if (scoreText && task.exercise?.maxScore != null) {
+      if (scoreText === `${task.score ?? ''}/${task.exercise.maxScore}`) score += 2;
+    }
+
+    const deadlineText = row.querySelector('[class*="task-table__deadline"]')?.textContent || '';
+    if (task.deadline) {
+      const date = new Date(task.deadline);
+      if (!Number.isNaN(date.getTime())) {
+        const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        if (deadlineText.includes(String(date.getDate())) && deadlineText.includes(time))
+          score += 2;
+      }
+    }
+    return score;
+  }
+
+  /**
+   * Сопоставляет строки таблицы с задачами из API взаимно-однозначно.
+   *
+   * В строке нет ни id, ни ссылки — только текст, поэтому совпадение всё равно
+   * по названиям. Но раньше тут был `.find()`: если в одном курсе есть несколько
+   * заданий с одинаковым названием, все их строки получали один и тот же объект
+   * задачи. Отсюда чужие веса и дедлайны в колонках и «скип», который
+   * проставлялся сразу на все одноимённые задания. Теперь кандидатов с
+   * одинаковым названием разводим по видимым колонкам (баллы, дедлайн), а
+   * выбранную задачу «расходуем» — две строки не могут указывать на одну.
+   */
+  function matchRowsToTasks(rows, tasksData) {
+    const candidatesByName = new Map();
+    tasksData.forEach((task) => {
+      const key = getTaskIdentifier(task.exercise?.name, task.course?.name);
+      if (!key) return;
+      if (!candidatesByName.has(key)) candidatesByName.set(key, []);
+      candidatesByName.get(key).push(task);
     });
+
+    const matches = new Map();
+    rows.forEach((row) => {
+      const names = extractTaskAndCourseNamesFromElement(row);
+      const key = getTaskIdentifier(names?.taskName, names?.courseName);
+      const candidates = key ? candidatesByName.get(key) : null;
+      if (!candidates || !candidates.length) return;
+
+      let index = 0;
+      if (candidates.length > 1) {
+        let best = -1;
+        candidates.forEach((task, i) => {
+          const score = scoreRowMatch(row, task);
+          if (score > best) {
+            best = score;
+            index = i;
+          }
+        });
+      }
+      matches.set(row, candidates.splice(index, 1)[0]);
+    });
+
+    return matches;
   }
 
   async function fetchTasksData() {
@@ -692,7 +780,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     const taskRow = element.closest('tr[class*="task-table__task"]');
     if (!taskRow) return null;
     const taskName = taskRow.querySelector('.task-table__task-name')?.textContent.trim();
-    const courseName = taskRow.querySelector('.task-table__course-name')?.textContent.trim();
+    const courseCell = taskRow.querySelector('.task-table__course-name');
+    // Пользователь мог переименовать курс — сопоставлять с API надо по
+    // оригинальному названию, иначе отваливаются веса, дедлайны и метод скипа.
+    const courseName = window.cuLmsCourseNames
+      ? window.cuLmsCourseNames.originalFor(courseCell, courseCell?.textContent?.trim())
+      : courseCell?.textContent.trim();
     return { taskName, courseName };
   }
 
@@ -760,13 +853,29 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     }
   }
 
+  /**
+   * Настоящее название курса: в DOM оно может быть подменено
+   * `_shared/course_names.js`. Фильтр курсов хранится в localStorage, поэтому
+   * внутри работаем только с оригиналами — иначе переименование курса
+   * рассогласовало бы сохранённый выбор с тем, что в списке.
+   */
+  function originalCourseName(element, fallback) {
+    const text = fallback ?? element?.textContent?.trim();
+    return window.cuLmsCourseNames ? window.cuLmsCourseNames.originalFor(element, text) : text;
+  }
+
+  /** Что показать пользователю вместо настоящего названия. */
+  function displayCourseName(original) {
+    return window.cuLmsCourseNames ? window.cuLmsCourseNames.toDisplay(original) : original;
+  }
+
   function initializeFilters() {
     loadFilterSettings();
     if (masterCourseList.size === 0) {
       document
         .querySelectorAll('tr[class*="task-table__task"] .task-table__course-name')
         .forEach((el) => {
-          const courseName = el.textContent.trim();
+          const courseName = originalCourseName(el);
           if (courseName) masterCourseList.add(courseName);
         });
 
@@ -797,7 +906,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       const courseEl = row.querySelector('.task-table__course-name');
       if (statusBadge && courseEl) {
         const isStatusVisible = selectedStatuses.has(statusBadge.textContent.trim());
-        const isCourseVisible = selectedCourses.has(courseEl.textContent.trim());
+        const isCourseVisible = selectedCourses.has(originalCourseName(courseEl));
         row.style.display = isStatusVisible && isCourseVisible ? '' : 'none';
       }
     });
@@ -807,6 +916,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     const optionButton = event.target.closest('button[tuioption]');
     if (!optionButton) return;
     updateSelection(selectedStatuses, optionButton.textContent.trim(), optionButton);
+    updateStatusChip();
     applyCombinedFilter();
     saveFilterSettings();
   }
@@ -814,11 +924,14 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   function handleCourseFilterClick(event) {
     const optionButton = event.target.closest('button[tuioption]');
     if (!optionButton) return;
-    // Для курсов ищем текст внутри span, так как структура сложнее
+    // Оригинал кладём в data-атрибут при генерации опции: на экране может быть
+    // переименованный курс, а в фильтре должно лежать настоящее название.
     const textSpan = optionButton.querySelector('tui-multi-select-option span');
-    const courseName = textSpan ? textSpan.textContent.trim() : optionButton.textContent.trim();
+    const shown = textSpan ? textSpan.textContent.trim() : optionButton.textContent.trim();
+    const courseName = optionButton.dataset.culmsCourse || originalCourseName(textSpan, shown);
 
     updateSelection(selectedCourses, courseName, optionButton);
+    updateCourseChip();
     applyCombinedFilter();
     saveFilterSettings();
   }
@@ -863,26 +976,27 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             }
           }
 
-          // 2. Новый перехватчик для курсов (cu-multiselect-searchable-list)
-          if (
-            node.tagName &&
-            (node.tagName.toLowerCase() === 'tui-dropdown' ||
-              node.querySelector('cu-multiselect-searchable-list'))
-          ) {
-            const searchableList =
-              node.tagName.toLowerCase() === 'cu-multiselect-searchable-list'
-                ? node
-                : node.querySelector('cu-multiselect-searchable-list');
+          // 2. Перехватчик для курсов.
+          //
+          // Раньше он искал `cu-multiselect-searchable-list` — такого элемента
+          // в LMS больше нет, поэтому список курсов не подменялся вовсе.
+          // Оба фильтра рисуют одинаковый `tui-data-list-wrapper`, и отличить
+          // их можно только по тому, какой фильтр открыт: у каждого свой
+          // `tui-dropdown`, и он создаётся в момент первого открытия.
+          if (node.matches('tui-dropdown')) {
+            const dataListWrapper = node.querySelector(
+              'tui-data-list-wrapper.multiselect__dropdown'
+            );
+            const courseFilterContainer = document.querySelector(
+              'cu-multiselect-filter[controlname="course"]'
+            );
 
-            if (searchableList && !searchableList.dataset.culmsRebuilt) {
-              // Убедимся, что это фильтр курсов (можно по controlname="course" у родителя, но тут searchableList уже специфичен)
-              const courseFilterContainer = document.querySelector(
-                'cu-multiselect-filter[controlname="course"]'
-              );
-              // Проверяем, что dropdown открылся именно от фильтра курсов (активный элемент или структура)
-              if (courseFilterContainer) {
-                buildSearchableCourseDropdown(searchableList);
-              }
+            if (
+              dataListWrapper &&
+              !dataListWrapper.dataset.culmsRebuilt &&
+              courseFilterContainer?.contains(document.activeElement)
+            ) {
+              buildCourseDropdown(dataListWrapper);
             }
           }
         }
@@ -890,6 +1004,68 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     });
     dropdownObserver.observe(document.body, { childList: true, subtree: true });
     window.cuLmsLog('Task Status Updater: Dropdown observer initialized.');
+  }
+
+  /**
+   * Приводит чип фильтра статусов в соответствие с нашим состоянием.
+   *
+   * Список опций мы подменяем своим — в нём есть «Аудиторная» и «Метод скипа»,
+   * которых у LMS нет. Клики по нашим кнопкам до модели LMS не доходят, поэтому
+   * чип продолжал показывать её исходный выбор: счётчик застывал («+ 4») и
+   * расходился с галочками в списке. Рисуем чип сами.
+   */
+  /**
+   * Пишет в свёрнутый чип фильтра наш выбор.
+   *
+   * Списки опций мы подменяем своими, и клики по ним до модели LMS не доходят —
+   * её чип застывал на исходном выборе и расходился с галочками в списке.
+   *
+   * В чипе два текстовых узла: подпись («Статус:», «Курс:») и само значение, —
+   * поэтому пишем именно во второй, а не в `textContent`, иначе подпись
+   * затрётся.
+   */
+  function writeFilterChip(host, values) {
+    const valueBox = host?.querySelector('.cu-filter-value');
+    const first = valueBox?.querySelector('.cu-filter-value__first');
+    if (!first) return;
+
+    const textNodes = Array.from(first.childNodes).filter(
+      (node) => node.nodeType === Node.TEXT_NODE && node.nodeValue.trim()
+    );
+    // Узел со значением LMS создаёт, только когда у неё что-то выбрано. Если у
+    // нас выбор есть, а у неё нет, писать название было бы некуда — добавляем
+    // свой текстовый узел сразу после подписи.
+    let valueNode = textNodes[1];
+    if (!valueNode && values.length) {
+      valueNode = document.createTextNode(' ');
+      first.insertBefore(valueNode, textNodes[0] ? textNodes[0].nextSibling : null);
+    }
+    if (valueNode) valueNode.nodeValue = values.length ? ` ${values[0]} ` : ' ';
+
+    const rest = Math.max(0, values.length - 1);
+    let after = valueBox.querySelector('.cu-filter-value__after');
+    if (!after && rest) {
+      // LMS рисует счётчик, только когда выбрано больше одного. Если сейчас у
+      // неё выбран один курс, а у нас несколько, писать «+ N» было бы некуда.
+      // Клонируем подпись без детей — так сохраняются `_ngcontent-*`, без
+      // которых Angular не применит к счётчику свои стили.
+      after = first.cloneNode(false);
+      after.className = 'cu-filter-value__after font-text-xs-bold';
+      after.setAttribute('cutext', 'xs-bold');
+      valueBox.appendChild(after);
+    }
+    if (after) {
+      after.textContent = rest ? ` + ${rest} ` : '';
+      after.style.display = rest ? '' : 'none';
+    }
+  }
+
+  function updateStatusChip() {
+    const host = document.querySelector('cu-multiselect-filter[controlname="state"]');
+    writeFilterChip(
+      host,
+      HARDCODED_STATUSES.filter((status) => selectedStatuses.has(status))
+    );
   }
 
   function buildStatusDropdown(dataListWrapper) {
@@ -903,61 +1079,35 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       dataList.appendChild(createStatusOption(text, isSelected));
     });
     dataListWrapper.addEventListener('click', handleStatusFilterClick);
+    updateStatusChip();
   }
 
-  function buildSearchableCourseDropdown(searchableListElement) {
-    searchableListElement.dataset.culmsRebuilt = 'true';
+  /**
+   * Чип фильтра курсов — по тем же причинам, что и у статусов: список мы
+   * подменяем своим, клики до модели LMS не доходят, и её счётчик застывает.
+   */
+  function updateCourseChip() {
+    const host = document.querySelector('cu-multiselect-filter[controlname="course"]');
+    const selected = [...masterCourseList].filter((course) => selectedCourses.has(course)).sort();
+    // В чипе показываем то же название, что пользователь видит в списке.
+    writeFilterChip(host, selected.map(displayCourseName));
+  }
 
-    // Находим контейнер списка
-    const dataList = searchableListElement.querySelector('tui-data-list');
+  function buildCourseDropdown(dataListWrapper) {
+    dataListWrapper.dataset.culmsRebuilt = 'true';
+    const dataList = dataListWrapper.querySelector('tui-data-list');
     if (!dataList) return;
 
-    // 1. Отрубаем бэкенд-поиск: клонируем инпут, чтобы убить Angular-биндинги
-    const searchWrapper = searchableListElement.querySelector('tui-textfield');
-    const oldInput = searchWrapper?.querySelector('input');
-    if (oldInput) {
-      const newInput = oldInput.cloneNode(true);
-      oldInput.replaceWith(newInput);
-
-      // Локальный поиск
-      newInput.addEventListener('input', (e) => {
-        const val = e.target.value.toLowerCase();
-        const buttons = dataList.querySelectorAll('button[tuioption]');
-        buttons.forEach((btn) => {
-          const span = btn.querySelector('span');
-          const text = span ? span.textContent.toLowerCase() : '';
-          const wrapperDiv = btn.closest('div');
-          if (wrapperDiv) {
-            wrapperDiv.style.display = text.includes(val) ? '' : 'none';
-          }
-        });
-      });
-
-      // Обработка кнопки очистки (крестик)
-      const clearBtn = searchWrapper.querySelector('.t-clear');
-      if (clearBtn) {
-        // Клонируем кнопку, чтобы убить старые обработчики
-        const newClearBtn = clearBtn.cloneNode(true);
-        clearBtn.replaceWith(newClearBtn);
-        newClearBtn.addEventListener('click', () => {
-          newInput.value = '';
-          newInput.dispatchEvent(new Event('input'));
-        });
-      }
-    }
-
-    // 2. Очищаем список от того, что прислал сервер
     dataList.innerHTML = '';
 
-    // 3. Генерируем полный список курсов из masterCourseList
-    const sortedCourses = [...masterCourseList].sort();
-    sortedCourses.forEach((text) => {
-      const isSelected = selectedCourses.has(text);
-      dataList.appendChild(createCourseOption(text, isSelected));
+    // Список берём из таблицы, а не от сервера: там только те курсы, по которым
+    // реально есть задания, и в том же виде, в каком мы их фильтруем.
+    [...masterCourseList].sort().forEach((text) => {
+      dataList.appendChild(createCourseOption(text, selectedCourses.has(text)));
     });
 
-    // 4. Вешаем обработчик клика на весь список
-    searchableListElement.addEventListener('click', handleCourseFilterClick);
+    dataListWrapper.addEventListener('click', handleCourseFilterClick);
+    updateCourseChip();
   }
 
   function createStatusOption(text, isSelected) {
@@ -996,8 +1146,15 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             <input tuiappearance tuicheckbox type="checkbox" 
                    data-appearance="outline-grayscale" disabled data-size="s" class="_readonly" 
                    style="${finalStyle}">
-            <span>${text}</span>
+            <span></span>
         </tui-multi-select-option>`;
+
+    // `text` — настоящее название; показываем вместо него переименованное,
+    // а оригинал храним в data-атрибуте. Подпись ставим через textContent:
+    // имя задаёт пользователь, и подставлять его в innerHTML не стоит.
+    button.dataset.culmsCourse = text;
+    const label = button.querySelector('tui-multi-select-option span');
+    if (label) label.textContent = displayCourseName(text);
 
     const checkbox = button.querySelector('input[tuicheckbox]');
     if (checkbox) checkbox.checked = isSelected;
