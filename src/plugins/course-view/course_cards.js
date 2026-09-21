@@ -46,6 +46,7 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
   const HIDDEN_CLASS = 'culms-archived-item';
   const ACTIONS_CLASS = 'culms-card-actions';
   const EDITOR_BAR_ID = 'culms-card-editor-bar';
+  const BUSY_ID = 'culms-card-busy';
   const ARCHIVED_ROW_CLASS = 'culms-archived-row';
 
   const COURSES_API = '/api/micro-lms/courses/student?limit=200&offset=0&state=published';
@@ -69,9 +70,18 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
   // лишние мегабайты видно глазом: картинки появляются с задержкой.
   const MAX_ICON_SIDE = 480;
   const ICON_QUALITY = 0.85;
-  // Небольшие гифки сохраняем как есть, чтобы не убить анимацию перерисовкой в canvas.
-  const MAX_RAW_GIF_BYTES = 512 * 1024;
-  const MAX_SOURCE_BYTES = 10 * 1024 * 1024;
+  // Анимацию сохраняем как есть: перерисовка в canvas оставляет только первый
+  // кадр. Потолок — чтобы одна картинка не съела всю квоту `storage.local`
+  // (без `unlimitedStorage` это 10 МБ на все курсы, а base64 ещё +33 %).
+  const MAX_RAW_ANIMATED_BYTES = 1024 * 1024;
+  // Верхняя планка на исходник — только чтобы не уронить вкладку на декодировании
+  // чего-то совсем гигантского. Всё, что меньше, мы умеем ужать сами.
+  const MAX_SOURCE_BYTES = 64 * 1024 * 1024;
+  // Начиная с этого размера перекодирование заметно затягивается, и про него
+  // честнее предупредить заранее: оно идёт в основном потоке, вкладка подвисает.
+  const SLOW_REENCODE_BYTES = 3 * 1024 * 1024;
+  // Грубая оценка по замерам: гифка 14 МБ (1280×720, 140 кадров) — около 6 с.
+  const SECONDS_PER_MB = 0.45;
 
   // Цвета категорий — те же, что LMS использовала на старых обложках
   // (продублированы в dark-theme.css для `.course-card.<категория>`).
@@ -247,6 +257,65 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
     });
   }
 
+  /** Сырые байты из data-URL; `limit` ограничивает разбор началом файла. */
+  function bytesFromDataUrl(dataUrl, limit) {
+    const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    // 4 символа base64 = 3 байта; режем по границе четвёрки, иначе atob упадёт.
+    const chunk = limit ? base64.slice(0, Math.ceil(limit / 3) * 4) : base64;
+
+    try {
+      const binary = atob(chunk);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function hasMarker(bytes, marker, searchLimit) {
+    const end = Math.min(bytes.length, searchLimit || bytes.length) - marker.length;
+    for (let i = 0; i <= end; i++) {
+      let matched = true;
+      for (let j = 0; j < marker.length; j++) {
+        if (bytes[i + j] !== marker.charCodeAt(j)) {
+          matched = false;
+          break;
+        }
+      }
+      if (matched) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Анимированная ли картинка — по сигнатурам в самом файле, а не по MIME-типу.
+   *
+   * По типу определить нельзя: `image/webp` и `image/png` бывают и статичными,
+   * и анимированными, а именно анимированный webp сейчас отдаёт большинство
+   * конвертеров «gif → webp».
+   */
+  function isAnimated(bytes) {
+    if (!bytes || bytes.length < 12) return false;
+
+    // GIF: каждый кадр предваряется блоком Graphic Control Extension (21 F9).
+    if (hasMarker(bytes, 'GIF8', 4)) {
+      let frames = 0;
+      for (let i = 0; i + 1 < bytes.length; i++) {
+        if (bytes[i] === 0x21 && bytes[i + 1] === 0xf9 && ++frames > 1) return true;
+      }
+      return false;
+    }
+
+    // WebP: анимация объявляется чанком ANIM сразу за расширенным заголовком VP8X.
+    if (hasMarker(bytes, 'WEBP', 16)) return hasMarker(bytes, 'ANIM', 256);
+
+    // APNG: чанк acTL обязан идти до первого IDAT, то есть в начале файла.
+    if (bytes[0] === 0x89 && bytes[1] === 0x50) return hasMarker(bytes, 'acTL', 4096);
+
+    return false;
+  }
+
   function loadImage(dataUrl) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -283,10 +352,56 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
   async function prepareIcon(file) {
     const dataUrl = await readFileAsDataUrl(file);
 
-    if (file.type === 'image/gif' && file.size <= MAX_RAW_GIF_BYTES) {
-      return dataUrl;
+    // Анимацию через canvas пропускать нельзя — останется первый кадр. Раньше
+    // исключение делалось только для `image/gif` до 512 КБ, поэтому обычная
+    // гифка потяжелее и любой анимированный webp молча становились статичными.
+    if (isAnimated(new Uint8Array(await file.arrayBuffer()))) {
+      if (file.size <= MAX_RAW_ANIMATED_BYTES) return dataUrl;
+
+      // Тяжёлую анимацию не отвергаем и не сплющиваем, а пережимаем: кадры
+      // уменьшаются и собираются обратно в GIF (см. gif_reencode.js). Так можно
+      // взять любую гифку, а в хранилище всё равно ляжет меньше мегабайта.
+      const reencoder = window.cuLmsGifReencode;
+      if (reencoder && reencoder.supported()) {
+        const megabytes = file.size / (1024 * 1024);
+        const seconds = Math.max(2, Math.round(megabytes * SECONDS_PER_MB));
+        const proceed =
+          file.size < SLOW_REENCODE_BYTES ||
+          confirm(
+            `Гифка весит ${megabytes.toFixed(1)} МБ — её нужно пережать, иначе в хранилище ` +
+              `она не поместится. Это займёт примерно ${seconds} с, и вкладка будет ` +
+              `подтормаживать.\n\n` +
+              `ОК — пережать, Отмена — быстро сохранить только первый кадр.`
+          );
+
+        if (proceed) {
+          const result = await reencoder.run(file, {
+            maxBytes: MAX_RAW_ANIMATED_BYTES,
+            onProgress: showBusy,
+          });
+          hideBusy();
+          if (result) return result.dataUrl;
+        } else {
+          // Пользователь выбрал быстрый путь — дальше обычная ветка с canvas.
+          return canvasIcon(dataUrl);
+        }
+      }
+
+      // Сюда попадаем, только если браузер без ImageDecoder или файл не разобрался.
+      const size = (file.size / (1024 * 1024)).toFixed(1);
+      const keepAnimation = confirm(
+        `Анимированная картинка весит ${size} МБ, и пережать её не получилось.\n\n` +
+          `ОК — сохранить как есть (займёт место и замедлит открытие списка), ` +
+          `Отмена — сохранить только первый кадр.`
+      );
+      if (keepAnimation) return dataUrl;
     }
 
+    return canvasIcon(dataUrl);
+  }
+
+  /** Обычный путь: перерисовать в canvas под размер обложки. */
+  async function canvasIcon(dataUrl) {
     const image = await loadImage(dataUrl);
     const { width, height } = fitIconSize(image);
     return encodeIcon(image, width, height) || dataUrl;
@@ -323,8 +438,12 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
 
     for (const key of keys) {
       const url = next[key];
-      // Гифки не трогаем: перерисовка в canvas убила бы анимацию.
-      if (typeof url !== 'string' || url.startsWith('data:image/gif')) continue;
+      if (typeof url !== 'string') continue;
+      // Анимацию не трогаем: перерисовка в canvas оставила бы первый кадр.
+      // Гифки отсеиваем по типу (свои перекодировки — всегда webp или jpeg),
+      // остальное — по сигнатуре в начале файла.
+      if (url.startsWith('data:image/gif')) continue;
+      if (isAnimated(bytesFromDataUrl(url, 4096))) continue;
       try {
         const smaller = await shrinkStoredIcon(url);
         if (smaller && smaller.length < url.length) {
@@ -345,6 +464,25 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
     } catch (error) {
       log('[course-cards] Не удалось сохранить ужатые картинки:', error);
     }
+  }
+
+  /**
+   * Плашка «идёт работа»: пережатие большой гифки занимает секунды, и без неё
+   * это выглядит как зависшая вкладка.
+   */
+  function showBusy(text) {
+    let busy = document.getElementById(BUSY_ID);
+    if (!busy) {
+      busy = document.createElement('div');
+      busy.id = BUSY_ID;
+      document.body.appendChild(busy);
+    }
+    busy.textContent = text;
+  }
+
+  function hideBusy() {
+    const busy = document.getElementById(BUSY_ID);
+    if (busy) busy.remove();
   }
 
   function pickIconFile() {
@@ -389,7 +527,10 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
     if (!file) return;
 
     if (file.size > MAX_SOURCE_BYTES) {
-      alert('Картинка слишком большая — выбери файл до 10 МБ.');
+      alert(
+        `Файл ${(file.size / (1024 * 1024)).toFixed(0)} МБ — это слишком даже для нас. ` +
+          `Возьми что-нибудь до ${MAX_SOURCE_BYTES / (1024 * 1024)} МБ.`
+      );
       return;
     }
 
@@ -400,6 +541,8 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
     } catch (error) {
       log('[course-cards] Не удалось обработать картинку:', error);
       alert('Не удалось обработать картинку. Попробуй другой файл.');
+    } finally {
+      hideBusy();
     }
   }
 

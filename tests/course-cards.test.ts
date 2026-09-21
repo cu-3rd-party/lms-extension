@@ -12,6 +12,14 @@ const COURSES_PAGE = `${LMS_URL}/learn/courses/view/actual/all`;
 const EDITOR_PAGE = `${COURSES_PAGE}?customCardEditor=true`;
 const ARCHIVED_PAGE = `${LMS_URL}/learn/courses/view/archived`;
 
+/** Анимированный webp 8×8 из трёх кадров: чанк ANIM + три ANMF. */
+const ANIMATED_WEBP =
+  'UklGRhQBAABXRUJQVlA4WAoAAAACAAAABwAABwAAQU5JTQYAAAAAAAAAAABBTk1GSgAAAAAAAAAAAAcAAAcAAGQAAAJWUDggMgAAADABAJ0BKggACAABQCYloAADcAD+8ut///mwP/bz/wR6Af//0uD//pcH//S4P/SkAAAAQU5NRkgAAAAAAAAAAAAHAAAHAABkAAAAVlA4IDAAAAA0AQCdASoIAAgAAAAmJaAAA3AA/vNpl//5sD/yD/5B9/v//00j/+mkf/00j5TQAABBTk1GRgAAAAAAAAAAAAcAAAcAAGQAAABWUDggLgAAADQBAJ0BKggACAAAACYloAADcAD++1Xj//9Lg//6XB//0uD/0uD/+tXlV6yroAA=';
+
+/** Анимированный gif 8×8 из трёх кадров. */
+const ANIMATED_GIF =
+  'R0lGODlhCAAIAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQACgAAACwAAAAACAAIAAAIDwABCBxIsKDBgwgTKkwYEAAh+QQBCgABACwAAAAACAAIAIEAgAAAAAAAAAAAAAAIDwABCBxIsKDBgwgTKkwYEAAh+QQBCgABACwAAAAACAAIAIEAAP8AAAAAAAAAAAAIDwABCBxIsKDBgwgTKkwYEAA7';
+
 /** 1×1 PNG — хватает, чтобы проверить, что своя картинка подставляется. */
 const TEST_ICON =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -429,6 +437,75 @@ test.describe('Карточки курсов: дизайн, иконки и ар
       'courseIcons'
     );
     expect(again?.[courseKey as string]).toBe(afterFirst);
+  });
+
+  test('анимация не теряется: выбранный gif сохраняется как есть', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    await page.goto(EDITOR_PAGE);
+    await expect(page.locator('.culms-card-actions').first()).toBeVisible({ timeout: 15_000 });
+
+    const actions = page.locator('.culms-card-actions').first();
+    const courseKey = await actions.getAttribute('data-culms-key');
+
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      actions.locator('[data-culms-action="icon"]').click(),
+    ]);
+    await chooser.setFiles({
+      name: 'anim.gif',
+      mimeType: 'image/gif',
+      buffer: Buffer.from(ANIMATED_GIF, 'base64'),
+    });
+
+    // Перекодировка в canvas оставила бы первый кадр и сменила тип на webp.
+    await expect
+      .poll(
+        async () => {
+          const icons = await getExtensionStorage<Record<string, string>>(
+            context,
+            extensionId,
+            'local',
+            'courseIcons'
+          );
+          return icons?.[courseKey as string] || '';
+        },
+        { timeout: 15_000 }
+      )
+      .toBe(`data:image/gif;base64,${ANIMATED_GIF}`);
+  });
+
+  test('анимированную картинку не трогает разовое ужатие', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    await setExtensionStorage(context, extensionId, 'sync', 'oldCoursesDesignToggle', true);
+
+    await page.goto(COURSES_PAGE);
+    await expect(page.locator('.culms-cover').first()).toBeAttached({ timeout: 15_000 });
+    const courseKey = await page.locator('.culms-cover').first().getAttribute('data-culms-key');
+
+    // webp, а не gif: по типу такую картинку от нашей перекодировки не отличить,
+    // спасает только сигнатура ANIM внутри файла.
+    const stored = `data:image/webp;base64,${ANIMATED_WEBP}`;
+    await setExtensionStorage(context, extensionId, 'local', 'courseIcons', {
+      [courseKey as string]: stored,
+    });
+
+    await page.goto(COURSES_PAGE);
+    await expect(page.locator('.culms-cover--custom').first()).toBeAttached({ timeout: 15_000 });
+    await page.waitForTimeout(4_000);
+
+    const icons = await getExtensionStorage<Record<string, string>>(
+      context,
+      extensionId,
+      'local',
+      'courseIcons'
+    );
+    expect(icons?.[courseKey as string]).toBe(stored);
   });
 
   test('при пустом архиве таблица остаётся нетронутой', async ({ page }) => {

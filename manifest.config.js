@@ -12,7 +12,17 @@ export default defineManifest({
   version: pkg.version,
   description:
     'Неофициальная доработка CU LMS, возвращает утерянные функции, добавляет темную тему, отображение весов заданий',
-  permissions: ['storage', 'scripting', 'webNavigation', 'cookies', 'activeTab', 'downloads'],
+  // unlimitedStorage: без него storage.local — это 10 МБ на всё расширение,
+  // а анимированная обложка занимает до мегабайта на курс.
+  permissions: [
+    'storage',
+    'unlimitedStorage',
+    'scripting',
+    'webNavigation',
+    'cookies',
+    'activeTab',
+    'downloads',
+  ],
   host_permissions: [
     'https://my.centraluniversity.ru/*',
     'https://id.centraluniversity.ru/*',
@@ -93,6 +103,7 @@ export default defineManifest({
         'plugins/courses/tasks_fix.js',
         'plugins/courses/apricot_tasks_fix.js',
         'plugins/courses/contest_tasks_fix.js',
+        'plugins/course-view/gif_reencode.js',
         'plugins/course-view/course_cards.js',
         'plugins/course-view/course_cards.css',
         'plugins/course-view/courses_fix.js',
