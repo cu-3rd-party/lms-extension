@@ -959,6 +959,133 @@ setupImagePicker({
   emptyText: 'Картинка не выбрана',
 });
 
+// --- НАСТРОЙКИ ФАЙЛОМ ---
+//
+// Что именно выгружается и что отвергается при загрузке, решает реестр
+// plugins/_shared/settings_registry.js — он же подключён в popup.html.
+
+const profileKindSelect = document.getElementById('profile-kind-select');
+const profileStatus = document.getElementById('profile-status');
+const profileImportFile = document.getElementById('profile-import-file');
+
+function setProfileStatus(text, kind = 'info') {
+  if (!profileStatus) return;
+  profileStatus.textContent = text || '';
+  profileStatus.style.color =
+    kind === 'error' ? '#d93025' : kind === 'success' ? '#188038' : '#666';
+}
+
+/** Имя файла вида «cu-lms-visual-2026-09-21.json». */
+function profileFileName(kind) {
+  const date = new Date().toISOString().slice(0, 10);
+  return `cu-lms-${kind}-${date}.json`;
+}
+
+async function saveProfileFile(profile) {
+  const text = JSON.stringify(profile, null, 2);
+  const blob = new Blob([text], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  try {
+    // downloads даёт диалог «куда сохранить» и переживает закрытие попапа.
+    if (browser.downloads && browser.downloads.download) {
+      await browser.downloads.download({
+        url,
+        filename: profileFileName(profile.kind),
+        saveAs: true,
+      });
+      return text.length;
+    }
+  } catch (_error) {
+    // Ниже обычная ссылка — она работает и без разрешения downloads.
+  }
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = profileFileName(profile.kind);
+  link.click();
+  return text.length;
+}
+
+const profileExportBtn = document.getElementById('profile-export-btn');
+if (profileExportBtn) {
+  profileExportBtn.addEventListener('click', async () => {
+    const registry = window.cuLmsSettings;
+    if (!registry) {
+      setProfileStatus('Реестр настроек не загрузился — пересобери расширение.', 'error');
+      return;
+    }
+
+    const kind = (profileKindSelect && profileKindSelect.value) || 'settings';
+    setProfileStatus('Собираю...');
+
+    try {
+      const profile = await registry.collect(kind);
+      const size = await saveProfileFile(profile);
+      const count = Object.keys(profile.values).length;
+      setProfileStatus(`Сохранено: ${count} настроек, ${(size / 1024).toFixed(1)} КБ.`, 'success');
+    } catch (error) {
+      setProfileStatus('Не удалось сохранить: ' + (error.message || error), 'error');
+    }
+  });
+}
+
+const profileImportBtn = document.getElementById('profile-import-btn');
+if (profileImportBtn && profileImportFile) {
+  profileImportBtn.addEventListener('click', () => profileImportFile.click());
+
+  profileImportFile.addEventListener('change', async () => {
+    const file = profileImportFile.files && profileImportFile.files[0];
+    profileImportFile.value = '';
+    if (!file) return;
+
+    const registry = window.cuLmsSettings;
+    if (!registry) {
+      setProfileStatus('Реестр настроек не загрузился — пересобери расширение.', 'error');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      // Сначала разбор без записи: показываем, что приедет, и только потом
+      // перезаписываем чужими значениями то, что человек настраивал руками.
+      const preview = registry.inspect(text);
+      if (!preview.ok) {
+        setProfileStatus(preview.error, 'error');
+        return;
+      }
+
+      const meta = preview.profile.meta || {};
+      const title = meta.name ? `«${meta.name}»` : 'профиль';
+      const skipped = preview.rejected.length ? `\nПропустим: ${preview.rejected.length}.` : '';
+      const confirmed = confirm(
+        `Загрузить ${title}?\n\nПрименим настроек: ${preview.accepted.length}.${skipped}\n\n` +
+          `Текущие значения этих настроек будут перезаписаны.`
+      );
+      if (!confirmed) {
+        setProfileStatus('Отменено.');
+        return;
+      }
+
+      const result = await registry.apply(text);
+      if (!result.ok) {
+        setProfileStatus(result.error, 'error');
+        return;
+      }
+
+      refreshToggleStates();
+      await refreshImagePreview(customLogoPreview, 'customLogo', 'Логотип не выбран');
+      await refreshImagePreview(customBackgroundPreview, 'customBackground');
+
+      const tail = result.rejected.length ? `, пропущено ${result.rejected.length}` : '';
+      setProfileStatus(`Применено ${result.applied.length} настроек${tail}.`, 'success');
+      if (reloadNotice) reloadNotice.style.display = 'block';
+    } catch (error) {
+      setProfileStatus('Не удалось прочитать файл: ' + (error.message || error), 'error');
+    }
+  });
+}
+
 const resetCourseIconsBtn = document.getElementById('reset-course-icons-btn');
 if (resetCourseIconsBtn) {
   resetCourseIconsBtn.addEventListener('click', () => {

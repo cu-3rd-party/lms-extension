@@ -1,0 +1,297 @@
+// settings_registry.js — единый список настроек расширения и перенос их в JSON.
+//
+// Зачем реестр. Настройки раскиданы по двум хранилищам и десятку плагинов:
+// тумблеры и выпадающие списки лежат в `storage.sync`, картинки и названия —
+// в `storage.local`, а токены интеграций — там же рядом. Пока единственным
+// «списком всего» был попап, выгрузить настройки в файл было нельзя: непонятно,
+// что выгружать, а что трогать нельзя.
+//
+// Отсюда три задачи реестра:
+//   1. знать все ключи, их область, тип и допустимые значения;
+//   2. решать, что попадает в файл, а что нет — токены и кеши не попадают
+//      никогда, иначе поделиться настройками значило бы отдать доступ к аккаунту;
+//   3. проверять чужой файл при загрузке: формат публичный, и в нём приедет
+//      что угодно — от старой версии до намеренно кривых значений.
+//
+// Наружу отдаётся `window.cuLmsSettings`. Файл подключает попап тегом
+// `<script>`; контент-скриптам он не нужен.
+
+// Polyfill to handle browser namespace differences (Chrome uses 'chrome', Firefox uses 'browser')
+if (typeof browser === 'undefined') {
+  var browser = chrome;
+}
+
+if (typeof window.cuLmsSettings === 'undefined') {
+  ('use strict');
+
+  const FORMAT = 'cu-lms-extension/profile';
+  // Версия формата, а не расширения. Растёт, когда меняется структура файла.
+  const FORMAT_VERSION = 1;
+
+  // --- ГРУППЫ ---
+  //
+  // `private` в файл не попадает никогда и существует только чтобы ключ был
+  // описан: незнакомый ключ в хранилище — повод проверить, не забыли ли его.
+  const GROUPS = {
+    appearance: 'Оформление',
+    features: 'Функции',
+    integrations: 'Интеграции',
+    content: 'Свои картинки и названия',
+    personal: 'Личные данные',
+    private: 'Не выгружается',
+  };
+
+  const bool = (key, group) => ({ key, area: 'sync', type: 'boolean', group });
+  const choice = (key, group, values, fallback) => ({
+    key,
+    area: 'sync',
+    type: 'enum',
+    group,
+    values,
+    fallback,
+  });
+  const range = (key, group, min, max, fallback) => ({
+    key,
+    area: 'sync',
+    type: 'number',
+    group,
+    min,
+    max,
+    fallback,
+  });
+  const data = (key, group, type) => ({ key, area: 'local', type, group });
+
+  const REGISTRY = [
+    // --- оформление ---
+    bool('themeEnabled', 'appearance'),
+    bool('oledEnabled', 'appearance'),
+    bool('darkPdfEnabled', 'appearance'),
+    bool('snowEnabled', 'appearance'),
+    bool('emojiHeartsEnabled', 'appearance'),
+    bool('oldCoursesDesignToggle', 'appearance'),
+    bool('customLogoToggle', 'appearance'),
+    bool('customBackgroundToggle', 'appearance'),
+    choice('stickerObjectFit', 'appearance', ['cover', 'contain', 'fill', 'scale-down'], 'cover'),
+    range('stickerScale', 'appearance', 25, 400, 100),
+    choice('logoObjectFit', 'appearance', ['contain', 'cover', 'fill', 'none'], 'contain'),
+    range('logoScale', 'appearance', 25, 400, 100),
+    choice('backgroundFit', 'appearance', ['cover', 'contain', 'fill', 'tile', 'none'], 'cover'),
+    range('backgroundVeil', 'appearance', 0, 95, 60),
+
+    // --- функции ---
+    bool('customCourseNamesToggle', 'features'),
+    bool('futureExamsViewToggle', 'features'),
+    choice('futureExamsDisplayFormat', 'features', ['date', 'week'], 'date'),
+    bool('courseOverviewTaskStatusToggle', 'features'),
+    bool('courseOverviewAutoscrollToggle', 'features'),
+    bool('courseExporterToggle', 'features'),
+    bool('advancedStatementsEnabled', 'features'),
+    bool('endOfCourseCalcEnabled', 'features'),
+    bool('friendsEnabled', 'features'),
+    bool('hideBonusButtonEnabled', 'features'),
+    bool('autoRenameEnabled', 'features'),
+    choice('autoRenameTemplate', 'features', ['short', 'full'], 'short'),
+
+    // --- интеграции ---
+    bool('akhIntegrationEnabled', 'integrations'),
+    bool('contestIntegrationEnabled', 'integrations'),
+    // Списки курсов для фильтров интеграций: массив id.
+    { key: 'akhCourseFilter', area: 'sync', type: 'array', group: 'integrations' },
+    { key: 'contestCourseFilter', area: 'sync', type: 'array', group: 'integrations' },
+
+    // --- свои картинки ---
+    data('courseIcons', 'content', 'object'),
+    data('customLogo', 'content', 'string'),
+    data('customBackground', 'content', 'string'),
+
+    // --- личное ---
+    data('courseNames', 'personal', 'object'),
+    data('archivedCourseIds', 'personal', 'array'),
+
+    // --- наружу не отдаётся ---
+    // Токены доступа: отдать их вместе с настройками — отдать аккаунт.
+    data('akh_token', 'private', 'string'),
+    data('akh_refresh_token', 'private', 'string'),
+    data('swapDeviceKey', 'private', 'string'),
+    // Кеши и служебное: в чужом профиле бесполезны и только мешают.
+    data('courseMetaCache', 'private', 'array'),
+    data('cachedLatestVersion', 'private', 'string'),
+    data('lastVersionCheckTimestamp', 'private', 'number'),
+    data('lmsOrigin', 'private', 'string'),
+  ];
+
+  const BY_KEY = new Map(REGISTRY.map((entry) => [entry.key, entry]));
+
+  // Что входит в каждый вид профиля. `settings` — только поведение, его файл
+  // весит килобайты; `visual` тянет картинки и может весить мегабайты.
+  const KINDS = {
+    settings: { groups: ['appearance', 'features', 'integrations'], title: 'Настройки' },
+    visual: { groups: ['appearance', 'content'], title: 'Визуальный пак' },
+    full: {
+      groups: ['appearance', 'features', 'integrations', 'content', 'personal'],
+      title: 'Всё',
+    },
+  };
+
+  const entriesFor = (kind) => {
+    const spec = KINDS[kind];
+    if (!spec) throw new Error('Неизвестный вид профиля: ' + kind);
+    return REGISTRY.filter((entry) => spec.groups.includes(entry.group));
+  };
+
+  // --- ПРОВЕРКА ЗНАЧЕНИЙ ---
+
+  /** null — значение годное; строка — причина, по которой его отвергли. */
+  function reject(entry, value) {
+    switch (entry.type) {
+      case 'boolean':
+        return typeof value === 'boolean' ? null : 'ожидалось да/нет';
+      case 'number': {
+        if (typeof value !== 'number' || !Number.isFinite(value)) return 'ожидалось число';
+        if (entry.min !== undefined && value < entry.min) return 'меньше ' + entry.min;
+        if (entry.max !== undefined && value > entry.max) return 'больше ' + entry.max;
+        return null;
+      }
+      case 'enum':
+        return entry.values.includes(value) ? null : 'недопустимое значение';
+      case 'string':
+        return typeof value === 'string' ? null : 'ожидалась строка';
+      case 'array':
+        return Array.isArray(value) ? null : 'ожидался список';
+      case 'object':
+        return value && typeof value === 'object' && !Array.isArray(value)
+          ? null
+          : 'ожидался объект';
+      default:
+        return 'неизвестный тип';
+    }
+  }
+
+  // --- ВЫГРУЗКА ---
+
+  async function collect(kind, meta = {}) {
+    const entries = entriesFor(kind);
+    const syncKeys = entries.filter((e) => e.area === 'sync').map((e) => e.key);
+    const localKeys = entries.filter((e) => e.area === 'local').map((e) => e.key);
+
+    const [syncData, localData] = await Promise.all([
+      syncKeys.length ? browser.storage.sync.get(syncKeys) : Promise.resolve({}),
+      localKeys.length ? browser.storage.local.get(localKeys) : Promise.resolve({}),
+    ]);
+
+    const values = {};
+    entries.forEach((entry) => {
+      const source = entry.area === 'sync' ? syncData : localData;
+      // Ключа может не быть вовсе — настройку никогда не трогали. В файл его
+      // не пишем: пустое значение при загрузке затёрло бы чужую настройку.
+      if (entry.key in source && source[entry.key] !== undefined) {
+        values[entry.key] = source[entry.key];
+      }
+    });
+
+    return {
+      format: FORMAT,
+      version: FORMAT_VERSION,
+      kind,
+      meta: {
+        name: meta.name || KINDS[kind].title,
+        author: meta.author || '',
+        note: meta.note || '',
+        createdAt: new Date().toISOString(),
+        extensionVersion:
+          (browser.runtime.getManifest && browser.runtime.getManifest().version) || '',
+      },
+      values,
+    };
+  }
+
+  // --- ЗАГРУЗКА ---
+
+  /**
+   * Разбирает файл и делит ключи на принятые и отвергнутые, ничего не записывая.
+   * Отдельный шаг нужен, чтобы попап показал, что именно приедет, до того как
+   * перезапишет настройки.
+   */
+  function inspect(raw) {
+    let profile = raw;
+    if (typeof raw === 'string') {
+      try {
+        profile = JSON.parse(raw);
+      } catch (_error) {
+        return { ok: false, error: 'Это не JSON' };
+      }
+    }
+    if (!profile || typeof profile !== 'object') return { ok: false, error: 'Пустой файл' };
+    if (profile.format !== FORMAT) {
+      return { ok: false, error: 'Чужой формат файла' };
+    }
+    if (typeof profile.version !== 'number' || profile.version > FORMAT_VERSION) {
+      return {
+        ok: false,
+        error: 'Файл новее расширения — обнови расширение',
+      };
+    }
+    if (!profile.values || typeof profile.values !== 'object') {
+      return { ok: false, error: 'В файле нет настроек' };
+    }
+
+    const accepted = [];
+    const rejected = [];
+    Object.entries(profile.values).forEach(([key, value]) => {
+      const entry = BY_KEY.get(key);
+      if (!entry) {
+        // Незнакомый ключ — скорее всего файл от новой версии. Пропускаем,
+        // но говорим об этом вслух.
+        rejected.push({ key, reason: 'расширение не знает такой настройки' });
+        return;
+      }
+      if (entry.group === 'private') {
+        rejected.push({ key, reason: 'такие ключи не переносятся' });
+        return;
+      }
+      const problem = reject(entry, value);
+      if (problem) {
+        rejected.push({ key, reason: problem });
+        return;
+      }
+      accepted.push({ entry, value });
+    });
+
+    return { ok: true, profile, accepted, rejected };
+  }
+
+  /** Записывает то, что прошло проверку. Остальное не трогает. */
+  async function apply(raw) {
+    const result = inspect(raw);
+    if (!result.ok) return result;
+
+    const sync = {};
+    const local = {};
+    result.accepted.forEach(({ entry, value }) => {
+      (entry.area === 'sync' ? sync : local)[entry.key] = value;
+    });
+
+    if (Object.keys(sync).length) await browser.storage.sync.set(sync);
+    if (Object.keys(local).length) await browser.storage.local.set(local);
+
+    return {
+      ok: true,
+      applied: result.accepted.map(({ entry }) => entry.key),
+      rejected: result.rejected,
+      kind: result.profile.kind,
+      meta: result.profile.meta || {},
+    };
+  }
+
+  window.cuLmsSettings = {
+    FORMAT,
+    FORMAT_VERSION,
+    GROUPS,
+    KINDS,
+    REGISTRY,
+    entriesFor,
+    collect,
+    inspect,
+    apply,
+  };
+}

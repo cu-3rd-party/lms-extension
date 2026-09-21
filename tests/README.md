@@ -69,6 +69,7 @@ tests/
 ├── course-names.test.ts         # свои названия курсов и обратное преобразование
 ├── custom-logo.test.ts          # свой логотип в шапке вместо фирменного
 ├── custom-background.test.ts    # своя картинка на фоне вместо заливки
+├── settings-profile.test.ts     # выгрузка и загрузка настроек файлом
 ├── dark-theme.test.ts           # переключение тёмной темы
 ├── future-exams.test.ts
 └── tasks-fix.test.ts

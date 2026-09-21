@@ -637,11 +637,39 @@
     </div>
 
     <div class="section">
+      <h3>Настройки файлом</h3>
+
+      <p class="course-hint">
+        Выгружает настройки в .json и загружает обратно. Токены интеграций, кеши и служебные ключи в
+        файл не попадают: им не место в том, чем делятся.
+      </p>
+
+      <div class="setting-container">
+        <span class="setting-label">Что выгрузить:</span>
+        <div class="dropdown-container">
+          <select class="dropdown-select" id="profile-kind-select">
+            <option value="settings" selected>Настройки (без картинок)</option>
+            <option value="visual">Визуальный пак (оформление и картинки)</option>
+            <option value="full">Всё, включая названия курсов и архив</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="profile-export-btn" class="action-button">Сохранить в файл</button>
+      <button id="profile-import-btn" class="action-button" style="margin-top: 8px">
+        Загрузить из файла
+      </button>
+      <input type="file" id="profile-import-file" accept="application/json,.json" hidden />
+      <p class="status-text" id="profile-status"></p>
+    </div>
+
+    <div class="section">
       <h3>Не работает?</h3>
       <button id="reset-all-settings-btn" class="btn-reset">Сбросить все настройки</button>
     </div>
 
     <script src="../plugins/course-view/gif_reencode.js"></script>
+    <script src="../plugins/_shared/settings_registry.js"></script>
     <script type="module" src="popup_loader.js"></script>
   </body>
 </html>
