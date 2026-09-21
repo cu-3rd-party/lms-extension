@@ -471,6 +471,54 @@
       </div>
 
       <div class="toggle-container">
+        <span class="toggle-label">Своя картинка на фоне:</span>
+        <label class="switch">
+          <input type="checkbox" id="custom-background-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div id="custom-background-container" class="setting-group" style="display: none">
+        <p class="course-hint">
+          Заменяет заливку под островками интерфейса на всех страницах LMS. Шапка, левое меню и
+          карточки остаются непрозрачными. Подложка — полупрозрачная заливка цветом темы поверх
+          картинки: без неё текст, который лежит прямо на фоне (например, таблица заданий), не
+          читается. Меньше подложки — ярче картинка.
+        </p>
+        <div class="logo-preview" id="custom-background-preview"></div>
+        <p class="course-hint" id="custom-background-status"></p>
+
+        <div class="setting-container">
+          <span class="setting-label">Как вставить:</span>
+          <div class="dropdown-container">
+            <select class="dropdown-select" id="background-fit-select">
+              <option value="cover" selected>Заполнить экран (Cover)</option>
+              <option value="contain">Целиком (Contain)</option>
+              <option value="fill">Растянуть (Fill)</option>
+              <option value="tile">Плиткой</option>
+              <option value="none">Как есть, по центру</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-container">
+          <span class="setting-label">Плотность подложки:</span>
+          <div class="dropdown-container">
+            <select class="dropdown-select" id="background-veil-select">
+              <option value="0">Нет</option>
+              <option value="20">20%</option>
+              <option value="40">40%</option>
+              <option value="60" selected>60%</option>
+              <option value="75">75%</option>
+              <option value="90">90%</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="pick-background-btn" class="action-button">Выбрать картинку</button>
+        <button id="reset-background-btn" class="btn-reset">Вернуть обычный фон</button>
+        <input type="file" id="custom-background-file" accept="image/*" hidden />
+      </div>
+
+      <div class="toggle-container">
         <span class="toggle-label">Эффект снега:</span>
         <label class="switch">
           <input type="checkbox" id="snow-toggle" />

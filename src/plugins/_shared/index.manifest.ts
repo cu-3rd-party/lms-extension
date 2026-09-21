@@ -12,6 +12,7 @@ const manifest = {
     'browser-polyfill.js',
     'plugins/_shared/course_names.js',
     'plugins/_shared/custom_logo.js',
+    'plugins/_shared/custom_background.js',
     'plugins/_shared/version_check.js',
     'plugins/_shared/reset.js',
     'plugins/_shared/friends_tab.js',

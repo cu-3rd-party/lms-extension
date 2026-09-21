@@ -102,6 +102,7 @@ const LIVE_SETTINGS = [
   'oldCoursesDesignToggle',
   'customCourseNamesToggle',
   'customLogoToggle',
+  'customBackgroundToggle',
 ];
 
 // --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP ---
@@ -140,6 +141,7 @@ const toggles = {
   oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
   customCourseNamesToggle: document.getElementById('custom-course-names-toggle'),
   customLogoToggle: document.getElementById('custom-logo-toggle'),
+  customBackgroundToggle: document.getElementById('custom-background-toggle'),
   futureExamsViewToggle: document.getElementById('future-exams-view-toggle'),
   courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
   advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
@@ -164,6 +166,11 @@ const stickerFitSelect = document.getElementById('sticker-fit-select');
 const stickerScaleSelect = document.getElementById('sticker-scale-select');
 const logoFitSelect = document.getElementById('logo-fit-select');
 const logoScaleSelect = document.getElementById('logo-scale-select');
+const customBackgroundContainer = document.getElementById('custom-background-container');
+const customBackgroundPreview = document.getElementById('custom-background-preview');
+const customBackgroundFile = document.getElementById('custom-background-file');
+const backgroundFitSelect = document.getElementById('background-fit-select');
+const backgroundVeilSelect = document.getElementById('background-veil-select');
 const gradesExportBtn = document.getElementById('grades-export-btn');
 const gradesExportStatus = document.getElementById('grades-export-status');
 
@@ -177,6 +184,8 @@ const allKeys = [
   'stickerScale',
   'logoObjectFit',
   'logoScale',
+  'backgroundFit',
+  'backgroundVeil',
 ];
 let pendingChanges = {};
 
@@ -192,6 +201,13 @@ function updateCustomCourseNamesUI(isEnabled) {
   }
 }
 
+function updateCustomBackgroundUI(isEnabled) {
+  if (customBackgroundContainer) {
+    customBackgroundContainer.style.display = isEnabled ? 'block' : 'none';
+  }
+  if (isEnabled) void refreshImagePreview(customBackgroundPreview, 'customBackground');
+}
+
 function updateCustomLogoUI(isEnabled) {
   if (customLogoContainer) {
     customLogoContainer.style.display = isEnabled ? 'block' : 'none';
@@ -200,16 +216,19 @@ function updateCustomLogoUI(isEnabled) {
 }
 
 /** Показывает в попапе то, что сейчас лежит в хранилище. */
-async function refreshLogoPreview() {
-  if (!customLogoPreview) return;
+async function refreshImagePreview(node, storageKey, emptyText = 'Картинка не выбрана') {
+  if (!node) return;
 
-  const data = await browser.storage.local.get('customLogo');
-  const logo = data.customLogo;
+  const data = await browser.storage.local.get(storageKey);
+  const image = data[storageKey];
 
-  customLogoPreview.style.backgroundImage = logo ? `url("${logo}")` : '';
-  customLogoPreview.classList.toggle('logo-preview_empty', !logo);
-  customLogoPreview.textContent = logo ? '' : 'Логотип не выбран';
+  node.style.backgroundImage = image ? `url("${image}")` : '';
+  node.classList.toggle('logo-preview_empty', !image);
+  node.textContent = image ? '' : emptyText;
 }
+
+const refreshLogoPreview = () =>
+  refreshImagePreview(customLogoPreview, 'customLogo', 'Логотип не выбран');
 
 function updateAutoRenameUI(isEnabled) {
   if (autoRenameFormatContainer) {
@@ -240,10 +259,17 @@ function refreshToggleStates() {
     updateOldCoursesDesignUI(!!data.oldCoursesDesignToggle);
     updateCustomCourseNamesUI(!!data.customCourseNamesToggle);
     updateCustomLogoUI(!!data.customLogoToggle);
+    updateCustomBackgroundUI(!!data.customBackgroundToggle);
     if (stickerFitSelect) stickerFitSelect.value = data.stickerObjectFit || 'cover';
     if (stickerScaleSelect) stickerScaleSelect.value = String(data.stickerScale || 100);
     if (logoFitSelect) logoFitSelect.value = data.logoObjectFit || 'contain';
     if (logoScaleSelect) logoScaleSelect.value = String(data.logoScale || 100);
+    if (backgroundFitSelect) backgroundFitSelect.value = data.backgroundFit || 'cover';
+    if (backgroundVeilSelect) {
+      backgroundVeilSelect.value = String(
+        data.backgroundVeil === undefined ? 60 : data.backgroundVeil
+      );
+    }
     updateCourseFilters(data);
     updateContestAuthStatus();
     if (renameTemplateSelect && data.autoRenameTemplate) {
@@ -332,6 +358,8 @@ allKeys.forEach((key) => {
         updateCustomCourseNamesUI(isEnabled);
       } else if (key === 'customLogoToggle') {
         updateCustomLogoUI(isEnabled);
+      } else if (key === 'customBackgroundToggle') {
+        updateCustomBackgroundUI(isEnabled);
       } else if (key === 'akhIntegrationEnabled' || key === 'contestIntegrationEnabled') {
         updateCourseFilters();
         if (key === 'contestIntegrationEnabled') updateContestAuthStatus();
@@ -630,6 +658,9 @@ if (resetBtn) {
       customLogoToggle: false,
       logoObjectFit: 'contain',
       logoScale: 100,
+      customBackgroundToggle: false,
+      backgroundFit: 'cover',
+      backgroundVeil: 60,
       futureExamsViewToggle: false,
       futureExamsDisplayFormat: 'date',
       courseOverviewAutoscrollToggle: false,
@@ -668,6 +699,8 @@ if (resetBtn) {
       if (stickerScaleSelect) stickerScaleSelect.value = String(defaultSettings.stickerScale);
       if (logoFitSelect) logoFitSelect.value = defaultSettings.logoObjectFit;
       if (logoScaleSelect) logoScaleSelect.value = String(defaultSettings.logoScale);
+      if (backgroundFitSelect) backgroundFitSelect.value = defaultSettings.backgroundFit;
+      if (backgroundVeilSelect) backgroundVeilSelect.value = String(defaultSettings.backgroundVeil);
 
       if (reloadNotice) reloadNotice.style.display = 'block';
     } else {
@@ -700,6 +733,18 @@ if (logoFitSelect) {
 if (logoScaleSelect) {
   logoScaleSelect.addEventListener('change', () => {
     browser.storage.sync.set({ logoScale: Number(logoScaleSelect.value) });
+  });
+}
+
+if (backgroundFitSelect) {
+  backgroundFitSelect.addEventListener('change', () => {
+    browser.storage.sync.set({ backgroundFit: backgroundFitSelect.value });
+  });
+}
+
+if (backgroundVeilSelect) {
+  backgroundVeilSelect.addEventListener('change', () => {
+    browser.storage.sync.set({ backgroundVeil: Number(backgroundVeilSelect.value) });
   });
 }
 
@@ -752,24 +797,26 @@ if (resetCourseNamesBtn) {
   });
 }
 
-// --- СВОЙ ЛОГОТИП ---
-
-// Логотип готовится теми же правилами, что и картинки курсов, — общий модуль
+// --- СВОИ КАРТИНКИ: ЛОГОТИП И ФОН ---
+//
+// Готовятся одинаково и теми же правилами, что обложки курсов: общий модуль
 // plugins/course-view/gif_reencode.js подключён в popup.html.
-const MAX_LOGO_SIDE = 600;
-// Мелкий файл кладём как есть: это сохраняет резкость svg и анимацию гифки.
-const MAX_RAW_LOGO_BYTES = 256 * 1024;
+
+// Логотип рисуется в коробке 180x32, фон растягивается на весь экран.
+const LOGO_LIMITS = { maxSide: 600, rawLimit: 256 * 1024 };
+const BACKGROUND_LIMITS = { maxSide: 1920, rawLimit: 512 * 1024 };
 // Столько же, сколько у обложек: MAX_RAW_ANIMATED_BYTES в course_cards.js.
-const MAX_RAW_ANIMATED_LOGO_BYTES = 1024 * 1024;
+const MAX_RAW_ANIMATED_IMAGE_BYTES = 1024 * 1024;
 const SLOW_REENCODE_BYTES = 3 * 1024 * 1024;
 const SECONDS_PER_MB = 0.45;
-const MAX_LOGO_SOURCE_BYTES = 64 * 1024 * 1024;
+const MAX_IMAGE_SOURCE_BYTES = 64 * 1024 * 1024;
 
 const customLogoStatus = document.getElementById('custom-logo-status');
+const customBackgroundStatus = document.getElementById('custom-background-status');
 
-function setLogoStatus(text) {
-  if (customLogoStatus) customLogoStatus.textContent = text || '';
-}
+const setStatus = (node) => (text) => {
+  if (node) node.textContent = text || '';
+};
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -780,8 +827,8 @@ function readFileAsDataUrl(file) {
   });
 }
 
-/** Перерисовывает картинку под размер логотипа. */
-async function canvasLogo(dataUrl) {
+/** Перерисовывает картинку под нужный размер. */
+async function canvasImage(dataUrl, maxSide) {
   const image = await new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -789,7 +836,7 @@ async function canvasLogo(dataUrl) {
     img.src = dataUrl;
   });
 
-  const scale = Math.min(1, MAX_LOGO_SIDE / Math.max(image.width, image.height));
+  const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(image.width * scale));
   canvas.height = Math.max(1, Math.round(image.height * scale));
@@ -807,7 +854,7 @@ async function canvasLogo(dataUrl) {
  * Готовит любой файл к сохранению: вектор и мелочь как есть, анимацию
  * сохраняет анимацией (пережимая, если тяжёлая), остальное — через canvas.
  */
-async function prepareLogo(file) {
+async function prepareImage(file, { maxSide, rawLimit, onStatus }) {
   const dataUrl = await readFileAsDataUrl(file);
 
   // svg перерисовывать в canvas нельзя — потеряется резкость на любом экране.
@@ -815,7 +862,7 @@ async function prepareLogo(file) {
 
   const formats = window.cuLmsGifReencode;
   if (formats && formats.isAnimated(new Uint8Array(await file.arrayBuffer()))) {
-    if (file.size <= MAX_RAW_ANIMATED_LOGO_BYTES) return dataUrl;
+    if (file.size <= MAX_RAW_ANIMATED_IMAGE_BYTES) return dataUrl;
 
     if (formats.supported()) {
       const megabytes = file.size / (1024 * 1024);
@@ -824,65 +871,93 @@ async function prepareLogo(file) {
         file.size < SLOW_REENCODE_BYTES ||
         confirm(
           `Картинка весит ${megabytes.toFixed(1)} МБ — её нужно пережать, иначе она не ` +
-            `поместится в хранилище. Это займёт примерно ${seconds} с.
-
-` +
+            `поместится в хранилище. Это займёт примерно ${seconds} с.\n\n` +
             `ОК — пережать, Отмена — быстро сохранить только первый кадр.`
         );
 
       if (proceed) {
         const result = await formats.run(file, {
-          maxBytes: MAX_RAW_ANIMATED_LOGO_BYTES,
-          onProgress: setLogoStatus,
+          maxBytes: MAX_RAW_ANIMATED_IMAGE_BYTES,
+          onProgress: onStatus,
         });
-        setLogoStatus('');
+        onStatus('');
         if (result) return result.dataUrl;
       }
     }
   }
 
-  if (file.size <= MAX_RAW_LOGO_BYTES) return dataUrl;
-  return canvasLogo(dataUrl);
+  if (file.size <= rawLimit) return dataUrl;
+  return canvasImage(dataUrl, maxSide);
 }
 
-const pickLogoBtn = document.getElementById('pick-logo-btn');
-if (pickLogoBtn && customLogoFile) {
-  pickLogoBtn.addEventListener('click', () => customLogoFile.click());
+/** Общая обвязка кнопок «выбрать» и «сбросить» для логотипа и фона. */
+function setupImagePicker(options) {
+  const { pickButtonId, resetButtonId, input, storageKey, limits, status, preview, emptyText } =
+    options;
+  const onStatus = setStatus(status);
+  const refresh = () => refreshImagePreview(preview, storageKey, emptyText);
 
-  customLogoFile.addEventListener('change', async () => {
-    const file = customLogoFile.files && customLogoFile.files[0];
-    // Сбрасываем значение, иначе повторный выбор того же файла не даст события.
-    customLogoFile.value = '';
-    if (!file) return;
+  const pickButton = document.getElementById(pickButtonId);
+  if (pickButton && input) {
+    pickButton.addEventListener('click', () => input.click());
 
-    if (file.size > MAX_LOGO_SOURCE_BYTES) {
-      alert(
-        `Файл ${(file.size / (1024 * 1024)).toFixed(0)} МБ — это слишком даже для нас. ` +
-          `Возьми что-нибудь до ${MAX_LOGO_SOURCE_BYTES / (1024 * 1024)} МБ.`
-      );
-      return;
-    }
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      // Сбрасываем значение, иначе повторный выбор того же файла не даст события.
+      input.value = '';
+      if (!file) return;
 
-    try {
-      const prepared = await prepareLogo(file);
-      // Логотип живёт в local, а не в sync: в квоту sync картинка не влезает.
-      await browser.storage.local.set({ customLogo: prepared });
-      await refreshLogoPreview();
-    } catch (_error) {
-      alert('Не удалось обработать картинку. Попробуй другой файл.');
-    } finally {
-      setLogoStatus('');
-    }
-  });
+      if (file.size > MAX_IMAGE_SOURCE_BYTES) {
+        alert(
+          `Файл ${(file.size / (1024 * 1024)).toFixed(0)} МБ — это слишком даже для нас. ` +
+            `Возьми что-нибудь до ${MAX_IMAGE_SOURCE_BYTES / (1024 * 1024)} МБ.`
+        );
+        return;
+      }
+
+      try {
+        const prepared = await prepareImage(file, { ...limits, onStatus });
+        // Картинки живут в local, а не в sync: в квоту sync они не влезают.
+        await browser.storage.local.set({ [storageKey]: prepared });
+        await refresh();
+      } catch (_error) {
+        alert('Не удалось обработать картинку. Попробуй другой файл.');
+      } finally {
+        onStatus('');
+      }
+    });
+  }
+
+  const resetButton = document.getElementById(resetButtonId);
+  if (resetButton) {
+    resetButton.addEventListener('click', async () => {
+      await browser.storage.local.remove(storageKey);
+      await refresh();
+    });
+  }
 }
 
-const resetLogoBtn = document.getElementById('reset-logo-btn');
-if (resetLogoBtn) {
-  resetLogoBtn.addEventListener('click', async () => {
-    await browser.storage.local.remove('customLogo');
-    await refreshLogoPreview();
-  });
-}
+setupImagePicker({
+  pickButtonId: 'pick-logo-btn',
+  resetButtonId: 'reset-logo-btn',
+  input: customLogoFile,
+  storageKey: 'customLogo',
+  limits: LOGO_LIMITS,
+  status: customLogoStatus,
+  preview: customLogoPreview,
+  emptyText: 'Логотип не выбран',
+});
+
+setupImagePicker({
+  pickButtonId: 'pick-background-btn',
+  resetButtonId: 'reset-background-btn',
+  input: customBackgroundFile,
+  storageKey: 'customBackground',
+  limits: BACKGROUND_LIMITS,
+  status: customBackgroundStatus,
+  preview: customBackgroundPreview,
+  emptyText: 'Картинка не выбрана',
+});
 
 const resetCourseIconsBtn = document.getElementById('reset-course-icons-btn');
 if (resetCourseIconsBtn) {
