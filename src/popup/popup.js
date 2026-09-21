@@ -264,6 +264,21 @@ function saveOpenSections(open) {
   }
 }
 
+/**
+ * Складывает разделы в общую обёртку: по ней CSS раскладывает их в два
+ * столбца. Делается из скрипта, чтобы новый раздел в popup.html попадал в
+ * раскладку сам, без правки разметки.
+ */
+function groupSections() {
+  const sections = [...document.querySelectorAll('.section')];
+  if (!sections.length || document.querySelector('.sections')) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'sections';
+  sections[0].parentNode.insertBefore(wrapper, sections[0]);
+  sections.forEach((section) => wrapper.appendChild(section));
+}
+
 function initAccordion() {
   const saved = localStorage.getItem(ACCORDION_KEY);
   const open = readOpenSections();
@@ -314,6 +329,7 @@ function initAccordion() {
   });
 }
 
+groupSections();
 initAccordion();
 
 /** Значение тумблера по умолчанию — из реестра настроек. */
@@ -997,8 +1013,8 @@ function setupImagePicker(options) {
 
       if (file.size > MAX_IMAGE_SOURCE_BYTES) {
         alert(
-          `Файл ${(file.size / (1024 * 1024)).toFixed(0)} МБ — это слишком даже для нас. ` +
-            `Возьми что-нибудь до ${MAX_IMAGE_SOURCE_BYTES / (1024 * 1024)} МБ.`
+          `Файл ${(file.size / (1024 * 1024)).toFixed(0)} МБ — слишком большой. ` +
+            `Максимум ${MAX_IMAGE_SOURCE_BYTES / (1024 * 1024)} МБ.`
         );
         return;
       }
@@ -1009,7 +1025,7 @@ function setupImagePicker(options) {
         await browser.storage.local.set({ [storageKey]: prepared });
         await refresh();
       } catch (_error) {
-        alert('Не удалось обработать картинку. Попробуй другой файл.');
+        alert('Не удалось обработать картинку. Выберите другой файл.');
       } finally {
         onStatus('');
       }

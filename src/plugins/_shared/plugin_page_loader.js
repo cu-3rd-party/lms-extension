@@ -107,17 +107,20 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
     // и мешала в них ориентироваться. Теперь она за кнопкой в углу.
     const contentWrapper = document.createElement('div');
     contentWrapper.id = CONTENT_WRAPPER_ID;
-    contentWrapper.style.cssText = `display: flex; gap: 0; height: 100%; max-height: 820px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; transition: background-color 0.3s;`;
+    contentWrapper.style.cssText = `display: flex; gap: 0; height: 100%; max-height: 820px; width: min(740px, calc(100vw - 80px)); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; transition: background-color 0.3s, width 0.2s;`;
 
     leftIframe = document.createElement('iframe');
     leftIframe.src = chrome.runtime.getURL('popup/popup.html');
-    leftIframe.style.cssText = `flex: 0 0 400px; border: none;`;
+    // Меню раскладывает разделы в два столбца — при 740 px их видно оба.
+    // Если места меньше, попап сам схлопнет колонки в одну.
+    leftIframe.style.cssText = `flex: 1 1 auto; min-width: 320px; border: none;`;
 
     const rightPanel = document.createElement('div');
     rightPanel.id = GIST_PANEL_ID;
     // Свёрнута по умолчанию; ширину и отступы получает только раскрытой,
     // иначе пустая колонка растягивала бы окно.
-    rightPanel.style.cssText = `display: none; flex: 0 0 560px; height: 100%; overflow: auto; padding: 20px; box-sizing: border-box; border-left: 1px solid rgba(128,128,128,0.25); transition: color 0.3s;`;
+    // Панель не съедает меню: на узком экране она ужимается, а не растёт.
+    rightPanel.style.cssText = `display: none; flex: 0 0 520px; max-width: 40%; height: 100%; overflow: auto; padding: 20px; box-sizing: border-box; border-left: 1px solid rgba(128,128,128,0.25); transition: color 0.3s;`;
     rightPanel.textContent = 'Загрузка...';
 
     const newsButton = document.createElement('button');
@@ -149,8 +152,14 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
     const newsButton = document.getElementById(NEWS_BUTTON_ID);
     if (!rightPanel) return;
 
+    const wrapper = document.getElementById(CONTENT_WRAPPER_ID);
     const willOpen = rightPanel.style.display === 'none';
     rightPanel.style.display = willOpen ? 'block' : 'none';
+    if (wrapper) {
+      wrapper.style.width = willOpen
+        ? 'min(1260px, calc(100vw - 80px))'
+        : 'min(740px, calc(100vw - 80px))';
+    }
     if (newsButton) newsButton.textContent = willOpen ? 'Скрыть новости' : 'Что нового';
 
     if (willOpen && !window.isGistContentLoaded) fetchGistContent();

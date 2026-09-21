@@ -473,8 +473,8 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
 
     if (file.size > MAX_SOURCE_BYTES) {
       alert(
-        `Файл ${(file.size / (1024 * 1024)).toFixed(0)} МБ — это слишком даже для нас. ` +
-          `Возьми что-нибудь до ${MAX_SOURCE_BYTES / (1024 * 1024)} МБ.`
+        `Файл ${(file.size / (1024 * 1024)).toFixed(0)} МБ — слишком большой. ` +
+          `Максимум ${MAX_SOURCE_BYTES / (1024 * 1024)} МБ.`
       );
       return;
     }
@@ -485,7 +485,7 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
       renderCurrentPage();
     } catch (error) {
       log('[course-cards] Не удалось обработать картинку:', error);
-      alert('Не удалось обработать картинку. Попробуй другой файл.');
+      alert('Не удалось обработать картинку. Выберите другой файл.');
     } finally {
       hideBusy();
     }

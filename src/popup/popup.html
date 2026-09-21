@@ -10,10 +10,29 @@
         font-family: 'Inter', sans-serif;
         font-weight: 400;
         font-size: 16px;
-        width: 350px;
+        /* Два столбца разделов: так меню помещается по высоте и его почти не
+           приходится листать. Узкий контекст обслуживается тем же правилом —
+           см. .sections ниже, колонки схлопываются сами. */
+        width: 720px;
         padding: 10px;
         background-color: #f0f0f0;
         box-sizing: border-box;
+      }
+
+      /* --- РАСКЛАДКА РАЗДЕЛОВ ---
+         Именно колонки, а не грид: у них есть штатный разделитель
+         (column-rule), и высота раскладывается сама, без ручной развёрстки
+         разделов по столбцам. Обёртку создаёт popup.js. */
+      .sections {
+        columns: 2 320px;
+        column-gap: 24px;
+        column-rule: 1px solid #d5d8dc;
+      }
+
+      .sections > .section {
+        /* Иначе раздел разорвёт между столбцами посередине. */
+        break-inside: avoid;
+        margin: 0 0 14px;
       }
 
       .toggle-container {
@@ -696,7 +715,7 @@
 
       <p class="course-hint">
         Выгружает настройки в .json и загружает обратно. Токены интеграций, кеши и служебные ключи в
-        файл не попадают: им не место в том, чем делятся.
+        файл не попадают.
       </p>
 
       <div class="setting-container">
