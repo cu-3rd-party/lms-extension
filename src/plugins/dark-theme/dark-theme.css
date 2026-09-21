@@ -292,7 +292,12 @@ a:hover .tui-island::before {
   /*BTDEV: nav bar on longread pages*/
 }
 
-.header,
+/* Только шапка сайта: класс `header` носит ещё и заголовок страницы заданий
+   (`h1.header`). Пока фон страницы был сплошной заливкой, лишняя покраска
+   заголовка была незаметна — он совпадал с фоном. На своей картинке
+   (см. _shared/custom_background.js) она проступила чёрной полосой во всю
+   ширину. */
+header.header,
 .header__navigation-bar {
   background-color: var(--culms-dark-bg-primary) !important;
 }
