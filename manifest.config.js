@@ -24,8 +24,12 @@ export default defineManifest({
     'downloads',
   ],
   host_permissions: [
+    // Два домена LMS — полноценные зеркала одного приложения.
+    // Список продублирован в src/plugins/lms-hosts.ts, правь оба места.
     'https://my.centraluniversity.ru/*',
+    'https://my.cu.ru/*',
     'https://id.centraluniversity.ru/*',
+    'https://id.cu.ru/*',
     'https://gist.github.com/*',
     'https://mail.yandex.ru/*',
     'https://calendar.yandex.ru/*',
@@ -48,14 +52,14 @@ export default defineManifest({
   },
   content_scripts: [
     {
-      matches: ['https://my.centraluniversity.ru/*'],
+      matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
       js: ['plugins/_shared/akh_bridge.js'],
       run_at: 'document_start',
     },
     {
       // Safari does not reliably expose SPA history changes through
       // webNavigation. The script is a no-op in Chrome and Firefox.
-      matches: ['https://my.centraluniversity.ru/*'],
+      matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
       js: ['plugins/_shared/safari_navigation.js'],
       run_at: 'document_start',
     },
@@ -67,14 +71,16 @@ export default defineManifest({
     {
       matches: [
         'https://my.centraluniversity.ru/*',
+        'https://my.cu.ru/*',
         'https://id.centraluniversity.ru/*',
+        'https://id.cu.ru/*',
         'https://gist.github.com/*',
       ],
       js: ['plugins/_shared/debug_utils.js'],
       run_at: 'document_start',
     },
     {
-      matches: ['https://id.centraluniversity.ru/*'],
+      matches: ['https://id.centraluniversity.ru/*', 'https://id.cu.ru/*'],
       js: ['plugins/login/fix_email_autocomplete.js'],
       run_at: 'document_idle',
     },
@@ -91,6 +97,7 @@ export default defineManifest({
         'popup/popup_dark.css',
         'styles.css',
         'plugins/_shared/course_names.js',
+        'plugins/_shared/custom_logo.js',
         'plugins/_shared/version_check.js',
         'plugins/_shared/reset.js',
         'plugins/_shared/friends_tab.js',
@@ -130,7 +137,7 @@ export default defineManifest({
         'plugins/_shared/fflate.umd.min.js',
         'plugins/_shared/pdf-lib.min.js',
       ],
-      matches: ['https://my.centraluniversity.ru/*'],
+      matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
     },
   ],
   icons: {

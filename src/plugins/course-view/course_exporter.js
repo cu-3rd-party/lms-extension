@@ -48,7 +48,7 @@ async function fetchMaterials(longreadsId) {
   }
 
   window.cuLmsLog(`Fetching materials for longreads ID: ${longreadsId}`);
-  const apiUrl = `https://my.centraluniversity.ru/api/micro-lms/longreads/${longreadsId}/materials?limit=10000`;
+  const apiUrl = `/api/micro-lms/longreads/${longreadsId}/materials?limit=10000`;
 
   try {
     const response = await fetch(apiUrl, {
@@ -79,7 +79,7 @@ async function fetchTaskDetails(taskId) {
   if (!taskId) return null;
   if (tasksCache[taskId]) return tasksCache[taskId];
 
-  const apiUrl = `https://my.centraluniversity.ru/api/micro-lms/tasks/${taskId}`;
+  const apiUrl = `/api/micro-lms/tasks/${taskId}`;
   try {
     const response = await fetch(apiUrl, {
       method: 'GET',
@@ -101,7 +101,7 @@ async function fetchTaskDetails(taskId) {
 
 async function getDownloadLinkApi(filename, version) {
   const encodedFilename = encodeURIComponent(filename).replace(/\//g, '%2F');
-  const apiUrl = `https://my.centraluniversity.ru/api/micro-lms/content/download-link?filename=${encodedFilename}&version=${version}`;
+  const apiUrl = `/api/micro-lms/content/download-link?filename=${encodedFilename}&version=${version}`;
 
   try {
     const response = await fetch(apiUrl, {
@@ -121,7 +121,7 @@ async function getDownloadLinkApi(filename, version) {
 }
 
 async function fetchCourseOverview(courseId) {
-  const apiUrl = `https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/overview`;
+  const apiUrl = `/api/micro-lms/courses/${courseId}/overview`;
   try {
     const response = await fetch(apiUrl, {
       method: 'GET',

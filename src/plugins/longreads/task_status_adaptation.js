@@ -39,7 +39,7 @@ if (typeof window.__culmsLongreadFixInitialized === 'undefined') {
     isFetchingData = true;
 
     try {
-      const response = await fetch('https://my.centraluniversity.ru/api/micro-lms/tasks/student');
+      const response = await fetch('/api/micro-lms/tasks/student');
       if (response.ok) {
         const data = await response.json();
         tasksDataCache = {};

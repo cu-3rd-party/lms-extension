@@ -9,8 +9,7 @@
 
   // --- КОНФИГУРАЦИЯ ---
   const TARGET_PATH_REGEX = /^\/learn\/reports\/student-performance\/.*\d+\/activity$/;
-  const API_URL_TEMPLATE =
-    'https://my.centraluniversity.ru/api/micro-lms/courses/{courseId}/student-performance';
+  const API_URL_TEMPLATE = '/api/micro-lms/courses/{courseId}/student-performance';
 
   // --- СЕЛЕКТОРЫ ---
   const TABLE_WRAPPER_SELECTOR = 'cu-student-activity-performance-table';

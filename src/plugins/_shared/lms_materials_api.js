@@ -12,7 +12,7 @@ if (typeof window.__culmsLmsApi === 'undefined') {
     function fetchMaterials(longreadsId) {
       if (!_cache[longreadsId]) {
         _cache[longreadsId] = fetch(
-          `https://my.centraluniversity.ru/api/micro-lms/longreads/${longreadsId}/materials?limit=10000`,
+          `/api/micro-lms/longreads/${longreadsId}/materials?limit=10000`,
           { credentials: 'include' }
         )
           .then((r) => {

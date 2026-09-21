@@ -766,7 +766,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     try {
       // Обновленная ссылка с фильтрацией по статусам
       const response = await fetch(
-        'https://my.centraluniversity.ru/api/micro-lms/tasks/student?state=inProgress&state=backlog&state=submitted&state=review&state=reworking'
+        '/api/micro-lms/tasks/student?state=inProgress&state=backlog&state=submitted&state=review&state=reworking'
       );
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       return await response.json();

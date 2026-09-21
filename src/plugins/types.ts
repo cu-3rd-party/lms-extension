@@ -4,7 +4,7 @@ export interface PluginManifest {
   readonly id: string;
   /**
    * Возвращает true, если плагин должен быть запущен на данном URL.
-   * Вызывается при каждой навигации внутри my.centraluniversity.ru.
+   * Вызывается при каждой навигации внутри LMS (см. `lms-hosts.ts`: доменов два).
    */
   readonly matches: (url: string) => boolean;
   /**

@@ -143,7 +143,7 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
     if (!taskId) return null;
     if (tasksCache[taskId]) return tasksCache[taskId];
     try {
-      const resp = await fetch(`https://my.centraluniversity.ru/api/micro-lms/tasks/${taskId}`, {
+      const resp = await fetch(`/api/micro-lms/tasks/${taskId}`, {
         credentials: 'include',
       });
       const data = await resp.json();
@@ -158,10 +158,9 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
     if (!taskId) return [];
     if (commentsCache[taskId]) return commentsCache[taskId];
     try {
-      const resp = await fetch(
-        `https://my.centraluniversity.ru/api/micro-lms/tasks/${taskId}/comments`,
-        { credentials: 'include' }
-      );
+      const resp = await fetch(`/api/micro-lms/tasks/${taskId}/comments`, {
+        credentials: 'include',
+      });
       const data = await resp.json();
       commentsCache[taskId] = data;
       return data;
@@ -241,7 +240,7 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
     if (!foundFilename) return null;
 
     const encodedFilename = encodeURIComponent(foundFilename);
-    const url = `https://my.centraluniversity.ru/api/micro-lms/content/download-link?filename=${encodedFilename}&version=${foundVersion}`;
+    const url = `/api/micro-lms/content/download-link?filename=${encodedFilename}&version=${foundVersion}`;
 
     try {
       const resp = await fetch(url, { credentials: 'include' });

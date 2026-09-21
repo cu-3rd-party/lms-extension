@@ -6,7 +6,9 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const LMS_URL = 'https://my.centraluniversity.ru';
+// Доменов у LMS два (см. src/plugins/lms-hosts.ts). Тесты гоняем по
+// основному, но через LMS_URL можно направить их на зеркало my.cu.ru.
+export const LMS_URL = process.env.LMS_URL || 'https://my.centraluniversity.ru';
 export const ISSUE_185_ACTIVITY_URL = `${LMS_URL}/learn/reports/student-performance/actual/889/activity`;
 
 const COOKIES_FILES = [

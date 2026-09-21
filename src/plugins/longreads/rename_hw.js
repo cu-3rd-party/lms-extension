@@ -8,7 +8,7 @@
   let isInitialized = false;
 
   // --- ДАННЫЕ ПОЛЬЗОВАТЕЛЯ ИЗ API ---
-  const ME_URL = 'https://my.centraluniversity.ru/api/account/me';
+  const ME_URL = '/api/account/me';
   let userInfoCache = null; // { firstName, lastName }
   let userInfoPromise = null; // Promise<{ firstName, lastName }>
 

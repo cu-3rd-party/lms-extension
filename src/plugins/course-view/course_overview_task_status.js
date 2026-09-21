@@ -92,10 +92,8 @@ async function activateCourseOverviewTaskStatus() {
     injectBadgeStyles(); // Добавляем стили на страницу
 
     const [exercisesResponse, performanceResponse] = await Promise.all([
-      fetch(`https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/exercises`),
-      fetch(
-        `https://my.centraluniversity.ru/api/micro-lms/courses/${courseId}/student-performance`
-      ),
+      fetch(`/api/micro-lms/courses/${courseId}/exercises`),
+      fetch(`/api/micro-lms/courses/${courseId}/student-performance`),
     ]);
 
     const exercisesData = await exercisesResponse.json();

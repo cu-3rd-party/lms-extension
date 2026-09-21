@@ -142,7 +142,7 @@ function processLdOnTaskPage() {
 
   async function fetchStudent() {
     try {
-      const r = await fetch('https://my.centraluniversity.ru/api/micro-lms/students/me', {
+      const r = await fetch('/api/micro-lms/students/me', {
         credentials: 'include',
       });
       if (!r.ok) return null;
@@ -159,7 +159,7 @@ function processLdOnTaskPage() {
       if (!match) return null;
 
       const longreadId = match[1];
-      const apiUrl = `https://my.centraluniversity.ru/api/micro-lms/longreads/${longreadId}/materials?limit=10000`;
+      const apiUrl = `/api/micro-lms/longreads/${longreadId}/materials?limit=10000`;
 
       const r = await fetch(apiUrl, { credentials: 'include' });
       if (!r.ok) return null;
@@ -169,7 +169,7 @@ function processLdOnTaskPage() {
 
       const meta = json.items[0];
       const taskId = meta.taskId;
-      const anotherApiUrl = `https://my.centraluniversity.ru/api/micro-lms/tasks/${taskId}`;
+      const anotherApiUrl = `/api/micro-lms/tasks/${taskId}`;
 
       const r2 = await fetch(anotherApiUrl, { credentials: 'include' });
       if (!r2.ok) return null;
@@ -266,15 +266,12 @@ function processLdOnTaskPage() {
       }
 
       try {
-        const r = await fetch(
-          `https://my.centraluniversity.ru/api/micro-lms/tasks/${taskId}/late-days-prolong`,
-          {
-            method: 'PUT',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lateDays: days }),
-          }
-        );
+        const r = await fetch(`/api/micro-lms/tasks/${taskId}/late-days-prolong`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lateDays: days }),
+        });
 
         if (!r.ok) {
           errorLabel.textContent = 'Более недели скипать нельзя :(';
@@ -374,13 +371,10 @@ function processLdOnTaskPage() {
           if (!taskId) return;
 
           try {
-            const r = await fetch(
-              `https://my.centraluniversity.ru/api/micro-lms/tasks/${taskId}/late-days-cancel`,
-              {
-                method: 'PUT',
-                credentials: 'include',
-              }
-            );
+            const r = await fetch(`/api/micro-lms/tasks/${taskId}/late-days-cancel`, {
+              method: 'PUT',
+              credentials: 'include',
+            });
 
             if (r.ok) {
               window.location.reload();

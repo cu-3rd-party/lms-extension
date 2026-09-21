@@ -1,8 +1,7 @@
 // friends_tab.js
 
 var API_COURSES_URL =
-  API_COURSES_URL ||
-  'https://my.centraluniversity.ru/api/micro-lms/courses/student?limit=10000&state=published';
+  API_COURSES_URL || '/api/micro-lms/courses/student?limit=10000&state=published';
 var myCoursesCache = myCoursesCache || null;
 
 // --- УТИЛИТЫ ДЛЯ СРАВНЕНИЯ КУРСОВ ---

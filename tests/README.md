@@ -67,6 +67,7 @@ tests/
 ├── course-archive.test.ts       # архивация/разархивация курсов
 ├── course-cards.test.ts         # старый дизайн карточек, иконки и свой архив
 ├── course-names.test.ts         # свои названия курсов и обратное преобразование
+├── custom-logo.test.ts          # свой логотип в шапке вместо фирменного
 ├── dark-theme.test.ts           # переключение тёмной темы
 ├── future-exams.test.ts
 └── tasks-fix.test.ts

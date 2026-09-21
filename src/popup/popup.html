@@ -183,6 +183,42 @@
         padding-left: 2px;
       }
 
+      /* Предпросмотр логотипа: клетчатый фон, чтобы видеть прозрачность. */
+      .logo-preview {
+        height: 44px;
+        margin-bottom: 8px;
+        border: 1px solid #dadce0;
+        border-radius: 6px;
+        background-color: #fff;
+        background-image:
+          linear-gradient(45deg, #eee 25%, transparent 25%),
+          linear-gradient(-45deg, #eee 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #eee 75%),
+          linear-gradient(-45deg, transparent 75%, #eee 75%);
+        background-size: 12px 12px;
+        background-position:
+          0 0,
+          0 6px,
+          6px -6px,
+          -6px 0;
+        background-repeat: repeat;
+      }
+
+      /* С выбранным логотипом фон подменяется одной картинкой из JS. */
+      .logo-preview:not(.logo-preview_empty) {
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
+      }
+
+      .logo-preview_empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #9aa0a6;
+      }
+
       .btn-reset {
         display: block;
         width: 100%;
@@ -364,7 +400,7 @@
       <h3>Экспорт оценок</h3>
       <button id="grades-export-btn" class="action-button">Скачать Excel с оценками</button>
       <div id="grades-export-status" class="status-text">
-        Открой my.centraluniversity.ru и нажми кнопку
+        Открой LMS (my.centraluniversity.ru или my.cu.ru) и нажми кнопку
       </div>
     </div>
     <div class="section">
@@ -387,6 +423,53 @@
           <span class="slider"></span>
         </label>
       </div>
+      <div class="toggle-container">
+        <span class="toggle-label">Свой логотип ЦУ:</span>
+        <label class="switch">
+          <input type="checkbox" id="custom-logo-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div id="custom-logo-container" class="setting-group" style="display: none">
+        <p class="course-hint">
+          Заменяет логотип в левом верхнем углу на всех страницах LMS. Место под него — 180×32, то
+          есть широкая полоска: картинка обычных пропорций целиком (Contain) займёт только её левый
+          край, а Cover растянет на всю ширину и обрежет верх и низ. Масштаб больше 100 % выходит за
+          отведённое место — логотип может наехать на меню.
+        </p>
+        <div class="logo-preview" id="custom-logo-preview"></div>
+        <p class="course-hint" id="custom-logo-status"></p>
+
+        <div class="setting-container">
+          <span class="setting-label">Как вставить:</span>
+          <div class="dropdown-container">
+            <select class="dropdown-select" id="logo-fit-select">
+              <option value="contain" selected>Целиком (Contain)</option>
+              <option value="cover">Заполнить и обрезать (Cover)</option>
+              <option value="fill">Растянуть (Fill)</option>
+              <option value="none">Как есть (без подгонки)</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-container">
+          <span class="setting-label">Масштаб:</span>
+          <div class="dropdown-container">
+            <select class="dropdown-select" id="logo-scale-select">
+              <option value="50">50%</option>
+              <option value="75">75%</option>
+              <option value="100" selected>100%</option>
+              <option value="125">125%</option>
+              <option value="150">150%</option>
+              <option value="200">200%</option>
+              <option value="300">300%</option>
+            </select>
+          </div>
+        </div>
+        <button id="pick-logo-btn" class="action-button">Выбрать картинку</button>
+        <button id="reset-logo-btn" class="btn-reset">Вернуть родной логотип</button>
+        <input type="file" id="custom-logo-file" accept="image/*" hidden />
+      </div>
+
       <div class="toggle-container">
         <span class="toggle-label">Эффект снега:</span>
         <label class="switch">
@@ -510,6 +593,7 @@
       <button id="reset-all-settings-btn" class="btn-reset">Сбросить все настройки</button>
     </div>
 
+    <script src="../plugins/course-view/gif_reencode.js"></script>
     <script type="module" src="popup_loader.js"></script>
   </body>
 </html>

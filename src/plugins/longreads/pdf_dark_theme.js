@@ -61,10 +61,9 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
     if (window.__culmsLmsApi?.fetchMaterials) {
       materialsData = await window.__culmsLmsApi.fetchMaterials(match[1]);
     } else {
-      const resp = await fetch(
-        `https://my.centraluniversity.ru/api/micro-lms/longreads/${match[1]}/materials?limit=10000`,
-        { credentials: 'include' }
-      );
+      const resp = await fetch(`/api/micro-lms/longreads/${match[1]}/materials?limit=10000`, {
+        credentials: 'include',
+      });
       materialsData = await resp.json();
     }
 
@@ -90,7 +89,7 @@ if (typeof window.__culmsPdfDarkThemeInitialized === 'undefined') {
     if (!foundFilename) return null;
 
     const linkResp = await fetch(
-      `https://my.centraluniversity.ru/api/micro-lms/content/download-link?filename=${encodeURIComponent(foundFilename)}&version=${foundVersion}`,
+      `/api/micro-lms/content/download-link?filename=${encodeURIComponent(foundFilename)}&version=${foundVersion}`,
       { credentials: 'include' }
     );
     const linkData = await linkResp.json();

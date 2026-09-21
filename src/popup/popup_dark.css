@@ -66,6 +66,16 @@ body.dark-theme .btn-reset:hover {
   background-color: #4a3636;
 }
 
+body.dark-theme .logo-preview {
+  background-color: #2d2e31;
+  border-color: #5f6368;
+  background-image:
+    linear-gradient(45deg, #3c4043 25%, transparent 25%),
+    linear-gradient(-45deg, #3c4043 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #3c4043 75%),
+    linear-gradient(-45deg, transparent 75%, #3c4043 75%);
+}
+
 body.dark-theme .integration-status {
   color: #9aa0a6;
 }

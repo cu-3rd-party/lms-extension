@@ -257,65 +257,6 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
     });
   }
 
-  /** Сырые байты из data-URL; `limit` ограничивает разбор началом файла. */
-  function bytesFromDataUrl(dataUrl, limit) {
-    const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
-    // 4 символа base64 = 3 байта; режем по границе четвёрки, иначе atob упадёт.
-    const chunk = limit ? base64.slice(0, Math.ceil(limit / 3) * 4) : base64;
-
-    try {
-      const binary = atob(chunk);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      return bytes;
-    } catch (_error) {
-      return null;
-    }
-  }
-
-  function hasMarker(bytes, marker, searchLimit) {
-    const end = Math.min(bytes.length, searchLimit || bytes.length) - marker.length;
-    for (let i = 0; i <= end; i++) {
-      let matched = true;
-      for (let j = 0; j < marker.length; j++) {
-        if (bytes[i + j] !== marker.charCodeAt(j)) {
-          matched = false;
-          break;
-        }
-      }
-      if (matched) return true;
-    }
-    return false;
-  }
-
-  /**
-   * Анимированная ли картинка — по сигнатурам в самом файле, а не по MIME-типу.
-   *
-   * По типу определить нельзя: `image/webp` и `image/png` бывают и статичными,
-   * и анимированными, а именно анимированный webp сейчас отдаёт большинство
-   * конвертеров «gif → webp».
-   */
-  function isAnimated(bytes) {
-    if (!bytes || bytes.length < 12) return false;
-
-    // GIF: каждый кадр предваряется блоком Graphic Control Extension (21 F9).
-    if (hasMarker(bytes, 'GIF8', 4)) {
-      let frames = 0;
-      for (let i = 0; i + 1 < bytes.length; i++) {
-        if (bytes[i] === 0x21 && bytes[i + 1] === 0xf9 && ++frames > 1) return true;
-      }
-      return false;
-    }
-
-    // WebP: анимация объявляется чанком ANIM сразу за расширенным заголовком VP8X.
-    if (hasMarker(bytes, 'WEBP', 16)) return hasMarker(bytes, 'ANIM', 256);
-
-    // APNG: чанк acTL обязан идти до первого IDAT, то есть в начале файла.
-    if (bytes[0] === 0x89 && bytes[1] === 0x50) return hasMarker(bytes, 'acTL', 4096);
-
-    return false;
-  }
-
   function loadImage(dataUrl) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -355,14 +296,17 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
     // Анимацию через canvas пропускать нельзя — останется первый кадр. Раньше
     // исключение делалось только для `image/gif` до 512 КБ, поэтому обычная
     // гифка потяжелее и любой анимированный webp молча становились статичными.
-    if (isAnimated(new Uint8Array(await file.arrayBuffer()))) {
+    // Детектор форматов живёт в gif_reencode.js — он же умеет их пережимать.
+    // Модуль внедряется перед этим файлом; если его вдруг нет, анимацию просто
+    // не распознаем и пойдём обычным путём через canvas.
+    const formats = window.cuLmsGifReencode;
+    if (formats && formats.isAnimated(new Uint8Array(await file.arrayBuffer()))) {
       if (file.size <= MAX_RAW_ANIMATED_BYTES) return dataUrl;
 
       // Тяжёлую анимацию не отвергаем и не сплющиваем, а пережимаем: кадры
       // уменьшаются и собираются обратно в GIF (см. gif_reencode.js). Так можно
       // взять любую гифку, а в хранилище всё равно ляжет меньше мегабайта.
-      const reencoder = window.cuLmsGifReencode;
-      if (reencoder && reencoder.supported()) {
+      if (formats.supported()) {
         const megabytes = file.size / (1024 * 1024);
         const seconds = Math.max(2, Math.round(megabytes * SECONDS_PER_MB));
         const proceed =
@@ -375,7 +319,7 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
           );
 
         if (proceed) {
-          const result = await reencoder.run(file, {
+          const result = await formats.run(file, {
             maxBytes: MAX_RAW_ANIMATED_BYTES,
             onProgress: showBusy,
           });
@@ -443,7 +387,8 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
       // Гифки отсеиваем по типу (свои перекодировки — всегда webp или jpeg),
       // остальное — по сигнатуре в начале файла.
       if (url.startsWith('data:image/gif')) continue;
-      if (isAnimated(bytesFromDataUrl(url, 4096))) continue;
+      const formats = window.cuLmsGifReencode;
+      if (formats && formats.isAnimated(formats.bytesFromDataUrl(url, 4096))) continue;
       try {
         const smaller = await shrinkStoredIcon(url);
         if (smaller && smaller.length < url.length) {

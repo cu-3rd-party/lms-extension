@@ -2,7 +2,7 @@
 
 (async function () {
   const ALLOWED_PATH = '/learn/reports/student-performance';
-  const API_URL = 'https://my.centraluniversity.ru/api/micro-lms/performance/student';
+  const API_URL = '/api/micro-lms/performance/student';
   const ARCHIVE_KEY = 'cu.lms.archived-statements';
 
   // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ МОДУЛЯ ---

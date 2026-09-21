@@ -4,7 +4,7 @@
 
 ---
 
-Ты помогаешь писать плагин для браузерного расширения **lms-extension** (LMS ЦУ, `my.centraluniversity.ru`, MV3).
+Ты помогаешь писать плагин для браузерного расширения **lms-extension** (LMS ЦУ, MV3). У LMS два домена-зеркала — `my.centraluniversity.ru` и `my.cu.ru`, — поэтому проверять адрес нужно через `isLmsUrl()` из `src/plugins/lms-hosts.ts`, а запросы к API писать относительными путями (`/api/...`).
 
 ## Структура плагина
 
@@ -34,7 +34,7 @@ export default manifest;
 
 | Где            | matches                                                     |
 | -------------- | ----------------------------------------------------------- |
-| Весь LMS       | `url.startsWith('https://my.centraluniversity.ru/')`        |
+| Весь LMS       | `isLmsUrl(url)` из `../lms-hosts`                           |
 | Список курсов  | `url.includes('/learn/courses') && !url.includes('/view/')` |
 | Страница курса | `url.includes('/learn/courses/view/')`                      |
 | Задания        | `url.includes('/longreads/')`                               |

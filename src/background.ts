@@ -1,6 +1,29 @@
 // background.ts
 import browser from 'webextension-polyfill';
 import type { PluginManifest } from './plugins/types';
+import { DEFAULT_LMS_ORIGIN, isLmsUrl, lmsOriginOf } from './plugins/lms-hosts';
+
+// У LMS два домена с раздельными сессиями, поэтому фоновые запросы идут на тот,
+// где пользователь сейчас работает: cookie другого домена нам недоступны и
+// запрос вернул бы 401. Origin запоминается при каждой навигации и переживает
+// перезапуск service worker через storage.
+const LMS_ORIGIN_KEY = 'lmsOrigin';
+let lmsOrigin = DEFAULT_LMS_ORIGIN;
+
+const lmsApi = (path: string) => lmsOrigin + path;
+
+function rememberLmsOrigin(url: string): void {
+  const origin = lmsOriginOf(url);
+  if (!origin || origin === lmsOrigin) return;
+
+  lmsOrigin = origin;
+  void browser.storage.local.set({ [LMS_ORIGIN_KEY]: origin });
+}
+
+void browser.storage.local.get(LMS_ORIGIN_KEY).then((data) => {
+  const saved = data?.[LMS_ORIGIN_KEY];
+  if (typeof saved === 'string' && isLmsUrl(saved + '/')) lmsOrigin = saved;
+});
 
 // ---------------------------------------------------------------------------
 // Types
@@ -147,7 +170,7 @@ async function fetchAllGradesForExport() {
 
   try {
     const coursesData = await fetchJson(
-      'https://my.centraluniversity.ru/api/micro-lms/performance/student?isArchived=false'
+      lmsApi('/api/micro-lms/performance/student?isArchived=false')
     );
 
     const courses = Array.isArray(coursesData?.courses)
@@ -164,16 +187,14 @@ async function fetchAllGradesForExport() {
     const exportedCourses = [];
     for (const course of activeCourses) {
       const [performance, exercisesData] = await Promise.all([
-        fetchJson(
-          `https://my.centraluniversity.ru/api/micro-lms/courses/${course.id}/student-performance`
-        ),
-        fetchJson(`https://my.centraluniversity.ru/api/micro-lms/courses/${course.id}/exercises`),
+        fetchJson(lmsApi(`/api/micro-lms/courses/${course.id}/student-performance`)),
+        fetchJson(lmsApi(`/api/micro-lms/courses/${course.id}/exercises`)),
       ]);
       const exercises = Array.isArray(exercisesData?.exercises) ? exercisesData.exercises : [];
       let courseActivities = [];
       try {
         const activitiesResp = await fetchJson(
-          `https://my.centraluniversity.ru/api/micro-lms/courses/${course.id}/activities`
+          lmsApi(`/api/micro-lms/courses/${course.id}/activities`)
         );
         if (Array.isArray(activitiesResp)) courseActivities = activitiesResp;
       } catch (e) {
@@ -1083,8 +1104,8 @@ const AkhCheckServices = {
  * На повторных открытиях /learn/tasks сеть не трогается вообще, пока кеши живы.
  */
 const YandexContestServices = {
-  TASKS_URL:
-    'https://my.centraluniversity.ru/api/micro-lms/tasks/student?state=inProgress&state=backlog&state=submitted&state=review&state=reworking',
+  TASKS_PATH:
+    '/api/micro-lms/tasks/student?state=inProgress&state=backlog&state=submitted&state=review&state=reworking',
   EXERCISE_TTL: 7 * 24 * 60 * 60 * 1000,
   // «Ссылки нет» кешируем на час, а не на неделю: преподаватель нередко публикует
   // задачу раньше, чем вписывает ссылку на контест, и недельный отрицательный кеш
@@ -1138,7 +1159,7 @@ const YandexContestServices = {
     if (this._tasksCache && Date.now() - this._tasksCache.ts < this.TASKS_TTL) {
       return this._tasksCache.data;
     }
-    const res = await fetch(this.TASKS_URL, {
+    const res = await fetch(lmsApi(this.TASKS_PATH), {
       credentials: 'include',
       headers: { Accept: 'application/json' },
     });
@@ -1163,7 +1184,7 @@ const YandexContestServices = {
     if (hit && Date.now() - hit.ts < ttl) return hit.url;
 
     try {
-      const res = await fetch(`https://my.centraluniversity.ru/api/micro-lms/tasks/${task.id}`, {
+      const res = await fetch(lmsApi(`/api/micro-lms/tasks/${task.id}`), {
         credentials: 'include',
         headers: { Accept: 'application/json' },
       });
@@ -1439,7 +1460,8 @@ async function injectPlugin(tabId: number, plugin: (typeof plugins)[number]): Pr
 }
 
 function handleNavigation(tabId: number, url: string): void {
-  if (!url?.startsWith('https://my.centraluniversity.ru/')) return;
+  if (!isLmsUrl(url)) return;
+  rememberLmsOrigin(url);
 
   for (const plugin of plugins) {
     if (!plugin.matches(url)) continue;
@@ -1449,7 +1471,7 @@ function handleNavigation(tabId: number, url: string): void {
 
 // --- СЛУШАТЕЛИ НАВИГАЦИИ ---
 const navFilter = {
-  url: [{ hostSuffix: 'centraluniversity.ru' }],
+  url: [{ hostSuffix: 'centraluniversity.ru' }, { hostSuffix: 'cu.ru' }],
 };
 
 // Chrome + Firefox:
@@ -1659,7 +1681,7 @@ browser.runtime.onMessage.addListener(((
   // Список активных курсов для селекторов фильтра в попапе.
   // URL зафиксирован здесь, а не приходит из страницы — как и в SWAP_API.
   if (request.action === 'LMS_FETCH_COURSES') {
-    fetch('https://my.centraluniversity.ru/api/micro-lms/performance/student?isArchived=false', {
+    fetch(lmsApi('/api/micro-lms/performance/student?isArchived=false'), {
       credentials: 'include',
       headers: { Accept: 'application/json' },
     })

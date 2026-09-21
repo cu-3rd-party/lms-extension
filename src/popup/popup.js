@@ -4,6 +4,39 @@
 // --- ОПРЕДЕЛЕНИЕ КОНТЕКСТА ---
 const isInsideIframe = window.self !== window.top;
 
+// --- ДОМЕНЫ LMS ---
+// Копия списка из src/plugins/lms-hosts.ts: попап — обычный скрипт и
+// импортировать модуль не может. При добавлении домена правь оба места.
+const LMS_HOSTS = ['my.centraluniversity.ru', 'my.cu.ru'];
+const DEFAULT_LMS_ORIGIN = 'https://my.centraluniversity.ru';
+
+function isLmsUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && LMS_HOSTS.includes(parsed.hostname);
+  } catch (_error) {
+    return false;
+  }
+}
+
+/**
+ * Origin, на котором пользователь сейчас работает: у доменов LMS раздельные
+ * сессии, поэтому запрос не на тот вернёт 401. Сначала смотрим активную
+ * вкладку, потом — что запомнил фоновый скрипт при последней навигации.
+ */
+async function resolveLmsOrigin() {
+  try {
+    const [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
+    if (isLmsUrl(tab?.url)) return new URL(tab.url).origin;
+  } catch (_error) {
+    // Вкладок может не быть — не страшно, ниже есть запасной вариант.
+  }
+
+  const data = await browser.storage.local.get('lmsOrigin');
+  return typeof data.lmsOrigin === 'string' ? data.lmsOrigin : DEFAULT_LMS_ORIGIN;
+}
+
 // --- ПРОКСИ ДЛЯ API (ДЛЯ ПОДДЕРЖКИ FIREFOX IFRAME) ---
 const browserApi = {
   tabs: {
@@ -68,6 +101,7 @@ const LIVE_SETTINGS = [
   'darkPdfEnabled',
   'oldCoursesDesignToggle',
   'customCourseNamesToggle',
+  'customLogoToggle',
 ];
 
 // --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP ---
@@ -105,6 +139,7 @@ const toggles = {
   emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
   oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
   customCourseNamesToggle: document.getElementById('custom-course-names-toggle'),
+  customLogoToggle: document.getElementById('custom-logo-toggle'),
   futureExamsViewToggle: document.getElementById('future-exams-view-toggle'),
   courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
   advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
@@ -122,8 +157,13 @@ const renameTemplateSelect = document.getElementById('rename-template-select');
 const reloadNotice = document.getElementById('reload-notice');
 const oldCoursesDesignContainer = document.getElementById('old-courses-design-container');
 const customCourseNamesContainer = document.getElementById('custom-course-names-container');
+const customLogoContainer = document.getElementById('custom-logo-container');
+const customLogoPreview = document.getElementById('custom-logo-preview');
+const customLogoFile = document.getElementById('custom-logo-file');
 const stickerFitSelect = document.getElementById('sticker-fit-select');
 const stickerScaleSelect = document.getElementById('sticker-scale-select');
+const logoFitSelect = document.getElementById('logo-fit-select');
+const logoScaleSelect = document.getElementById('logo-scale-select');
 const gradesExportBtn = document.getElementById('grades-export-btn');
 const gradesExportStatus = document.getElementById('grades-export-status');
 
@@ -135,6 +175,8 @@ const allKeys = [
   'contestCourseFilter',
   'stickerObjectFit',
   'stickerScale',
+  'logoObjectFit',
+  'logoScale',
 ];
 let pendingChanges = {};
 
@@ -148,6 +190,25 @@ function updateCustomCourseNamesUI(isEnabled) {
   if (customCourseNamesContainer) {
     customCourseNamesContainer.style.display = isEnabled ? 'block' : 'none';
   }
+}
+
+function updateCustomLogoUI(isEnabled) {
+  if (customLogoContainer) {
+    customLogoContainer.style.display = isEnabled ? 'block' : 'none';
+  }
+  if (isEnabled) void refreshLogoPreview();
+}
+
+/** Показывает в попапе то, что сейчас лежит в хранилище. */
+async function refreshLogoPreview() {
+  if (!customLogoPreview) return;
+
+  const data = await browser.storage.local.get('customLogo');
+  const logo = data.customLogo;
+
+  customLogoPreview.style.backgroundImage = logo ? `url("${logo}")` : '';
+  customLogoPreview.classList.toggle('logo-preview_empty', !logo);
+  customLogoPreview.textContent = logo ? '' : 'Логотип не выбран';
 }
 
 function updateAutoRenameUI(isEnabled) {
@@ -178,8 +239,11 @@ function refreshToggleStates() {
     updateAutoRenameUI(isAutoRenameEnabled);
     updateOldCoursesDesignUI(!!data.oldCoursesDesignToggle);
     updateCustomCourseNamesUI(!!data.customCourseNamesToggle);
+    updateCustomLogoUI(!!data.customLogoToggle);
     if (stickerFitSelect) stickerFitSelect.value = data.stickerObjectFit || 'cover';
     if (stickerScaleSelect) stickerScaleSelect.value = String(data.stickerScale || 100);
+    if (logoFitSelect) logoFitSelect.value = data.logoObjectFit || 'contain';
+    if (logoScaleSelect) logoScaleSelect.value = String(data.logoScale || 100);
     updateCourseFilters(data);
     updateContestAuthStatus();
     if (renameTemplateSelect && data.autoRenameTemplate) {
@@ -266,6 +330,8 @@ allKeys.forEach((key) => {
         updateOldCoursesDesignUI(isEnabled);
       } else if (key === 'customCourseNamesToggle') {
         updateCustomCourseNamesUI(isEnabled);
+      } else if (key === 'customLogoToggle') {
+        updateCustomLogoUI(isEnabled);
       } else if (key === 'akhIntegrationEnabled' || key === 'contestIntegrationEnabled') {
         updateCourseFilters();
         if (key === 'contestIntegrationEnabled') updateContestAuthStatus();
@@ -561,6 +627,9 @@ if (resetBtn) {
       customCourseNamesToggle: false,
       stickerObjectFit: 'cover',
       stickerScale: 100,
+      customLogoToggle: false,
+      logoObjectFit: 'contain',
+      logoScale: 100,
       futureExamsViewToggle: false,
       futureExamsDisplayFormat: 'date',
       courseOverviewAutoscrollToggle: false,
@@ -597,6 +666,8 @@ if (resetBtn) {
       if (customCourseNamesContainer) customCourseNamesContainer.style.display = 'none';
       if (stickerFitSelect) stickerFitSelect.value = defaultSettings.stickerObjectFit;
       if (stickerScaleSelect) stickerScaleSelect.value = String(defaultSettings.stickerScale);
+      if (logoFitSelect) logoFitSelect.value = defaultSettings.logoObjectFit;
+      if (logoScaleSelect) logoScaleSelect.value = String(defaultSettings.logoScale);
 
       if (reloadNotice) reloadNotice.style.display = 'block';
     } else {
@@ -619,11 +690,24 @@ if (stickerScaleSelect) {
   });
 }
 
+// Логотип применяется без перезагрузки, поэтому пишем в sync сразу.
+if (logoFitSelect) {
+  logoFitSelect.addEventListener('change', () => {
+    browser.storage.sync.set({ logoObjectFit: logoFitSelect.value });
+  });
+}
+
+if (logoScaleSelect) {
+  logoScaleSelect.addEventListener('change', () => {
+    browser.storage.sync.set({ logoScale: Number(logoScaleSelect.value) });
+  });
+}
+
 const openCardEditorBtn = document.getElementById('open-card-editor-btn');
 if (openCardEditorBtn) {
-  openCardEditorBtn.addEventListener('click', () => {
+  openCardEditorBtn.addEventListener('click', async () => {
     const targetUrl =
-      'https://my.centraluniversity.ru/learn/courses/view/actual/all?customCardEditor=true';
+      (await resolveLmsOrigin()) + '/learn/courses/view/actual/all?customCardEditor=true';
 
     // Без старого дизайна редактировать нечего — включаем его заодно.
     if (toggles.oldCoursesDesignToggle) toggles.oldCoursesDesignToggle.checked = true;
@@ -668,6 +752,138 @@ if (resetCourseNamesBtn) {
   });
 }
 
+// --- СВОЙ ЛОГОТИП ---
+
+// Логотип готовится теми же правилами, что и картинки курсов, — общий модуль
+// plugins/course-view/gif_reencode.js подключён в popup.html.
+const MAX_LOGO_SIDE = 600;
+// Мелкий файл кладём как есть: это сохраняет резкость svg и анимацию гифки.
+const MAX_RAW_LOGO_BYTES = 256 * 1024;
+// Столько же, сколько у обложек: MAX_RAW_ANIMATED_BYTES в course_cards.js.
+const MAX_RAW_ANIMATED_LOGO_BYTES = 1024 * 1024;
+const SLOW_REENCODE_BYTES = 3 * 1024 * 1024;
+const SECONDS_PER_MB = 0.45;
+const MAX_LOGO_SOURCE_BYTES = 64 * 1024 * 1024;
+
+const customLogoStatus = document.getElementById('custom-logo-status');
+
+function setLogoStatus(text) {
+  if (customLogoStatus) customLogoStatus.textContent = text || '';
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Перерисовывает картинку под размер логотипа. */
+async function canvasLogo(dataUrl) {
+  const image = await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Не удалось открыть изображение'));
+    img.src = dataUrl;
+  });
+
+  const scale = Math.min(1, MAX_LOGO_SIDE / Math.max(image.width, image.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUrl;
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  // webp с прозрачностью — логотипы почти всегда на прозрачном фоне.
+  const webp = canvas.toDataURL('image/webp', 0.9);
+  return webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/png');
+}
+
+/**
+ * Готовит любой файл к сохранению: вектор и мелочь как есть, анимацию
+ * сохраняет анимацией (пережимая, если тяжёлая), остальное — через canvas.
+ */
+async function prepareLogo(file) {
+  const dataUrl = await readFileAsDataUrl(file);
+
+  // svg перерисовывать в canvas нельзя — потеряется резкость на любом экране.
+  if (file.type === 'image/svg+xml') return dataUrl;
+
+  const formats = window.cuLmsGifReencode;
+  if (formats && formats.isAnimated(new Uint8Array(await file.arrayBuffer()))) {
+    if (file.size <= MAX_RAW_ANIMATED_LOGO_BYTES) return dataUrl;
+
+    if (formats.supported()) {
+      const megabytes = file.size / (1024 * 1024);
+      const seconds = Math.max(2, Math.round(megabytes * SECONDS_PER_MB));
+      const proceed =
+        file.size < SLOW_REENCODE_BYTES ||
+        confirm(
+          `Картинка весит ${megabytes.toFixed(1)} МБ — её нужно пережать, иначе она не ` +
+            `поместится в хранилище. Это займёт примерно ${seconds} с.
+
+` +
+            `ОК — пережать, Отмена — быстро сохранить только первый кадр.`
+        );
+
+      if (proceed) {
+        const result = await formats.run(file, {
+          maxBytes: MAX_RAW_ANIMATED_LOGO_BYTES,
+          onProgress: setLogoStatus,
+        });
+        setLogoStatus('');
+        if (result) return result.dataUrl;
+      }
+    }
+  }
+
+  if (file.size <= MAX_RAW_LOGO_BYTES) return dataUrl;
+  return canvasLogo(dataUrl);
+}
+
+const pickLogoBtn = document.getElementById('pick-logo-btn');
+if (pickLogoBtn && customLogoFile) {
+  pickLogoBtn.addEventListener('click', () => customLogoFile.click());
+
+  customLogoFile.addEventListener('change', async () => {
+    const file = customLogoFile.files && customLogoFile.files[0];
+    // Сбрасываем значение, иначе повторный выбор того же файла не даст события.
+    customLogoFile.value = '';
+    if (!file) return;
+
+    if (file.size > MAX_LOGO_SOURCE_BYTES) {
+      alert(
+        `Файл ${(file.size / (1024 * 1024)).toFixed(0)} МБ — это слишком даже для нас. ` +
+          `Возьми что-нибудь до ${MAX_LOGO_SOURCE_BYTES / (1024 * 1024)} МБ.`
+      );
+      return;
+    }
+
+    try {
+      const prepared = await prepareLogo(file);
+      // Логотип живёт в local, а не в sync: в квоту sync картинка не влезает.
+      await browser.storage.local.set({ customLogo: prepared });
+      await refreshLogoPreview();
+    } catch (_error) {
+      alert('Не удалось обработать картинку. Попробуй другой файл.');
+    } finally {
+      setLogoStatus('');
+    }
+  });
+}
+
+const resetLogoBtn = document.getElementById('reset-logo-btn');
+if (resetLogoBtn) {
+  resetLogoBtn.addEventListener('click', async () => {
+    await browser.storage.local.remove('customLogo');
+    await refreshLogoPreview();
+  });
+}
+
 const resetCourseIconsBtn = document.getElementById('reset-course-icons-btn');
 if (resetCourseIconsBtn) {
   resetCourseIconsBtn.addEventListener('click', () => {
@@ -701,8 +917,8 @@ async function handleGradesExportClick() {
     }
 
     const [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id || !tab.url?.startsWith('https://my.centraluniversity.ru/')) {
-      throw new Error('Открой вкладку my.centraluniversity.ru перед экспортом.');
+    if (!tab?.id || !isLmsUrl(tab.url)) {
+      throw new Error('Открой вкладку LMS (my.centraluniversity.ru или my.cu.ru) перед экспортом.');
     }
 
     setGradesExportStatus('Собираю оценки через API LMS...');
@@ -800,9 +1016,7 @@ async function fetchAllGradesForExport() {
   };
 
   try {
-    const coursesData = await fetchJson(
-      'https://my.centraluniversity.ru/api/micro-lms/performance/student?isArchived=false'
-    );
+    const coursesData = await fetchJson('/api/micro-lms/performance/student?isArchived=false');
 
     const courses = Array.isArray(coursesData?.courses)
       ? coursesData.courses
@@ -818,18 +1032,14 @@ async function fetchAllGradesForExport() {
     const exportedCourses = [];
     for (const course of activeCourses) {
       const [performance, exercisesData] = await Promise.all([
-        fetchJson(
-          `https://my.centraluniversity.ru/api/micro-lms/courses/${course.id}/student-performance`
-        ),
-        fetchJson(`https://my.centraluniversity.ru/api/micro-lms/courses/${course.id}/exercises`),
+        fetchJson(`/api/micro-lms/courses/${course.id}/student-performance`),
+        fetchJson(`/api/micro-lms/courses/${course.id}/exercises`),
       ]);
       const exercises = Array.isArray(exercisesData?.exercises) ? exercisesData.exercises : [];
       // Fetch course-level activities to detect зачёт with оценкой and insert placeholders if missing
       let courseActivities = [];
       try {
-        const activitiesResp = await fetchJson(
-          `https://my.centraluniversity.ru/api/micro-lms/courses/${course.id}/activities`
-        );
+        const activitiesResp = await fetchJson(`/api/micro-lms/courses/${course.id}/activities`);
         if (Array.isArray(activitiesResp)) courseActivities = activitiesResp;
       } catch (e) {
         // ignore if endpoint unavailable
