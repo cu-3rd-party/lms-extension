@@ -66,6 +66,10 @@ body.dark-theme .btn-reset:hover {
   background-color: #4a3636;
 }
 
+body.dark-theme .section_collapsible > h3:hover {
+  background-color: #3c4043;
+}
+
 body.dark-theme .logo-preview {
   background-color: #2d2e31;
   border-color: #5f6368;

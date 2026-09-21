@@ -43,6 +43,61 @@
         font-size: 17px;
       }
 
+      /* --- АККОРДЕОН ---
+         Раздел сворачивается целиком: заголовок работает кнопкой, а всё, что
+         под ним, popup.js заворачивает в .section-body. Разделов девять, и
+         открытыми они не помещаются ни в окно попапа, ни в панель на странице. */
+      .section_collapsible {
+        padding: 0;
+      }
+
+      .section_collapsible > h3 {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 0;
+        padding: 12px;
+        cursor: pointer;
+        user-select: none;
+        border-radius: 8px;
+      }
+
+      .section_collapsible > h3:hover {
+        background-color: #f1f3f4;
+      }
+
+      .section_collapsible > h3:focus-visible {
+        outline: 2px solid #2196f3;
+        outline-offset: -2px;
+      }
+
+      /* Стрелка: вниз у свёрнутого, вверх у раскрытого. */
+      .section_collapsible > h3::after {
+        content: '';
+        flex: 0 0 auto;
+        width: 8px;
+        height: 8px;
+        margin-right: 4px;
+        border-right: 2px solid #9aa0a6;
+        border-bottom: 2px solid #9aa0a6;
+        transform: rotate(45deg) translate(-2px, -2px);
+        transition: transform 0.2s;
+      }
+
+      .section_open > h3::after {
+        transform: rotate(-135deg) translate(-2px, -2px);
+      }
+
+      .section-body {
+        display: none;
+        padding: 0 12px 12px;
+      }
+
+      .section_open > .section-body {
+        display: block;
+      }
+
       .switch {
         position: relative;
         display: inline-block;

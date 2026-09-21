@@ -8,6 +8,7 @@ var OVERLAY_ID = 'cu-plugin-overlay-container';
 var CONTENT_WRAPPER_ID = 'cu-plugin-content-wrapper';
 var PLUGIN_BUTTON_ID = 'cu-plugin-main-button';
 var GIST_PANEL_ID = 'cu-plugin-gist-right-panel';
+var NEWS_BUTTON_ID = 'cu-plugin-news-button';
 var GIST_STYLE_ID = 'cu-gist-dark-theme-injected-style';
 var leftIframe = leftIframe || null;
 
@@ -33,14 +34,23 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
   function applyContainerTheme(isEnabled) {
     const contentWrapper = document.getElementById(CONTENT_WRAPPER_ID);
     const rightPanel = document.getElementById(GIST_PANEL_ID);
+    const newsButton = document.getElementById(NEWS_BUTTON_ID);
     if (!contentWrapper || !rightPanel) return;
 
     if (isEnabled) {
       contentWrapper.style.background = '#2c2c2e';
       rightPanel.style.color = '#e0e0e0';
+      if (newsButton) {
+        newsButton.style.background = 'rgba(44,44,46,0.92)';
+        newsButton.style.color = '#e8eaed';
+      }
     } else {
       contentWrapper.style.background = '#ffffff';
       rightPanel.style.color = '#333333';
+      if (newsButton) {
+        newsButton.style.background = 'rgba(255,255,255,0.92)';
+        newsButton.style.color = '#333333';
+      }
     }
   }
 
@@ -55,10 +65,6 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
     applyContainerTheme(!!themeData.themeEnabled);
 
     overlay.style.display = 'flex';
-
-    if (!window.isGistContentLoaded) {
-      fetchGistContent();
-    }
   }
 
   /**
@@ -96,26 +102,58 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
     overlay.id = OVERLAY_ID;
     overlay.style.cssText = `position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6); z-index: 10000; display: none; justify-content: center; align-items: center; padding: 40px; box-sizing: border-box;`;
 
+    // Меню — это сам попап. Раньше рядом на пол-экрана висела панель с
+    // гитхабом: она открывалась всегда, занимала больше места, чем настройки,
+    // и мешала в них ориентироваться. Теперь она за кнопкой в углу.
     const contentWrapper = document.createElement('div');
     contentWrapper.id = CONTENT_WRAPPER_ID;
-    contentWrapper.style.cssText = `display: flex; gap: 15px; width: 100%; max-width: 1400px; height: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; transition: background-color 0.3s;`;
+    contentWrapper.style.cssText = `display: flex; gap: 0; height: 100%; max-height: 820px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; transition: background-color 0.3s;`;
 
     leftIframe = document.createElement('iframe');
     leftIframe.src = chrome.runtime.getURL('popup/popup.html');
-    leftIframe.style.cssText = `flex: 0 0 380px; border: none;`;
+    leftIframe.style.cssText = `flex: 0 0 400px; border: none;`;
 
     const rightPanel = document.createElement('div');
     rightPanel.id = GIST_PANEL_ID;
-    rightPanel.style.cssText = `flex-grow: 1; height: 100%; overflow: auto; padding: 20px; box-sizing: border-box; transition: color 0.3s;`;
+    // Свёрнута по умолчанию; ширину и отступы получает только раскрытой,
+    // иначе пустая колонка растягивала бы окно.
+    rightPanel.style.cssText = `display: none; flex: 0 0 560px; height: 100%; overflow: auto; padding: 20px; box-sizing: border-box; border-left: 1px solid rgba(128,128,128,0.25); transition: color 0.3s;`;
     rightPanel.textContent = 'Загрузка...';
+
+    const newsButton = document.createElement('button');
+    newsButton.id = NEWS_BUTTON_ID;
+    newsButton.type = 'button';
+    newsButton.textContent = 'Что нового';
+    newsButton.style.cssText = `position: absolute; top: 16px; right: 16px; padding: 7px 14px; border: none; border-radius: 999px; font: 13px/1 'Inter', sans-serif; cursor: pointer; background: rgba(255,255,255,0.92); color: #333; box-shadow: 0 2px 8px rgba(0,0,0,0.25);`;
+    newsButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleNewsPanel();
+    });
 
     contentWrapper.appendChild(leftIframe);
     contentWrapper.appendChild(rightPanel);
     overlay.appendChild(contentWrapper);
+    overlay.appendChild(newsButton);
     document.body.appendChild(overlay);
 
     overlay.addEventListener('click', closePluginMenu);
     contentWrapper.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  /**
+   * Показывает или прячет панель с новостями. Содержимое тянем при первом
+   * открытии: обычно оно не нужно, а запрос не бесплатный.
+   */
+  function toggleNewsPanel() {
+    const rightPanel = document.getElementById(GIST_PANEL_ID);
+    const newsButton = document.getElementById(NEWS_BUTTON_ID);
+    if (!rightPanel) return;
+
+    const willOpen = rightPanel.style.display === 'none';
+    rightPanel.style.display = willOpen ? 'block' : 'none';
+    if (newsButton) newsButton.textContent = willOpen ? 'Скрыть новости' : 'Что нового';
+
+    if (willOpen && !window.isGistContentLoaded) fetchGistContent();
   }
 
   /**

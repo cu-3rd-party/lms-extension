@@ -236,6 +236,86 @@ function updateAutoRenameUI(isEnabled) {
   }
 }
 
+// --- АККОРДЕОН РАЗДЕЛОВ ---
+//
+// Разделов девять, и раскрытыми они не помещаются ни в окно попапа, ни в
+// панель на странице: чтобы дойти до нижних, приходилось листать. Поэтому
+// заголовок работает кнопкой, а содержимое сворачивается.
+//
+// Разметку не трогаем, а заворачиваем содержимое в .section-body здесь: так
+// новый раздел в popup.html становится сворачиваемым сам, без правки скрипта.
+
+const ACCORDION_KEY = 'culms.popup.openSections';
+
+function readOpenSections() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACCORDION_KEY) || '[]');
+    return new Set(Array.isArray(saved) ? saved : []);
+  } catch (_error) {
+    return new Set();
+  }
+}
+
+function saveOpenSections(open) {
+  try {
+    localStorage.setItem(ACCORDION_KEY, JSON.stringify([...open]));
+  } catch (_error) {
+    // Приватный режим или заблокированное хранилище — просто не запомним.
+  }
+}
+
+function initAccordion() {
+  const saved = localStorage.getItem(ACCORDION_KEY);
+  const open = readOpenSections();
+  // Первый заход: раскрываем верхний раздел, иначе меню выглядит пустым
+  // списком заголовков и непонятно, что с ним делать.
+  let firstRun = saved === null;
+
+  document.querySelectorAll('.section').forEach((section) => {
+    const title = section.querySelector('h3');
+    if (!title || section.classList.contains('section_collapsible')) return;
+
+    const body = document.createElement('div');
+    body.className = 'section-body';
+    while (title.nextSibling) body.appendChild(title.nextSibling);
+    section.appendChild(body);
+    section.classList.add('section_collapsible');
+
+    // Ключ — название раздела: пережимает добавление и перестановку разделов,
+    // в отличие от порядкового номера.
+    const id = title.textContent.trim();
+    const setOpen = (isOpen) => {
+      section.classList.toggle('section_open', isOpen);
+      title.setAttribute('aria-expanded', String(isOpen));
+    };
+
+    title.setAttribute('role', 'button');
+    title.setAttribute('tabindex', '0');
+    if (firstRun) {
+      open.add(id);
+      firstRun = false;
+    }
+    setOpen(open.has(id));
+
+    const toggle = () => {
+      const next = !section.classList.contains('section_open');
+      setOpen(next);
+      if (next) open.add(id);
+      else open.delete(id);
+      saveOpenSections(open);
+    };
+
+    title.addEventListener('click', toggle);
+    title.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggle();
+    });
+  });
+}
+
+initAccordion();
+
 // --- ОСНОВНАЯ ЛОГИКА ОБНОВЛЕНИЯ СОСТОЯНИЙ ---
 function refreshToggleStates() {
   browser.storage.sync.get([...allKeys, 'autoRenameTemplate']).then((data) => {
