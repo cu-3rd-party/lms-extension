@@ -63,6 +63,27 @@ test.describe('Профиль настроек', () => {
     await clearExtensionStorage(context, extensionId, 'local', 'lmsOrigin');
   });
 
+  test('вкладка друзей включена по умолчанию, и галочка это показывает', async ({
+    context,
+    extensionId,
+  }) => {
+    // Свежая установка: ключа в хранилище нет вовсе.
+    await clearExtensionStorage(context, extensionId, 'sync', 'friendsEnabled');
+
+    const page = await openPopup(context, extensionId);
+    const state = await page.evaluate(() => ({
+      галка: (document.getElementById('friends-toggle') as HTMLInputElement).checked,
+      изРеестра: (window as any).cuLmsSettings.defaultFor('friendsEnabled'),
+    }));
+
+    // Плагины считают вкладку включённой, пока её явно не выключили
+    // (`data.friendsEnabled !== false`), и галочка обязана говорить то же самое.
+    expect(state.изРеестра).toBe(true);
+    expect(state.галка).toBe(true);
+
+    await page.close();
+  });
+
   test('загрузка отвергает мусор и не трогает приватное', async ({ context, extensionId }) => {
     await setExtensionStorage(context, extensionId, 'sync', 'stickerScale', 150);
     await setExtensionStorage(context, extensionId, 'local', 'akh_token', 'СЕКРЕТ');

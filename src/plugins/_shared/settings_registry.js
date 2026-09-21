@@ -41,7 +41,17 @@ if (typeof window.cuLmsSettings === 'undefined') {
     private: 'Не выгружается',
   };
 
-  const bool = (key, group) => ({ key, area: 'sync', type: 'boolean', group });
+  // `fallback` — значение, когда ключа в хранилище ещё нет. Оно должно
+  // совпадать с тем, что подставляет сам плагин: попап рисовал `!!undefined`,
+  // то есть «выключено», а friends_tab.js считал `!== false`, то есть
+  // «включено» — галочка врала на свежей установке.
+  const bool = (key, group, fallback = false) => ({
+    key,
+    area: 'sync',
+    type: 'boolean',
+    group,
+    fallback,
+  });
   const choice = (key, group, values, fallback) => ({
     key,
     area: 'sync',
@@ -87,7 +97,8 @@ if (typeof window.cuLmsSettings === 'undefined') {
     bool('courseExporterToggle', 'features'),
     bool('advancedStatementsEnabled', 'features'),
     bool('endOfCourseCalcEnabled', 'features'),
-    bool('friendsEnabled', 'features'),
+    // Вкладка друзей показывается, пока её явно не выключили.
+    bool('friendsEnabled', 'features', true),
     bool('hideBonusButtonEnabled', 'features'),
     bool('autoRenameEnabled', 'features'),
     choice('autoRenameTemplate', 'features', ['short', 'full'], 'short'),
@@ -283,12 +294,19 @@ if (typeof window.cuLmsSettings === 'undefined') {
     };
   }
 
+  /** Значение настройки, когда её ещё ни разу не трогали. */
+  function defaultFor(key) {
+    const entry = BY_KEY.get(key);
+    return entry ? entry.fallback : undefined;
+  }
+
   window.cuLmsSettings = {
     FORMAT,
     FORMAT_VERSION,
     GROUPS,
     KINDS,
     REGISTRY,
+    defaultFor,
     entriesFor,
     collect,
     inspect,

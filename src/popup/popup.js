@@ -316,13 +316,21 @@ function initAccordion() {
 
 initAccordion();
 
+/** Значение тумблера по умолчанию — из реестра настроек. */
+function defaultToggleValue(key) {
+  const registry = window.cuLmsSettings;
+  if (!registry || typeof registry.defaultFor !== 'function') return false;
+  return !!registry.defaultFor(key);
+}
+
 // --- ОСНОВНАЯ ЛОГИКА ОБНОВЛЕНИЯ СОСТОЯНИЙ ---
 function refreshToggleStates() {
   browser.storage.sync.get([...allKeys, 'autoRenameTemplate']).then((data) => {
     allKeys.forEach((key) => {
-      if (toggles[key]) {
-        toggles[key].checked = !!data[key];
-      }
+      if (!toggles[key]) return;
+      // Ключа может не быть вовсе: тогда показываем то же, что подставит сам
+      // плагин, иначе галочка врёт (так было с вкладкой друзей).
+      toggles[key].checked = key in data ? !!data[key] : defaultToggleValue(key);
     });
 
     const isThemeEnabled = !!data.themeEnabled;
