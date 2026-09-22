@@ -18,6 +18,9 @@
         --accent-text: #ffffff;
         --danger: #c4381f;
         --code-bg: #ffffff;
+        --on-bg: #e6f4ea;
+        --on-text: #10633a;
+        --on-dot: #1e8e3e;
       }
 
       body.dark {
@@ -31,6 +34,9 @@
         --accent-text: #0e1116;
         --danger: #ff8c67;
         --code-bg: #232427;
+        --on-bg: #1d3327;
+        --on-text: #8fe3b4;
+        --on-dot: #4ac99b;
       }
 
       * {
@@ -148,6 +154,47 @@
         padding: 5px 10px;
         border: 1px solid var(--accent);
         border-radius: 8px;
+      }
+
+      /* Пипетка взведена на всех вкладках LMS и забирает там правую кнопку —
+         это состояние должно бросаться в глаза, а не теряться серой строкой
+         среди подписей. */
+      .pick-note {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin: 6px 0 0;
+        padding: 4px 11px 4px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .pick-note::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex: 0 0 auto;
+      }
+
+      .pick-note_on {
+        background: var(--on-bg);
+        color: var(--on-text);
+        font-weight: 600;
+      }
+
+      .pick-note_on::before {
+        background: var(--on-dot);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--on-dot) 25%, transparent);
+      }
+
+      .pick-row_on {
+        background: var(--on-bg);
+        border-color: var(--on-dot);
+        color: var(--on-text);
+        font-weight: 600;
       }
 
       /* --- ВКЛАДКИ --- */
@@ -502,7 +549,7 @@
       <div class="brand">
         <h1>Редактор темы</h1>
         <p class="muted" id="context-note">Загрузка…</p>
-        <p class="muted" id="pick-note"></p>
+        <p class="pick-note" id="pick-note"></p>
       </div>
       <div class="top-actions">
         <label class="switch-row">

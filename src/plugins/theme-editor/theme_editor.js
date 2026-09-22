@@ -955,8 +955,12 @@ if (typeof browser === 'undefined') {
   function renderPickState() {
     el.pick.checked = state.picking;
     el.pickNote.textContent = state.picking
-      ? 'Пипетка включена: ПКМ по элементу на вкладке LMS — его цвета приедут сюда.'
-      : 'Пипетка выключена: правая кнопка на странице работает как обычно.';
+      ? 'Пипетка включена: ПКМ по элементу на вкладке LMS — его цвета приедут сюда'
+      : 'Пипетка выключена: правая кнопка на странице работает как обычно';
+    // Пока пипетка взведена, на всех вкладках LMS перехвачено контекстное
+    // меню — это надо видеть, а не вычитывать из серой строчки.
+    el.pickNote.classList.toggle('pick-note_on', state.picking);
+    el.pick.parentElement.classList.toggle('pick-row_on', state.picking);
   }
 
   function setPicking(active) {
