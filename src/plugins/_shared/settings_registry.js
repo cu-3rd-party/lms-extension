@@ -121,8 +121,8 @@ if (typeof window.cuLmsSettings === 'undefined') {
     bool('hideBonusButtonEnabled', 'features'),
     bool('autoRenameEnabled', 'features'),
     choice('autoRenameTemplate', 'features', ['short', 'full'], 'short'),
-    // Скрытие старых заданий на странице задач. Пустая дата означает «не
-    // выбрана»: тумблер можно включить раньше, чем поставить день.
+    // Скрытие старых заданий в архиве задач (поле даты над его таблицей).
+    // Пустая дата означает «не выбрана» — тогда не прячется ничего.
     bool('hideTasksBeforeEnabled', 'features'),
     text('hideTasksBeforeDate', 'features', /^(\d{4}-\d{2}-\d{2})?$/),
 
@@ -141,6 +141,10 @@ if (typeof window.cuLmsSettings === 'undefined') {
     // --- личное ---
     data('courseNames', 'personal', 'object'),
     data('archivedCourseIds', 'personal', 'array'),
+    // Архив задач: id заданий, спрятанных вручную, и id тех, что вернули из
+    // списка скрытых вопреки границе по дате.
+    data('hiddenArchivedTaskIds', 'personal', 'array'),
+    data('shownArchivedTaskIds', 'personal', 'array'),
 
     // --- наружу не отдаётся ---
     // Токены доступа: отдать их вместе с настройками — отдать аккаунт.

@@ -104,7 +104,6 @@ const LIVE_SETTINGS = [
   'customLogoToggle',
   'customBackgroundToggle',
   'customThemeToggle',
-  'hideTasksBeforeEnabled',
 ];
 
 // --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP ---
@@ -151,7 +150,6 @@ const toggles = {
   endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'),
   friendsEnabled: document.getElementById('friends-toggle'),
   hideBonusButtonEnabled: document.getElementById('hide-bonus-button-toggle'),
-  hideTasksBeforeEnabled: document.getElementById('hide-tasks-before-toggle'),
 };
 
 // Элементы UI для зависимых настроек
@@ -159,8 +157,6 @@ const endOfCourseCalcLabel = document.getElementById('end-of-course-calc-label')
 const futureExamsDisplayContainer = document.getElementById('future-exams-display-container');
 const futureExamsDisplayFormat = document.getElementById('future-exams-display-format');
 const autoRenameFormatContainer = document.getElementById('auto-rename-format-container');
-const hideTasksBeforeContainer = document.getElementById('hide-tasks-before-container');
-const hideTasksBeforeDate = document.getElementById('hide-tasks-before-date');
 const renameTemplateSelect = document.getElementById('rename-template-select');
 const reloadNotice = document.getElementById('reload-notice');
 const oldCoursesDesignContainer = document.getElementById('old-courses-design-container');
@@ -193,7 +189,6 @@ const allKeys = [
   ...Object.keys(toggles),
   'futureExamsDisplayFormat',
   'autoRenameTemplate',
-  'hideTasksBeforeDate',
   'akhCourseFilter',
   'contestCourseFilter',
   'stickerObjectFit',
@@ -208,12 +203,6 @@ let pendingChanges = {};
 function updateOldCoursesDesignUI(isEnabled) {
   if (oldCoursesDesignContainer) {
     oldCoursesDesignContainer.style.display = isEnabled ? 'block' : 'none';
-  }
-}
-
-function updateHideTasksBeforeUI(isEnabled) {
-  if (hideTasksBeforeContainer) {
-    hideTasksBeforeContainer.style.display = isEnabled ? 'block' : 'none';
   }
 }
 
@@ -433,8 +422,6 @@ function refreshToggleStates() {
     }
 
     updateAutoRenameUI(isAutoRenameEnabled);
-    updateHideTasksBeforeUI(!!data.hideTasksBeforeEnabled);
-    if (hideTasksBeforeDate) hideTasksBeforeDate.value = data.hideTasksBeforeDate || '';
     updateOldCoursesDesignUI(!!data.oldCoursesDesignToggle);
     updateCustomCourseNamesUI(!!data.customCourseNamesToggle);
     updateCustomLogoUI(!!data.customLogoToggle);
@@ -532,8 +519,6 @@ allKeys.forEach((key) => {
         updateFormatDisplayVisibility();
       } else if (key === 'autoRenameEnabled') {
         updateAutoRenameUI(isEnabled);
-      } else if (key === 'hideTasksBeforeEnabled') {
-        updateHideTasksBeforeUI(isEnabled);
       } else if (key === 'oldCoursesDesignToggle') {
         updateOldCoursesDesignUI(isEnabled);
       } else if (key === 'customCourseNamesToggle') {
@@ -562,16 +547,6 @@ if (futureExamsDisplayFormat) {
     } else {
       browser.storage.sync.set({ futureExamsDisplayFormat: selectedFormat });
     }
-  });
-}
-
-if (hideTasksBeforeDate) {
-  hideTasksBeforeDate.addEventListener('change', () => {
-    // Настройка живая: пишем сразу, даже в меню на странице, — иначе дату
-    // пришлось бы подтверждать закрытием меню.
-    const change = { hideTasksBeforeDate: hideTasksBeforeDate.value || '' };
-    if (isInsideIframe) pendingChanges = { ...pendingChanges, ...change };
-    browser.storage.sync.set(change);
   });
 }
 
@@ -861,6 +836,8 @@ if (resetBtn) {
       courseOverviewAutoscrollToggle: false,
       friendsEnabled: true,
       hideBonusButtonEnabled: false,
+      // Граница скрытия архива задаётся на самой странице архива, но
+      // сброс «по умолчанию» обнуляет и её.
       hideTasksBeforeEnabled: false,
       hideTasksBeforeDate: '',
     };
@@ -888,10 +865,7 @@ if (resetBtn) {
       if (futureExamsDisplayFormat)
         futureExamsDisplayFormat.value = defaultSettings.futureExamsDisplayFormat;
 
-      if (hideTasksBeforeDate) hideTasksBeforeDate.value = defaultSettings.hideTasksBeforeDate;
-
       if (autoRenameFormatContainer) autoRenameFormatContainer.style.display = 'none';
-      if (hideTasksBeforeContainer) hideTasksBeforeContainer.style.display = 'none';
       if (futureExamsDisplayContainer) futureExamsDisplayContainer.style.display = 'none';
       if (oldCoursesDesignContainer) oldCoursesDesignContainer.style.display = 'none';
       if (customCourseNamesContainer) customCourseNamesContainer.style.display = 'none';

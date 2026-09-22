@@ -22,9 +22,11 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     document.querySelectorAll('tr[class*="task-table__task"]').forEach((row) => {
       row.querySelector('[data-culms-weight-cell]')?.remove();
       row.querySelector('.culms-action-button')?.remove();
-      // Скрытие по дате работает и на архивной странице, поэтому уборка
-      // остального его не отменяет.
-      row.style.display = row.hasAttribute(HIDDEN_BY_DATE_ATTR) ? 'none' : '';
+      // Скрытие по дате и ручное работают как раз на архивной странице,
+      // поэтому уборка остального их не отменяет.
+      const keepHidden =
+        row.hasAttribute(HIDDEN_BY_DATE_ATTR) || row.hasAttribute(HIDDEN_BY_USER_ATTR);
+      row.style.display = keepHidden ? 'none' : '';
     });
 
     document.getElementById('culms-tasks-fix-styles')?.remove();
@@ -84,9 +86,10 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   // --- СКРЫТИЕ СТАРЫХ ЗАДАНИЙ ---
   //
-  // Настройка в попапе: «скрывать задачи раньше даты N». Прячем по дедлайну —
-  // другой даты в таблице нет, — и одинаково на активной и на архивной
-  // странице. `null` означает «фильтр выключен».
+  // «Скрывать задачи раньше даты N» — только в архиве: дату выбирают прямо в
+  // панели над его таблицей. Активные задачи граница не трогает — там всё
+  // ещё актуально. Прячем по дедлайну: другой даты в таблице нет.
+  // `hideBeforeTime === null` означает «фильтр выключен».
   const HIDE_BEFORE_ENABLED_KEY = 'hideTasksBeforeEnabled';
   const HIDE_BEFORE_DATE_KEY = 'hideTasksBeforeDate';
   const HIDDEN_BY_DATE_ATTR = 'data-culms-hidden-before-date';
@@ -97,13 +100,42 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   const ARCHIVED_TASKS_PATH = '/api/micro-lms/tasks/student?state=evaluated&state=failed';
 
   let hideBeforeTime = null;
+  // Та же граница строкой «ГГГГ-ММ-ДД» — для поля даты в панели архива.
+  let hideBeforeDateValue = '';
   let hideBeforePromise = null;
-  let filtersInitialized = false;
   let archivedTasks = null;
   let archivedTasksPromise = null;
   // Сколько строк было в момент последнего сопоставления: архив Angular
   // досыпает частями, а пересопоставлять всё на каждую мутацию незачем.
   let archivedStampedRows = -1;
+
+  // --- РУЧНОЕ СКРЫТИЕ В АРХИВЕ ---
+  //
+  // В архиве студент сам выбирает задания, которые ему мешают, и прячет их
+  // насовсем. Храним id задач из API, а не названия: внутри курса названия
+  // повторяются («Семинар», «ДЗ»), и по ним спряталось бы лишнее.
+  //
+  // Второй список — исключения из скрытия по дате. Задание, которое вернули
+  // из списка скрытых, должно остаться на экране, даже если его дедлайн
+  // раньше границы, — иначе вернуть его было бы нельзя вовсе.
+  const HIDDEN_TASKS_KEY = 'hiddenArchivedTaskIds';
+  const SHOWN_TASKS_KEY = 'shownArchivedTaskIds';
+  const HIDDEN_BY_USER_ATTR = 'data-culms-hidden-by-user';
+  const ROW_SELECTOR = 'tr[class*="task-table__task"]';
+  const ARCHIVE_TOOLBAR_ID = 'culms-archive-toolbar';
+  const ARCHIVE_STYLE_ID = 'culms-archive-hide-styles';
+  const HIDDEN_MODAL_ID = 'culms-hidden-tasks-modal';
+  const SELECTING_CLASS = 'culms-archive-selecting';
+
+  let hiddenTaskIds = new Set();
+  let shownTaskIds = new Set();
+  let hiddenListsPromise = null;
+  let hiddenListsLoaded = false;
+  let selectionMode = false;
+  const selectedTaskIds = new Set();
+  // Последняя строка, по которой кликнули без Shift: от неё отсчитывается
+  // диапазон при клике с Shift.
+  let selectionAnchorId = null;
 
   // Порядок важен: «мар» проверяется раньше «ма», иначе «марта» стало бы маем.
   const MONTH_PREFIXES = [
@@ -232,13 +264,31 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   /** Задание без дедлайна не прячем: судить о нём не по чему. */
   function isHiddenByDate(row) {
     if (hideBeforeTime === null) return false;
+    // Задание вернули из списка скрытых — граница по дате его больше не прячет.
+    const id = row.dataset.culmsTaskId;
+    if (id && shownTaskIds.has(id)) return false;
     const time = rowDeadlineTime(row);
     return time !== null && time < hideBeforeTime;
   }
 
   function applyHideBeforeSetting(data) {
-    hideBeforeTime =
+    const time =
       data && data[HIDE_BEFORE_ENABLED_KEY] ? parseSettingDate(data[HIDE_BEFORE_DATE_KEY]) : null;
+    hideBeforeTime = time;
+    hideBeforeDateValue = time === null ? '' : String(data[HIDE_BEFORE_DATE_KEY]);
+  }
+
+  /** Дату выбрали в панели архива: применяем сразу и запоминаем. */
+  function setHideBeforeDate(value) {
+    const data = { [HIDE_BEFORE_ENABLED_KEY]: !!value, [HIDE_BEFORE_DATE_KEY]: value || '' };
+    applyHideBeforeSetting(data);
+    applyArchiveFilter();
+    renderArchiveUi();
+    Promise.resolve()
+      .then(() => browser.storage.sync.set(data))
+      .catch((error) =>
+        window.cuLmsLog('Task Status Updater: Failed to save hide-before date:', error)
+      );
   }
 
   /** Настройку читаем один раз за жизнь скрипта; дальше — через onChanged. */
@@ -291,30 +341,534 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
     const rowTasks = matchRowsToTasks(rows, archivedTasks);
     rows.forEach((row) => {
-      const deadline = rowTasks.get(row)?.deadline;
-      if (deadline) row.dataset.culmsDeadline = deadline;
+      const task = rowTasks.get(row);
+      if (task?.deadline) row.dataset.culmsDeadline = task.deadline;
+      // По id строку выбирают для ручного скрытия и узнают в списках.
+      if (task?.id != null) row.dataset.culmsTaskId = String(task.id);
     });
   }
 
   /**
-   * Прячет строки только по дате. Нужен на архивной странице: наших фильтров
+   * Видимость строк архива: скрытые по дате и скрытые вручную. Наших фильтров
    * статуса и курса там нет, и применять их было бы нечем — `selectedCourses`
    * собирается из активной таблицы.
    */
-  function applyDateFilterOnly() {
-    document.querySelectorAll('tr[class*="task-table__task"]').forEach((row) => {
-      const hidden = isHiddenByDate(row);
-      const wasHidden = row.hasAttribute(HIDDEN_BY_DATE_ATTR);
-      row.toggleAttribute(HIDDEN_BY_DATE_ATTR, hidden);
-      if (hidden) row.style.display = 'none';
+  function applyArchiveFilter() {
+    document.querySelectorAll(ROW_SELECTOR).forEach((row) => {
+      const byDate = isHiddenByDate(row);
+      const id = row.dataset.culmsTaskId;
+      const byUser = !!id && hiddenTaskIds.has(id);
+      const wasHidden =
+        row.hasAttribute(HIDDEN_BY_DATE_ATTR) || row.hasAttribute(HIDDEN_BY_USER_ATTR);
+      row.toggleAttribute(HIDDEN_BY_DATE_ATTR, byDate);
+      row.toggleAttribute(HIDDEN_BY_USER_ATTR, byUser);
+      if (byDate || byUser) row.style.display = 'none';
       else if (wasHidden) row.style.display = '';
     });
   }
 
-  /** Перерисовка видимости после смены настройки. */
-  function refreshRowVisibility() {
-    if (!isArchivedPage() && filtersInitialized) applyCombinedFilter();
-    else applyDateFilterOnly();
+  // --- РУЧНОЕ СКРЫТИЕ: ДАННЫЕ ---
+
+  const toIdSet = (value) => new Set(Array.isArray(value) ? value.map(String) : []);
+
+  /** Списки читаем один раз за жизнь скрипта; дальше — через onChanged. */
+  function ensureHiddenTaskLists() {
+    if (!hiddenListsPromise) {
+      hiddenListsPromise = Promise.resolve()
+        .then(() => browser.storage.local.get([HIDDEN_TASKS_KEY, SHOWN_TASKS_KEY]))
+        .then((data) => {
+          hiddenTaskIds = toIdSet(data?.[HIDDEN_TASKS_KEY]);
+          shownTaskIds = toIdSet(data?.[SHOWN_TASKS_KEY]);
+        })
+        .catch(() => {})
+        .finally(() => {
+          hiddenListsLoaded = true;
+        });
+    }
+    return hiddenListsPromise;
+  }
+
+  function saveHiddenTaskLists() {
+    return Promise.resolve()
+      .then(() =>
+        browser.storage.local.set({
+          [HIDDEN_TASKS_KEY]: [...hiddenTaskIds],
+          [SHOWN_TASKS_KEY]: [...shownTaskIds],
+        })
+      )
+      .catch((error) =>
+        window.cuLmsLog('Task Status Updater: Failed to save hidden tasks:', error)
+      );
+  }
+
+  /** Дедлайн задачи из API раньше границы скрытия. */
+  function taskDeadlineBeforeBorder(task) {
+    if (hideBeforeTime === null || !task?.deadline) return false;
+    const time = new Date(task.deadline).getTime();
+    return !Number.isNaN(time) && time < hideBeforeTime;
+  }
+
+  /** Почему архивная задача не видна: 'user', 'date' или null — видна. */
+  function taskHiddenReason(task) {
+    const id = String(task.id);
+    if (hiddenTaskIds.has(id)) return 'user';
+    if (!shownTaskIds.has(id) && taskDeadlineBeforeBorder(task)) return 'date';
+    return null;
+  }
+
+  function hiddenArchivedTasks() {
+    return (archivedTasks || [])
+      .filter((task) => task?.id != null)
+      .map((task) => ({ task, reason: taskHiddenReason(task) }))
+      .filter((item) => item.reason);
+  }
+
+  function hideSelectedTasks() {
+    selectedTaskIds.forEach((id) => {
+      hiddenTaskIds.add(id);
+      // Исключение из скрытия по дате больше не нужно: задание спрятано руками.
+      shownTaskIds.delete(id);
+    });
+    void saveHiddenTaskLists();
+    exitSelectionMode();
+    applyArchiveFilter();
+  }
+
+  /**
+   * Возвращает задания в архив. Если его и так прятала бы дата, запоминаем
+   * исключение — иначе «вернуть» ничего бы не меняло.
+   */
+  function restoreTasks(ids) {
+    const byId = new Map((archivedTasks || []).map((task) => [String(task.id), task]));
+    ids.forEach((id) => {
+      hiddenTaskIds.delete(id);
+      if (taskDeadlineBeforeBorder(byId.get(id))) shownTaskIds.add(id);
+    });
+    void saveHiddenTaskLists();
+    applyArchiveFilter();
+    renderArchiveUi();
+  }
+
+  // --- РУЧНОЕ СКРЫТИЕ: ИНТЕРФЕЙС ---
+  //
+  // Всё здесь перерисовывается на каждой мутации архива, поэтому текст и
+  // узлы трогаем только когда они реально изменились: наш же MutationObserver
+  // следит за childList, и лишняя запись зациклила бы его.
+
+  function setText(element, text) {
+    if (element && element.textContent !== text) element.textContent = text;
+  }
+
+  function setShown(element, shown) {
+    if (element && element.hidden === shown) element.hidden = !shown;
+  }
+
+  function ensureArchiveStyles() {
+    if (document.getElementById(ARCHIVE_STYLE_ID)) return;
+
+    const isDark = !!document.getElementById('culms-dark-theme-style-base');
+    const bg = `var(--tui-base-01, ${isDark ? '#2d2d2d' : '#ffffff'})`;
+    const text = `var(--tui-text-01, ${isDark ? '#e0e0e0' : '#1b1f3b'})`;
+    const muted = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)';
+    const border = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
+    const hover = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
+    const accent = 'var(--tui-primary, #526ed3)';
+    const selectedRow = isDark ? 'rgba(82,110,211,0.28)' : 'rgba(82,110,211,0.12)';
+    const rows = `body.${SELECTING_CLASS} ${ROW_SELECTOR}`;
+
+    const style = document.createElement('style');
+    style.id = ARCHIVE_STYLE_ID;
+    style.textContent = `
+      .culms-archive-toolbar {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        /* Сверху — фильтры LMS «Курс» и «Статус»: без зазора панель к ним липнет. */
+        margin: 16px 0 12px;
+      }
+      .culms-archive-toolbar [hidden], .culms-hidden-dialog [hidden] { display: none !important; }
+      .culms-archive-toolbar button, .culms-hidden-dialog button {
+        font: inherit; font-size: 14px; font-weight: 500; line-height: 20px;
+        padding: 6px 14px; border-radius: 8px; cursor: pointer;
+        border: 1px solid ${border}; background: ${bg}; color: ${text};
+      }
+      .culms-archive-toolbar button:hover, .culms-hidden-dialog button:hover { background: ${hover}; }
+      .culms-archive-toolbar button.culms-archive-primary,
+      .culms-hidden-dialog button.culms-archive-primary {
+        background: ${accent}; border-color: ${accent}; color: #fff;
+      }
+      .culms-archive-toolbar button:disabled, .culms-hidden-dialog button:disabled {
+        opacity: 0.5; cursor: default;
+      }
+      .culms-archive-hint { font-size: 13px; color: ${muted}; }
+      .culms-archive-date { display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; font-size: 14px; }
+      .culms-archive-date input {
+        font: inherit; font-size: 14px; padding: 5px 10px; border-radius: 8px;
+        border: 1px solid ${border}; background: ${bg}; color: ${text};
+        color-scheme: ${isDark ? 'dark' : 'light'};
+      }
+      .culms-archive-toolbar [data-action="list"] { margin-left: auto; }
+
+      ${rows} { cursor: pointer; user-select: none; }
+      ${rows} > td:first-child { position: relative; padding-left: 44px !important; }
+      body.${SELECTING_CLASS} .task-table__header > :first-child { padding-left: 44px !important; }
+      ${rows} > td:first-child::before {
+        content: ''; position: absolute; left: 14px; top: 50%;
+        width: 18px; height: 18px; margin-top: -9px; box-sizing: border-box;
+        border: 2px solid ${border}; border-radius: 4px; background: ${bg};
+        color: #fff; font-size: 12px; font-weight: 700; line-height: 14px; text-align: center;
+      }
+      ${rows}.culms-archive-selected > td { background-color: ${selectedRow} !important; }
+      ${rows}.culms-archive-selected > td:first-child::before {
+        content: '✓'; background: ${accent}; border-color: ${accent};
+      }
+      ${rows}.culms-archive-unselectable { opacity: 0.45; cursor: not-allowed; }
+
+      .culms-hidden-backdrop {
+        position: fixed; inset: 0; z-index: 1050; background: rgba(0,0,0,0.55);
+        display: flex; align-items: center; justify-content: center; padding: 16px;
+      }
+      .culms-hidden-dialog {
+        width: min(600px, 100%); max-height: min(80vh, 720px);
+        display: flex; flex-direction: column; box-sizing: border-box;
+        background: ${bg}; color: ${text}; border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.3); padding: 20px 24px;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Segoe UI', sans-serif;
+      }
+      .culms-hidden-dialog h2 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+      .culms-hidden-sub { margin: 0 0 12px; font-size: 13px; color: ${muted}; }
+      .culms-hidden-all { display: flex; align-items: center; gap: 8px; font-size: 14px;
+        padding: 0 0 8px; border-bottom: 1px solid ${border}; cursor: pointer; }
+      .culms-hidden-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1 1 auto; }
+      .culms-hidden-list li { border-bottom: 1px solid ${border}; }
+      .culms-hidden-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 2px; cursor: pointer; user-select: none; }
+      .culms-hidden-item:hover { background: ${hover}; }
+      .culms-hidden-item input { margin-top: 3px; flex-shrink: 0; }
+      .culms-hidden-text { flex: 1 1 auto; min-width: 0; }
+      .culms-hidden-name { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+      .culms-hidden-meta { font-size: 12px; color: ${muted}; margin-top: 2px; }
+      .culms-hidden-reason { flex-shrink: 0; font-size: 12px; padding: 2px 8px; border-radius: 999px;
+        border: 1px solid ${border}; color: ${muted}; white-space: nowrap; }
+      .culms-hidden-empty { padding: 24px 0; text-align: center; color: ${muted}; font-size: 14px; }
+      .culms-hidden-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding-top: 14px; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureArchiveToolbar() {
+    let bar = document.getElementById(ARCHIVE_TOOLBAR_ID);
+    if (bar) return bar;
+
+    const table = document.querySelector('.task-table');
+    if (!table || !table.parentNode) return null;
+
+    bar = document.createElement('div');
+    bar.id = ARCHIVE_TOOLBAR_ID;
+    bar.className = 'culms-archive-toolbar';
+    bar.innerHTML = `
+      <button type="button" data-action="select">Выбрать и скрыть</button>
+      <label class="culms-archive-date">
+        Скрывать с дедлайном раньше
+        <input type="date" aria-label="Скрывать задачи с дедлайном раньше даты">
+      </label>
+      <button type="button" data-action="clear-date" hidden>Не скрывать по дате</button>
+      <button type="button" data-action="hide" class="culms-archive-primary" hidden></button>
+      <button type="button" data-action="cancel" hidden>Отмена</button>
+      <span class="culms-archive-hint" hidden>Отметь задачи, которые мешают. С Shift — сразу диапазон</span>
+      <button type="button" data-action="list">Открыть список скрытых задач</button>`;
+    bar.addEventListener('click', onToolbarClick);
+    bar.addEventListener('change', (event) => {
+      if (event.target.matches('input[type="date"]')) setHideBeforeDate(event.target.value);
+    });
+    table.parentNode.insertBefore(bar, table);
+    return bar;
+  }
+
+  function onToolbarClick(event) {
+    const action = event.target.closest('button[data-action]')?.dataset.action;
+    if (action === 'select') enterSelectionMode();
+    else if (action === 'cancel') exitSelectionMode();
+    else if (action === 'hide' && selectedTaskIds.size) hideSelectedTasks();
+    else if (action === 'list') openHiddenTasksModal();
+    else if (action === 'clear-date') setHideBeforeDate('');
+  }
+
+  function syncToolbar(bar) {
+    const button = (action) => bar.querySelector(`[data-action="${action}"]`);
+    setShown(button('select'), !selectionMode);
+    setShown(button('list'), !selectionMode);
+    setShown(button('hide'), selectionMode);
+    setShown(button('cancel'), selectionMode);
+    setShown(bar.querySelector('.culms-archive-hint'), selectionMode);
+    setShown(bar.querySelector('.culms-archive-date'), !selectionMode);
+    setShown(button('clear-date'), !selectionMode && !!hideBeforeDateValue);
+
+    // Пока в поле печатают, не перебиваем: иначе недописанная дата
+    // сбрасывалась бы на каждой мутации страницы.
+    const dateInput = bar.querySelector('.culms-archive-date input');
+    if (
+      dateInput &&
+      dateInput !== document.activeElement &&
+      dateInput.value !== hideBeforeDateValue
+    ) {
+      dateInput.value = hideBeforeDateValue;
+    }
+
+    const hide = button('hide');
+    setText(hide, `Скрыть выбранные (${selectedTaskIds.size})`);
+    if (hide) hide.disabled = selectedTaskIds.size === 0;
+
+    const count = hiddenArchivedTasks().length;
+    setText(button('list'), `Открыть список скрытых задач${count ? ` (${count})` : ''}`);
+  }
+
+  /** Отметки на строках. Только классы: разметку строк Angular держит сам. */
+  function syncRowSelection() {
+    document.body.classList.toggle(SELECTING_CLASS, selectionMode);
+    document.querySelectorAll(ROW_SELECTOR).forEach((row) => {
+      const id = row.dataset.culmsTaskId;
+      row.classList.toggle(
+        'culms-archive-selected',
+        selectionMode && !!id && selectedTaskIds.has(id)
+      );
+      // Задание не сопоставилось с API — id нет, и спрятать его насовсем
+      // было бы не по чему.
+      row.classList.toggle('culms-archive-unselectable', selectionMode && !id);
+    });
+  }
+
+  function renderArchiveUi() {
+    // Без архива из API строки ещё без id: выбирать было бы нечего.
+    if (!isArchivedPage() || !hiddenListsLoaded || archivedTasks === null) return;
+    ensureArchiveStyles();
+    const bar = ensureArchiveToolbar();
+    if (bar) syncToolbar(bar);
+    syncRowSelection();
+  }
+
+  function enterSelectionMode() {
+    selectionMode = true;
+    selectedTaskIds.clear();
+    selectionAnchorId = null;
+    renderArchiveUi();
+  }
+
+  function exitSelectionMode() {
+    selectionMode = false;
+    selectedTaskIds.clear();
+    selectionAnchorId = null;
+    renderArchiveUi();
+  }
+
+  /**
+   * id строк от якоря до `id` включительно, в порядке таблицы. Берём только
+   * видимые: спрятанное датой или раньше незаметно попало бы в диапазон.
+   * null — якоря нет или он пропал со страницы.
+   */
+  function selectableRange(fromId, toId) {
+    if (!fromId) return null;
+    const ids = Array.from(document.querySelectorAll(ROW_SELECTOR))
+      .filter((row) => row.dataset.culmsTaskId && row.style.display !== 'none')
+      .map((row) => row.dataset.culmsTaskId);
+    const from = ids.indexOf(fromId);
+    const to = ids.indexOf(toId);
+    if (from === -1 || to === -1) return null;
+    return ids.slice(Math.min(from, to), Math.max(from, to) + 1);
+  }
+
+  /**
+   * В режиме выбора клик по строке отмечает её, а не открывает задание.
+   * Ловим на погружении: строка в LMS — ссылка, и до её обработчика клик
+   * дойти не должен.
+   */
+  function onArchiveRowClick(event) {
+    if (!selectionMode || !isArchivedPage()) return;
+    const row = event.target.closest?.(ROW_SELECTOR);
+    if (!row) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const id = row.dataset.culmsTaskId;
+    if (!id) return;
+
+    // Как в файловых менеджерах: весь диапазон получает то состояние, в
+    // которое переходит кликнутая строка, — так Shift и отмечает, и снимает.
+    const select = !selectedTaskIds.has(id);
+    const range = event.shiftKey ? selectableRange(selectionAnchorId, id) : null;
+    (range || [id]).forEach((rangeId) => {
+      if (select) selectedTaskIds.add(rangeId);
+      else selectedTaskIds.delete(rangeId);
+    });
+    selectionAnchorId = id;
+    renderArchiveUi();
+  }
+
+  function onArchiveKeydown(event) {
+    if (event.key !== 'Escape' || !isArchivedPage()) return;
+    if (document.getElementById(HIDDEN_MODAL_ID)) closeHiddenTasksModal();
+    else if (selectionMode) exitSelectionMode();
+  }
+
+  function formatDeadline(deadline) {
+    if (!deadline) return 'без дедлайна';
+    const date = new Date(deadline);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function closeHiddenTasksModal() {
+    document.getElementById(HIDDEN_MODAL_ID)?.remove();
+  }
+
+  /**
+   * Список скрытых заданий: и спрятанных вручную, и спрятанных по дате.
+   * Отмеченные можно вернуть в архив.
+   */
+  function openHiddenTasksModal() {
+    closeHiddenTasksModal();
+    ensureArchiveStyles();
+
+    const backdrop = document.createElement('div');
+    backdrop.id = HIDDEN_MODAL_ID;
+    backdrop.className = 'culms-hidden-backdrop';
+    backdrop.innerHTML = `
+      <div class="culms-hidden-dialog" role="dialog" aria-modal="true" aria-labelledby="culms-hidden-title">
+        <h2 id="culms-hidden-title">Скрытые задачи</h2>
+        <p class="culms-hidden-sub"></p>
+        <label class="culms-hidden-all"><input type="checkbox"> Выбрать все</label>
+        <ul class="culms-hidden-list"></ul>
+        <div class="culms-hidden-footer">
+          <button type="button" data-action="close">Закрыть</button>
+          <button type="button" data-action="restore" class="culms-archive-primary"></button>
+        </div>
+      </div>`;
+
+    const picked = new Set();
+    // Якорь для Shift и то, зажат ли он. Флаг снимаем на нажатии мыши, а не
+    // на `change`: у события `change` нет `shiftKey`, а клик по подписи
+    // браузер пересылает в чекбокс уже без модификаторов.
+    let anchorId = null;
+    let shiftHeld = false;
+    const list = backdrop.querySelector('.culms-hidden-list');
+    list.addEventListener('pointerdown', (event) => {
+      shiftHeld = event.shiftKey;
+    });
+    list.addEventListener('keydown', () => {
+      shiftHeld = false;
+    });
+    const selectAll = backdrop.querySelector('.culms-hidden-all input');
+    const restoreButton = backdrop.querySelector('[data-action="restore"]');
+
+    const render = () => {
+      const items = hiddenArchivedTasks().sort(
+        (a, b) => new Date(b.task.deadline || 0) - new Date(a.task.deadline || 0)
+      );
+      const ids = new Set(items.map(({ task }) => String(task.id)));
+      picked.forEach((id) => {
+        if (!ids.has(id)) picked.delete(id);
+      });
+
+      const byUser = items.filter((item) => item.reason === 'user').length;
+      backdrop.querySelector('.culms-hidden-sub').textContent = items.length
+        ? `Скрыто вручную: ${byUser}, по дате: ${items.length - byUser}`
+        : '';
+      setShown(backdrop.querySelector('.culms-hidden-all'), items.length > 0);
+
+      list.textContent = '';
+      if (!items.length) {
+        const empty = document.createElement('li');
+        empty.className = 'culms-hidden-empty';
+        empty.textContent = 'Скрытых задач нет';
+        list.appendChild(empty);
+      }
+      items.forEach(({ task, reason }) => {
+        const id = String(task.id);
+        const item = document.createElement('li');
+        const label = document.createElement('label');
+        label.className = 'culms-hidden-item';
+
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = picked.has(id);
+        box.addEventListener('change', () => {
+          const order = items.map((entry) => String(entry.task.id));
+          const from = anchorId ? order.indexOf(anchorId) : -1;
+          const to = order.indexOf(id);
+          const range =
+            shiftHeld && from !== -1
+              ? order.slice(Math.min(from, to), Math.max(from, to) + 1)
+              : [id];
+          range.forEach((rangeId) => {
+            if (box.checked) picked.add(rangeId);
+            else picked.delete(rangeId);
+          });
+          anchorId = id;
+          shiftHeld = false;
+          if (range.length > 1) render();
+          else syncFooter(items.length);
+        });
+
+        // Названия задаёт LMS, а курс мог переименовать пользователь, поэтому
+        // только textContent, никакого innerHTML.
+        const textBox = document.createElement('div');
+        textBox.className = 'culms-hidden-text';
+        const name = document.createElement('div');
+        name.className = 'culms-hidden-name';
+        name.textContent = task.exercise?.name || 'Без названия';
+        const meta = document.createElement('div');
+        meta.className = 'culms-hidden-meta';
+        const course = task.course?.name ? displayCourseName(task.course.name) : '';
+        meta.textContent = [course, formatDeadline(task.deadline)].filter(Boolean).join(' · ');
+        textBox.append(name, meta);
+
+        const tag = document.createElement('span');
+        tag.className = 'culms-hidden-reason';
+        tag.textContent = reason === 'user' ? 'скрыта вами' : 'раньше даты';
+
+        label.append(box, textBox, tag);
+        item.appendChild(label);
+        list.appendChild(item);
+      });
+      syncFooter(items.length);
+    };
+
+    const syncFooter = (total) => {
+      restoreButton.textContent = `Вернуть в архив (${picked.size})`;
+      restoreButton.disabled = picked.size === 0;
+      selectAll.checked = total > 0 && picked.size === total;
+      selectAll.indeterminate = picked.size > 0 && picked.size < total;
+    };
+
+    selectAll.addEventListener('change', () => {
+      picked.clear();
+      if (selectAll.checked) {
+        hiddenArchivedTasks().forEach(({ task }) => picked.add(String(task.id)));
+      }
+      render();
+    });
+
+    restoreButton.addEventListener('click', () => {
+      if (!picked.size) return;
+      restoreTasks([...picked]);
+      picked.clear();
+      render();
+    });
+    backdrop
+      .querySelector('[data-action="close"]')
+      .addEventListener('click', closeHiddenTasksModal);
+    backdrop.addEventListener('click', (event) => {
+      if (event.target === backdrop) closeHiddenTasksModal();
+    });
+
+    render();
+    document.body.appendChild(backdrop);
+  }
+
+  /** Ушли с архива: наши кнопки и режим выбора там больше не нужны. */
+  function teardownArchiveUi() {
+    selectionMode = false;
+    selectedTaskIds.clear();
+    document.getElementById(ARCHIVE_TOOLBAR_ID)?.remove();
+    closeHiddenTasksModal();
+    document.body.classList.remove(SELECTING_CLASS);
   }
 
   // --- КЭШ ДЛЯ ЗАГРУЖЕННЫХ ИКОНОК ---
@@ -386,16 +940,23 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       }
       // Строки архива Angular досыпает постепенно, поэтому проходим по ним на
       // каждой мутации, а не один раз вместе с уборкой.
-      void Promise.all([ensureHideBeforeSetting(), ensureArchivedTasks()]).then(() => {
+      void Promise.all([
+        ensureHideBeforeSetting(),
+        ensureArchivedTasks(),
+        ensureHiddenTaskLists(),
+      ]).then(() => {
         stampArchivedDeadlines();
-        applyDateFilterOnly();
+        applyArchiveFilter();
+        renderArchiveUi();
       });
       stampArchivedDeadlines();
-      applyDateFilterOnly();
+      applyArchiveFilter();
+      renderArchiveUi();
       return;
     }
 
     isCleanedUp = false;
+    teardownArchiveUi();
     // Ушли с архива: его строки пересоздадутся, и штампы дедлайнов исчезнут.
     archivedStampedRows = -1;
 
@@ -431,19 +992,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       // Angular рисует таблицу дольше, чем идёт наш запрос, поэтому к моменту
       // появления строк данные обычно уже готовы.
       const settingsPromise = browser.storage.sync.get('emojiHeartsEnabled');
-      const hideBeforePending = ensureHideBeforeSetting();
       const tasksPromise = fetchTasksData();
 
       await waitForElement('tr[class*="task-table__task"]');
       window.cuLmsLog('Task Status Updater: Task rows found. Starting DOM modification.');
 
-      // Дату скрытия ждём здесь же: примени её позже — строки успели бы
-      // мелькнуть на экране и тут же пропасть.
-      const [settings, tasksData] = await Promise.all([
-        settingsPromise,
-        tasksPromise,
-        hideBeforePending,
-      ]);
+      const [settings, tasksData] = await Promise.all([settingsPromise, tasksPromise]);
       const isEmojiSwapEnabled = !!settings.emojiHeartsEnabled;
 
       buildTableStructure();
@@ -794,14 +1348,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         const weight = task.exercise?.activity?.weight;
         weightCell.textContent =
           weight !== undefined && weight !== null ? `${Math.round(weight * 100)}%` : '';
-
-        // Точный дедлайн держим на строке: в видимом тексте нет года, а
-        // фильтру «раньше даты N» его приходится угадывать.
-        if (task.deadline) row.dataset.culmsDeadline = task.deadline;
-        else delete row.dataset.culmsDeadline;
       } else {
         weightCell.textContent = '';
-        delete row.dataset.culmsDeadline;
       }
 
       if (isEmojiSwapEnabled) {
@@ -1180,28 +1728,18 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       window.cuLmsLog('Task Status Updater: Master course list created with saved selections.');
       saveFilterSettings();
     }
-    filtersInitialized = true;
     applyCombinedFilter();
   }
 
   function applyCombinedFilter() {
     document.querySelectorAll('tr[class*="task-table__task"]').forEach((row) => {
-      const hiddenByDate = isHiddenByDate(row);
-      const wasHiddenByDate = row.hasAttribute(HIDDEN_BY_DATE_ATTR);
-      row.toggleAttribute(HIDDEN_BY_DATE_ATTR, hiddenByDate);
-
       // Ищем по новому тегу
       const statusBadge = row.querySelector('cu-task-state-badge');
       const courseEl = row.querySelector('.task-table__course-name');
       if (statusBadge && courseEl) {
         const isStatusVisible = selectedStatuses.has(statusBadge.textContent.trim());
         const isCourseVisible = selectedCourses.has(originalCourseName(courseEl));
-        row.style.display = !hiddenByDate && isStatusVisible && isCourseVisible ? '' : 'none';
-      } else if (hiddenByDate) {
-        row.style.display = 'none';
-      } else if (wasHiddenByDate) {
-        // Дату сдвинули назад — строку, спрятанную прошлым проходом, возвращаем.
-        row.style.display = '';
+        row.style.display = isStatusVisible && isCourseVisible ? '' : 'none';
       }
     });
   }
@@ -1459,20 +1997,35 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   browser.storage.onChanged.addListener((changes) => {
     if (changes[HIDE_BEFORE_ENABLED_KEY] || changes[HIDE_BEFORE_DATE_KEY]) {
-      // Настройка живая: меню можно не закрывать, таблица перестроится сразу.
+      // Граница могла поменяться в другой вкладке или загрузкой профиля.
       browser.storage.sync
         .get([HIDE_BEFORE_ENABLED_KEY, HIDE_BEFORE_DATE_KEY])
         .then((data) => {
           applyHideBeforeSetting(data);
-          refreshRowVisibility();
+          if (!isArchivedPage()) return;
+          applyArchiveFilter();
+          renderArchiveUi();
         })
         .catch(() => {});
+    }
+
+    if (changes[HIDDEN_TASKS_KEY] || changes[SHOWN_TASKS_KEY]) {
+      // Списки могли поменяться из другой вкладки или загрузкой профиля.
+      if (changes[HIDDEN_TASKS_KEY]) hiddenTaskIds = toIdSet(changes[HIDDEN_TASKS_KEY].newValue);
+      if (changes[SHOWN_TASKS_KEY]) shownTaskIds = toIdSet(changes[SHOWN_TASKS_KEY].newValue);
+      if (isArchivedPage()) {
+        applyArchiveFilter();
+        renderArchiveUi();
+      }
     }
 
     if (changes.themeEnabled) {
       setTimeout(() => {
         window.cuLmsLog('Task Status Updater: Theme changed, refreshing styles and icons...');
         refreshDynamicStyles();
+        // Цвета панели архива считаются от темы при создании стилей.
+        document.getElementById(ARCHIVE_STYLE_ID)?.remove();
+        renderArchiveUi();
         Object.keys(svgIconCache).forEach((key) => delete svgIconCache[key]);
         document.querySelectorAll('.culms-action-button').forEach((button) => {
           const isSkipped = button.dataset.isSkipped === 'true';
@@ -1482,6 +2035,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     }
   });
 
+  document.addEventListener('click', onArchiveRowClick, true);
+  document.addEventListener('keydown', onArchiveKeydown);
   initializeObserver();
   throttledCheckAndRun();
 }
