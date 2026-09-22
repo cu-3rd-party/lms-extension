@@ -177,6 +177,11 @@ const customThemeContainer = document.getElementById('custom-theme-container');
 const customThemeStatus = document.getElementById('custom-theme-status');
 const openThemeEditorBtn = document.getElementById('open-theme-editor-btn');
 const resetThemeBtn = document.getElementById('reset-theme-btn');
+const themeNameInput = document.getElementById('theme-name-input');
+const themeExportBtn = document.getElementById('theme-export-btn');
+const themeImportBtn = document.getElementById('theme-import-btn');
+const themeImportFile = document.getElementById('theme-import-file');
+const themeFileStatus = document.getElementById('theme-file-status');
 const gradesExportBtn = document.getElementById('grades-export-btn');
 const gradesExportStatus = document.getElementById('grades-export-status');
 
@@ -218,7 +223,14 @@ function updateCustomBackgroundUI(isEnabled) {
 async function refreshThemeStatus() {
   if (!customThemeStatus) return;
 
-  const data = await browser.storage.local.get(['customThemeVars', 'customThemeCss']);
+  const data = await browser.storage.local.get([
+    'customThemeVars',
+    'customThemeCss',
+    'customThemeName',
+  ]);
+  if (themeNameInput && document.activeElement !== themeNameInput) {
+    themeNameInput.value = typeof data.customThemeName === 'string' ? data.customThemeName : '';
+  }
   const vars =
     data.customThemeVars && typeof data.customThemeVars === 'object'
       ? Object.keys(data.customThemeVars).length
@@ -311,6 +323,7 @@ function groupSections() {
   const wrapper = document.createElement('div');
   wrapper.className = 'sections';
   sections[0].parentNode.insertBefore(wrapper, sections[0]);
+
   sections.forEach((section) => wrapper.appendChild(section));
 }
 
@@ -879,6 +892,101 @@ if (openThemeEditorBtn) {
       return;
     }
     window.close();
+  });
+}
+
+function setThemeFileStatus(text, kind = 'info') {
+  if (!themeFileStatus) return;
+  themeFileStatus.textContent = text || '';
+  themeFileStatus.style.color =
+    kind === 'error' ? '#d93025' : kind === 'success' ? '#188038' : '#666';
+}
+
+// Тема — это файл, которым делятся, поэтому экспорт и импорт живут здесь, а не
+// в редакторе: редактор правит текущую тему, меню заведует файлами. Формат и
+// проверки общие с остальными настройками — вид профиля `theme`.
+if (themeNameInput) {
+  themeNameInput.addEventListener('change', () => {
+    browser.storage.local.set({ customThemeName: themeNameInput.value.trim() });
+  });
+}
+
+if (themeExportBtn) {
+  themeExportBtn.addEventListener('click', async () => {
+    const registry = window.cuLmsSettings;
+    if (!registry) {
+      setThemeFileStatus('Реестр настроек не загрузился — пересобери расширение.', 'error');
+      return;
+    }
+
+    const name = themeNameInput ? themeNameInput.value.trim() : '';
+    setThemeFileStatus('Собираю...');
+
+    try {
+      await browser.storage.local.set({ customThemeName: name });
+      const profile = await registry.collect('theme', { name });
+      const size = await saveProfileFile(profile);
+      const vars = Object.keys(profile.values.customThemeVars || {}).length;
+      setThemeFileStatus(
+        `Сохранено: ${vars} переменных, ${(size / 1024).toFixed(1)} КБ.`,
+        'success'
+      );
+    } catch (error) {
+      setThemeFileStatus('Не удалось сохранить: ' + (error.message || error), 'error');
+    }
+  });
+}
+
+if (themeImportBtn && themeImportFile) {
+  themeImportBtn.addEventListener('click', () => themeImportFile.click());
+
+  themeImportFile.addEventListener('change', async () => {
+    const file = themeImportFile.files && themeImportFile.files[0];
+    themeImportFile.value = '';
+    if (!file) return;
+
+    const registry = window.cuLmsSettings;
+    if (!registry) {
+      setThemeFileStatus('Реестр настроек не загрузился — пересобери расширение.', 'error');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      // Сначала разбор без записи: чужой файл перезапишет то, что человек
+      // настраивал руками, — надо показать, что именно приедет.
+      const preview = registry.inspect(text);
+      if (!preview.ok) {
+        setThemeFileStatus(preview.error, 'error');
+        return;
+      }
+
+      const themeKeys = preview.accepted.filter(({ entry }) => entry.group === 'theme');
+      if (!themeKeys.length) {
+        setThemeFileStatus('В файле нет темы — это профиль с другими настройками.', 'error');
+        return;
+      }
+
+      const meta = preview.profile.meta || {};
+      const title = meta.name ? `«${meta.name}»` : 'тему';
+      const question = `Загрузить ${title}?\n\nТекущая палитра и свой CSS будут перезаписаны.`;
+      if (!confirm(question)) {
+        setThemeFileStatus('Отменено.');
+        return;
+      }
+
+      const result = await registry.apply(text);
+      if (!result.ok) {
+        setThemeFileStatus(result.error, 'error');
+        return;
+      }
+
+      refreshToggleStates();
+      await refreshThemeStatus();
+      setThemeFileStatus(`Тема загружена (${themeKeys.length} ключей).`, 'success');
+    } catch (error) {
+      setThemeFileStatus('Не удалось прочитать файл: ' + (error.message || error), 'error');
+    }
   });
 }
 

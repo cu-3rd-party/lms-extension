@@ -50,7 +50,6 @@ if (typeof browser === 'undefined') {
   const PIPETTE_MARK = '/* правила из пипетки */';
 
   const tokens = window.cuLmsThemeTokens;
-  const settings = window.cuLmsSettings;
 
   const state = {
     enabled: false,
@@ -76,9 +75,6 @@ if (typeof browser === 'undefined') {
     enabled: $('theme-enabled'),
     pick: $('pick-toggle'),
     pickNote: $('pick-note'),
-    export: $('export-btn'),
-    import: $('import-btn'),
-    importFile: $('import-file'),
     palette: $('palette'),
     filter: $('palette-filter'),
     onlyChanged: $('only-changed'),
@@ -948,8 +944,11 @@ if (typeof browser === 'undefined') {
   }
 
   function renderContextNote() {
+    const name = state.name ? '«' + state.name + '» · ' : '';
     el.contextNote.textContent =
-      'Правки применяются во всех открытых вкладках LMS сразу — держите LMS в соседней вкладке.';
+      name +
+      'правки применяются во всех открытых вкладках LMS сразу — держите LMS в соседней вкладке. ' +
+      'Сохранить тему в файл и загрузить чужую можно в меню плагина, раздел «Выбор темы».';
   }
 
   /** Пипетка живёт на странице LMS, здесь только её выключатель. */
@@ -966,7 +965,12 @@ if (typeof browser === 'undefined') {
     renderPickState();
   }
 
-  // --- ЭКСПОРТ / ИМПОРТ ---
+  // --- СКАЧИВАНИЕ ---
+  //
+  // Экспорт и импорт тем живут в меню плагина: редактор правит текущую тему,
+  // а файлами заведует меню — там же, где выгрузка остальных настроек, и
+  // тем же форматом (вид профиля `theme`). Здесь остаётся только «скачать»
+  // для текста, который открыт во вкладке styles.css.
 
   function download(filename, text, type) {
     const url = URL.createObjectURL(new Blob([text], { type }));
@@ -975,44 +979,6 @@ if (typeof browser === 'undefined') {
     link.download = filename;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  async function exportTheme() {
-    if (!settings) return;
-    const name = prompt('Название темы:', state.name || 'Моя тема');
-    if (name === null) return;
-
-    state.name = name.trim();
-    await browser.storage.local.set({ [NAME_KEY]: state.name });
-
-    const profile = await settings.collect('theme', { name: state.name });
-    const safe = (state.name || 'theme').replace(/[^\wа-яё -]/gi, '').trim() || 'theme';
-    download(safe + '.cu-theme.json', JSON.stringify(profile, null, 2), 'application/json');
-  }
-
-  async function importTheme(file) {
-    if (!settings) return;
-    const text = await file.text();
-    const preview = settings.inspect(text);
-
-    if (!preview.ok) {
-      alert('Не удалось прочитать файл: ' + preview.error);
-      return;
-    }
-
-    const lines = ['Применится настроек: ' + preview.accepted.length];
-    if (preview.rejected.length) {
-      lines.push('Пропустим: ' + preview.rejected.map((item) => item.key).join(', '));
-    }
-    lines.push('', 'Текущая тема будет перезаписана. Продолжить?');
-    if (!confirm(lines.join('\n'))) return;
-
-    await settings.apply(text);
-    await loadAll();
-    renderPalette();
-    setCssText(state.css, { silent: true });
-    el.enabled.checked = state.enabled;
-    renderWarning();
   }
 
   // --- РЕЗУЛЬТАТ ПИПЕТКИ ---
@@ -1061,13 +1027,6 @@ if (typeof browser === 'undefined') {
     });
 
     el.pick.addEventListener('change', () => setPicking(el.pick.checked));
-    el.export.addEventListener('click', exportTheme);
-    el.import.addEventListener('click', () => el.importFile.click());
-    el.importFile.addEventListener('change', () => {
-      const file = el.importFile.files[0];
-      el.importFile.value = '';
-      if (file) void importTheme(file);
-    });
 
     el.cssText.addEventListener('input', () => {
       if (state.source !== 'mine') return;
@@ -1152,6 +1111,12 @@ if (typeof browser === 'undefined') {
       }
       if (area === 'local' && SOURCE_DUMP_KEY in changes) {
         applyPluginDump(changes[SOURCE_DUMP_KEY].newValue);
+      }
+      // Тему могли переименовать или загрузить из файла в меню плагина.
+      if (area === 'local' && NAME_KEY in changes) {
+        state.name =
+          typeof changes[NAME_KEY].newValue === 'string' ? changes[NAME_KEY].newValue : '';
+        renderContextNote();
       }
       if (area === 'local' && PICK_VALUES_KEY in changes) {
         state.computed = changes[PICK_VALUES_KEY].newValue || {};
