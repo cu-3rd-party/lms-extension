@@ -38,6 +38,47 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   // --- КОНСТАНТЫ СТАТУСОВ ---
   const SKIPPED_STATUS_TEXT = 'Метод скипа';
+  const SEMINAR_STATUS_TEXT = 'Аудиторная';
+
+  // Аудиторную работу LMS никак не помечает, поэтому вычисляем её сами по
+  // названию активности. Активность (`exercise.activity`) — это не тип
+  // задания, а корзина в формуле оценки: «Аудиторная работа на семинарах»,
+  // «Активность», у каждой свой вес. Домашка вполне может лежать в
+  // семинарской корзине — так у метоптов «ДЗ 3_1» светилось «Аудиторной».
+  // Поэтому сначала смотрим на название самого задания: если это ДЗ, никакая
+  // корзина его в аудиторную работу не превратит.
+  const SEMINAR_ACTIVITY_KEYWORDS = ['Аудиторная', 'Семинар', 'Активность'];
+  // Перебиваем только «ничего не сдано»: у сданного статус важнее типа.
+  const SEMINAR_LOW_PRIORITY_STATUSES = ['В работе', 'Задано'];
+  const HOMEWORK_MARKERS = ['дз', 'д/з', 'домашн', 'homework', 'hw'];
+
+  /**
+   * «ДЗ 3_1. Матрично-векторное дифференцирование» → да.
+   *
+   * Сравниваем по началу слова, а не по вхождению: иначе «дз» нашлось бы
+   * в середине случайного слова. `\b` тут не годится — для кириллицы в JS
+   * он не работает, поэтому режем строку на слова руками.
+   */
+  function looksLikeHomework(name) {
+    const words = String(name || '')
+      .toLowerCase()
+      .split(/[^0-9a-zа-яё/]+/);
+    return words.some((word) => HOMEWORK_MARKERS.some((marker) => word.startsWith(marker)));
+  }
+
+  /** Аудиторная ли это работа: решает название задания, а не корзина оценки. */
+  function isSeminarTask(task, originalStatus, row) {
+    if (!SEMINAR_LOW_PRIORITY_STATUSES.includes(originalStatus)) return false;
+
+    const activityName = task?.exercise?.activity?.name || '';
+    if (!SEMINAR_ACTIVITY_KEYWORDS.some((keyword) => activityName.includes(keyword))) return false;
+
+    // Название берём и из API, и из самой строки: сопоставление строк с
+    // задачами идёт по тексту и может промахнуться, а видимый заголовок —
+    // это ровно то, на что смотрит человек.
+    const visibleName = row?.querySelector('.task-table__task-name')?.textContent || '';
+    return !looksLikeHomework(task?.exercise?.name) && !looksLikeHomework(visibleName);
+  }
 
   // --- КЭШ ДЛЯ ЗАГРУЖЕННЫХ ИКОНОК ---
   const svgIconCache = {};
@@ -485,15 +526,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
             statusBadge.classList.add('task-state_custom_assigned');
           }
 
-          const activityName = task.exercise?.activity?.name || '';
-          const seminarKeywords = ['Аудиторная', 'Семинар', 'Активность'];
-          const seminarLowPriority = ['В работе', 'Задано'];
-
-          if (
-            seminarKeywords.some((keyword) => activityName.includes(keyword)) &&
-            seminarLowPriority.includes(originalText)
-          ) {
-            setStatusText(statusBadge, 'Аудиторная');
+          if (isSeminarTask(task, originalText, row)) {
+            setStatusText(statusBadge, SEMINAR_STATUS_TEXT);
             statusBadge.setAttribute('data-culms-status', 'seminar');
             row.setAttribute('data-culms-row-type', 'seminar');
             statusBadge.classList.remove(
@@ -589,15 +623,8 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       statusBadge.removeAttribute('data-culms-status');
     }
 
-    const activityName = task.exercise?.activity?.name || '';
-    const seminarKeywords = ['Аудиторная', 'Семинар', 'Активность'];
-    const seminarLowPriority = ['В работе', 'Задано'];
-
-    if (
-      seminarKeywords.some((keyword) => activityName.includes(keyword)) &&
-      seminarLowPriority.includes(originalText)
-    ) {
-      setStatusText(statusBadge, 'Аудиторная');
+    if (isSeminarTask(task, originalText, row)) {
+      setStatusText(statusBadge, SEMINAR_STATUS_TEXT);
       statusBadge.setAttribute('data-culms-status', 'seminar');
       row.setAttribute('data-culms-row-type', 'seminar');
       statusBadge.classList.remove('task-state_custom_in-progress', 'task-state_custom_assigned');
