@@ -491,6 +491,18 @@
         font-size: 13px;
       }
 
+      /* Через `.prop`: иначе общий `input[type='text']` перебьёт шрифт. */
+      .prop .prop-input {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+        font-size: 12px;
+      }
+
+      .prop .prop-input.invalid {
+        border-color: var(--danger);
+      }
+
       .prop-value {
         flex: 1 1 auto;
         font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;

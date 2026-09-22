@@ -75,12 +75,14 @@ tests/
 ├── future-exams.test.ts
 ├── tasks-fix.test.ts
 ├── tasks-hide-before-date.test.ts # скрытие архивных заданий раньше выбранной даты
-└── tasks-archive-hide.test.ts   # ручное скрытие в архиве и список скрытых
+├── tasks-archive-hide.test.ts   # ручное скрытие в архиве и список скрытых
+└── theme-editor-hex.test.ts     # ввод цвета hex-ом в редакторе темы
 ```
 
 Не всем браузерным тестам нужны логин и расширение: `pdf-viewer-firefox`,
-`tasks-hide-before-date` и `tasks-archive-hide` поднимают свою страницу и
-работают без куки. Первый раздаёт страницу расширения по http, два других
+`tasks-hide-before-date`, `tasks-archive-hide` и `theme-editor-hex` поднимают
+свою страницу и работают без куки. Последний отдаёт `theme-editor.html` с
+диска через `page.route` и подменяет `browser.storage` заглушкой. Первый раздаёт страницу расширения по http, два других
 собирают поддельную таблицу задач и выполняют на ней настоящий `tasks_fix.js`
 с заглушками вместо API и `browser.storage` — общий стенд лежит в
 `helpers/tasks-page.ts`.

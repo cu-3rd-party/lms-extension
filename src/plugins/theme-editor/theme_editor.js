@@ -137,6 +137,23 @@ if (typeof browser === 'undefined') {
     );
   }
 
+  // Hex без решётки: «e8eaed», «fff», «0008». Из пипеток и дизайн-макетов
+  // цвет копируется именно так, а CSS без `#` его не поймёт.
+  const BARE_HEX_RE = /^(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+  /**
+   * То, что человек ввёл в поле цвета, → значение для CSS или null, если
+   * браузер это цветом не считает. Понимает всё, что понимает CSS (hex, rgb,
+   * hsl, имена), плюс hex без решётки. `var(...)` пропускаем как есть: вне
+   * страницы LMS браузер его не вычислит.
+   */
+  function readColorInput(raw) {
+    let value = tokens.normalizeValue(raw);
+    if (!value) return null;
+    if (BARE_HEX_RE.test(value)) value = '#' + value;
+    return toRgb(value) || /^var\(/.test(value) ? value : null;
+  }
+
   // --- ХРАНИЛИЩЕ ---
 
   let saveTimer = null;
@@ -277,6 +294,8 @@ if (typeof browser === 'undefined') {
     // колорпикер не влезают, поэтому рядом всегда есть поле с точным текстом.
     text.value = value;
     text.spellcheck = false;
+    text.placeholder = '#e8eaed, rgb(…)';
+    text.title = 'Hex (можно без #), rgb(), rgba(), hsl() или var(--…)';
 
     const reset = document.createElement('button');
     reset.type = 'button';
@@ -301,14 +320,12 @@ if (typeof browser === 'undefined') {
     });
 
     text.addEventListener('input', () => {
-      const normalized = tokens.normalizeValue(text.value);
       // Непонятное значение в хранилище не пускаем: CSS его молча выбросит, а
       // человек будет искать, почему цвет не поменялся. Плюс тема уезжает в
-      // файл, которым делятся, — мусору там не место. `var(...)` пропускаем:
-      // браузер такое значение вне страницы LMS не вычислит.
-      const usable = normalized && (toRgb(normalized) || /^var\(/.test(normalized));
-      text.classList.toggle('invalid', !usable);
-      if (!usable) return;
+      // файл, которым делятся, — мусору там не место.
+      const normalized = readColorInput(text.value);
+      text.classList.toggle('invalid', !normalized);
+      if (!normalized) return;
 
       const hex = toHex(normalized);
       if (hex) color.value = hex;
@@ -848,17 +865,48 @@ if (typeof browser === 'undefined') {
       name.className = 'prop-name';
       name.textContent = color.label;
 
-      const value = document.createElement('div');
-      value.className = 'prop-value';
-      value.textContent = color.transparent ? 'прозрачно (' + color.value + ')' : color.value;
+      // Раньше тут была только подпись и колорпикер, а нативный пикер
+      // (в Firefox на Windows — системное окно) hex не принимает. Поле
+      // принимает то же, что и в палитре, включая hex без решётки.
+      const value = document.createElement('input');
+      value.type = 'text';
+      value.className = 'prop-input';
+      value.value = color.value;
+      value.spellcheck = false;
+      value.placeholder = '#e8eaed, rgb(…)';
+      value.title = color.transparent
+        ? 'Сейчас прозрачно. Hex (можно без #), rgb(), rgba() или hsl()'
+        : 'Hex (можно без #), rgb(), rgba() или hsl()';
 
       const picker = document.createElement('input');
       picker.type = 'color';
       picker.value = toHex(color.value) || '#000000';
+
+      const apply = (next) => {
+        fill.style.background = next;
+        upsertRule(data.selector, color.prop, next);
+      };
+
       picker.addEventListener('change', () => {
-        fill.style.background = picker.value;
-        value.textContent = picker.value;
-        upsertRule(data.selector, color.prop, picker.value);
+        value.value = picker.value;
+        value.classList.remove('invalid');
+        apply(picker.value);
+      });
+
+      value.addEventListener('input', () => {
+        const normalized = readColorInput(value.value);
+        value.classList.toggle('invalid', !normalized);
+        if (normalized) fill.style.background = normalized;
+      });
+      // В styles.css пишем по Enter или уходу из поля, а не на каждую букву:
+      // иначе правило переписывалось бы с каждой цифрой недописанного hex.
+      value.addEventListener('change', () => {
+        const normalized = readColorInput(value.value);
+        if (!normalized) return;
+        value.value = normalized;
+        const hex = toHex(normalized);
+        if (hex) picker.value = hex;
+        apply(normalized);
       });
 
       row.append(swatch, name, value, picker);
