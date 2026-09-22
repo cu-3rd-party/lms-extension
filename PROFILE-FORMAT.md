@@ -19,7 +19,7 @@
     "author": "",
     "note": "",
     "createdAt": "2026-09-21T18:40:00.000Z",
-    "extensionVersion": "2.5.0"
+    "extensionVersion": "2.6.0"
   },
   "values": {
     "themeEnabled": true,
