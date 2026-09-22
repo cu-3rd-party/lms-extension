@@ -72,8 +72,15 @@ tests/
 ├── settings-profile.test.ts     # выгрузка и загрузка настроек файлом
 ├── dark-theme.test.ts           # переключение тёмной темы
 ├── future-exams.test.ts
-└── tasks-fix.test.ts
+├── tasks-fix.test.ts
+└── tasks-hide-before-date.test.ts # скрытие заданий раньше выбранной даты
 ```
+
+Не всем браузерным тестам нужны логин и расширение: `pdf-viewer-firefox` и
+`tasks-hide-before-date` поднимают свою страницу и работают без куки. Первый
+раздаёт страницу расширения по http, второй собирает поддельную таблицу задач
+и выполняет на ней настоящий `tasks_fix.js` с заглушками вместо API и
+`browser.storage`.
 
 ## Как работает авторизация
 

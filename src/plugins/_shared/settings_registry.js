@@ -71,6 +71,16 @@ if (typeof window.cuLmsSettings === 'undefined') {
     fallback,
   });
   const data = (key, group, type) => ({ key, area: 'local', type, group });
+  // `pattern` — для строк, у которых важен формат (например дата «ГГГГ-ММ-ДД»):
+  // без него в файле профиля могла бы приехать любая строка, а плагин ждёт дату.
+  const text = (key, group, pattern, fallback = '') => ({
+    key,
+    area: 'sync',
+    type: 'string',
+    group,
+    pattern,
+    fallback,
+  });
 
   const REGISTRY = [
     // --- оформление ---
@@ -111,6 +121,10 @@ if (typeof window.cuLmsSettings === 'undefined') {
     bool('hideBonusButtonEnabled', 'features'),
     bool('autoRenameEnabled', 'features'),
     choice('autoRenameTemplate', 'features', ['short', 'full'], 'short'),
+    // Скрытие старых заданий на странице задач. Пустая дата означает «не
+    // выбрана»: тумблер можно включить раньше, чем поставить день.
+    bool('hideTasksBeforeEnabled', 'features'),
+    text('hideTasksBeforeDate', 'features', /^(\d{4}-\d{2}-\d{2})?$/),
 
     // --- интеграции ---
     bool('akhIntegrationEnabled', 'integrations'),
@@ -184,7 +198,9 @@ if (typeof window.cuLmsSettings === 'undefined') {
       case 'enum':
         return entry.values.includes(value) ? null : 'недопустимое значение';
       case 'string':
-        return typeof value === 'string' ? null : 'ожидалась строка';
+        if (typeof value !== 'string') return 'ожидалась строка';
+        if (entry.pattern && !entry.pattern.test(value)) return 'не тот формат';
+        return null;
       case 'array':
         return Array.isArray(value) ? null : 'ожидался список';
       case 'object':

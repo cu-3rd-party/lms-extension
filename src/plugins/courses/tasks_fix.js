@@ -22,7 +22,9 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     document.querySelectorAll('tr[class*="task-table__task"]').forEach((row) => {
       row.querySelector('[data-culms-weight-cell]')?.remove();
       row.querySelector('.culms-action-button')?.remove();
-      row.style.display = '';
+      // Скрытие по дате работает и на архивной странице, поэтому уборка
+      // остального его не отменяет.
+      row.style.display = row.hasAttribute(HIDDEN_BY_DATE_ATTR) ? 'none' : '';
     });
 
     document.getElementById('culms-tasks-fix-styles')?.remove();
@@ -78,6 +80,241 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     // это ровно то, на что смотрит человек.
     const visibleName = row?.querySelector('.task-table__task-name')?.textContent || '';
     return !looksLikeHomework(task?.exercise?.name) && !looksLikeHomework(visibleName);
+  }
+
+  // --- СКРЫТИЕ СТАРЫХ ЗАДАНИЙ ---
+  //
+  // Настройка в попапе: «скрывать задачи раньше даты N». Прячем по дедлайну —
+  // другой даты в таблице нет, — и одинаково на активной и на архивной
+  // странице. `null` означает «фильтр выключен».
+  const HIDE_BEFORE_ENABLED_KEY = 'hideTasksBeforeEnabled';
+  const HIDE_BEFORE_DATE_KEY = 'hideTasksBeforeDate';
+  const HIDDEN_BY_DATE_ATTR = 'data-culms-hidden-before-date';
+
+  // Те же адреса, что запрашивает сама LMS на каждой из двух страниц.
+  const ACTIVE_TASKS_PATH =
+    '/api/micro-lms/tasks/student?state=inProgress&state=backlog&state=submitted&state=review&state=reworking';
+  const ARCHIVED_TASKS_PATH = '/api/micro-lms/tasks/student?state=evaluated&state=failed';
+
+  let hideBeforeTime = null;
+  let hideBeforePromise = null;
+  let filtersInitialized = false;
+  let archivedTasks = null;
+  let archivedTasksPromise = null;
+  // Сколько строк было в момент последнего сопоставления: архив Angular
+  // досыпает частями, а пересопоставлять всё на каждую мутацию незачем.
+  let archivedStampedRows = -1;
+
+  // Порядок важен: «мар» проверяется раньше «ма», иначе «марта» стало бы маем.
+  const MONTH_PREFIXES = [
+    ['янв', 0],
+    ['фев', 1],
+    ['мар', 2],
+    ['апр', 3],
+    ['ма', 4],
+    ['июн', 5],
+    ['июл', 6],
+    ['авг', 7],
+    ['сен', 8],
+    ['окт', 9],
+    ['ноя', 10],
+    ['дек', 11],
+  ];
+
+  // «Пт, 25 сент. 22:00» и «25 сентября 2025». Год необязателен — LMS его не
+  // пишет; четыре цифры подряд отличают его от времени («22:00» не подойдёт).
+  const TEXT_DATE_RE = /(\d{1,2})\s+([а-яё]+)\.?(?:\s+(\d{4}))?/i;
+  const NUMERIC_DATE_RE = /(\d{1,2})[./](\d{1,2})[./](\d{2,4})/;
+  const TIME_RE = /\d{1,2}:\d{2}/;
+
+  /** «2026-09-25» → полночь этого дня по местному времени. Иначе null. */
+  function parseSettingDate(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+    if (!match) return null;
+    // Именно местная полночь, а не `new Date('2026-09-25')`: тот разбирается
+    // как UTC и в плюсовых поясах сдвигает границу на день назад.
+    const time = new Date(+match[1], +match[2] - 1, +match[3]).getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+
+  function monthFromWord(word) {
+    const lower = String(word || '').toLowerCase();
+    const found = MONTH_PREFIXES.find(([prefix]) => lower.startsWith(prefix));
+    return found ? found[1] : null;
+  }
+
+  /**
+   * Год в таблице LMS не пишет, поэтому его приходится угадывать: берём тот из
+   * соседних, при котором дата ближе всего к сегодня.
+   *
+   * Годится только для заданий рядом с сегодняшним днём. На архиве так делать
+   * нельзя — он лежит за несколько лет, и на живой странице 302 строки из 694
+   * угадывались не тем годом. Поэтому дедлайны архива берутся из API
+   * (`ensureArchivedTasks()`), а этот путь остался запасным — на случай, если
+   * задание с API не сопоставилось.
+   */
+  function pickYear(month, day, now) {
+    const base = now.getFullYear();
+    let best = null;
+    let bestDistance = Infinity;
+    [base - 1, base, base + 1].forEach((year) => {
+      const candidate = new Date(year, month, day);
+      if (candidate.getMonth() !== month) return; // 29 февраля невисокосного
+      const distance = Math.abs(candidate.getTime() - now.getTime());
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = candidate;
+      }
+    });
+    return best;
+  }
+
+  /**
+   * Дата из видимого текста строки — запасной путь, когда задание не нашлось
+   * в API. Время намеренно игнорируем: настройка задаёт день, и сравнение идёт
+   * по началу дня.
+   */
+  function parseVisibleDate(text, now = new Date()) {
+    const value = String(text || '');
+
+    const numeric = NUMERIC_DATE_RE.exec(value);
+    if (numeric) {
+      const year = +numeric[3];
+      const date = new Date(year < 100 ? 2000 + year : year, +numeric[2] - 1, +numeric[1]);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const textual = TEXT_DATE_RE.exec(value);
+    if (!textual) return null;
+    const month = monthFromWord(textual[2]);
+    if (month === null) return null;
+    const day = +textual[1];
+    if (day < 1 || day > 31) return null;
+
+    if (textual[3]) {
+      const date = new Date(+textual[3], month, day);
+      return date.getMonth() === month ? date : null;
+    }
+    return pickYear(month, day, now);
+  }
+
+  /** Текст ячейки с дедлайном. */
+  function deadlineCellText(row) {
+    const cell = row.querySelector('[class*="task-table__deadline"]');
+    if (cell) return cell.textContent || '';
+
+    // Разметка архивной страницы может отличаться. Ищем ячейку, где дата стоит
+    // рядом со временем: по названию задания («ДЗ 3 мая») так не промахнёшься.
+    const cells = row.querySelectorAll('td');
+    for (const candidate of cells) {
+      const text = candidate.textContent || '';
+      if (TIME_RE.test(text) && (TEXT_DATE_RE.test(text) || NUMERIC_DATE_RE.test(text))) {
+        return text;
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Момент дедлайна строки. Точное значение из API кладётся в data-атрибут
+   * при разборе таблицы; если задание с API не сопоставилось, читаем текст.
+   */
+  function rowDeadlineTime(row) {
+    const iso = row.dataset.culmsDeadline;
+    if (iso) {
+      const exact = new Date(iso);
+      if (!Number.isNaN(exact.getTime())) return exact.getTime();
+    }
+    const parsed = parseVisibleDate(deadlineCellText(row));
+    return parsed ? parsed.getTime() : null;
+  }
+
+  /** Задание без дедлайна не прячем: судить о нём не по чему. */
+  function isHiddenByDate(row) {
+    if (hideBeforeTime === null) return false;
+    const time = rowDeadlineTime(row);
+    return time !== null && time < hideBeforeTime;
+  }
+
+  function applyHideBeforeSetting(data) {
+    hideBeforeTime =
+      data && data[HIDE_BEFORE_ENABLED_KEY] ? parseSettingDate(data[HIDE_BEFORE_DATE_KEY]) : null;
+  }
+
+  /** Настройку читаем один раз за жизнь скрипта; дальше — через onChanged. */
+  function ensureHideBeforeSetting() {
+    if (!hideBeforePromise) {
+      hideBeforePromise = browser.storage.sync
+        .get([HIDE_BEFORE_ENABLED_KEY, HIDE_BEFORE_DATE_KEY])
+        .then(applyHideBeforeSetting)
+        .catch(() => {
+          hideBeforeTime = null;
+        });
+    }
+    return hideBeforePromise;
+  }
+
+  /**
+   * Архивные задания тоже берём из API — иначе фильтр по дате врёт.
+   *
+   * В архиве LMS печатает дедлайн без года («Вс, 31 авг. 22:00»), а лежат там
+   * несколько лет сразу: на живой странице из 694 строк 302 (43%) оказались не
+   * того года, который получается угадать по близости к сегодня. Точный
+   * `deadline` есть в том же списке задач, который запрашивает сама страница.
+   */
+  function ensureArchivedTasks() {
+    if (!archivedTasksPromise) {
+      archivedTasksPromise = fetchTasksData(ARCHIVED_TASKS_PATH)
+        .then((tasks) => {
+          archivedTasks = Array.isArray(tasks) ? tasks : [];
+        })
+        .catch(() => {
+          archivedTasks = [];
+        });
+    }
+    return archivedTasksPromise;
+  }
+
+  /**
+   * Переносит точные дедлайны архивных заданий на строки.
+   *
+   * Сопоставление взаимно-однозначное и «расходует» задачи, поэтому строится
+   * заново по всем строкам сразу — по частям его не собрать. Отсюда и защита
+   * от лишней работы: пока число строк не изменилось, пересчитывать нечего.
+   */
+  function stampArchivedDeadlines() {
+    if (!archivedTasks || !archivedTasks.length) return;
+
+    const rows = Array.from(document.querySelectorAll('tr[class*="task-table__task"]'));
+    if (!rows.length || rows.length === archivedStampedRows) return;
+    archivedStampedRows = rows.length;
+
+    const rowTasks = matchRowsToTasks(rows, archivedTasks);
+    rows.forEach((row) => {
+      const deadline = rowTasks.get(row)?.deadline;
+      if (deadline) row.dataset.culmsDeadline = deadline;
+    });
+  }
+
+  /**
+   * Прячет строки только по дате. Нужен на архивной странице: наших фильтров
+   * статуса и курса там нет, и применять их было бы нечем — `selectedCourses`
+   * собирается из активной таблицы.
+   */
+  function applyDateFilterOnly() {
+    document.querySelectorAll('tr[class*="task-table__task"]').forEach((row) => {
+      const hidden = isHiddenByDate(row);
+      const wasHidden = row.hasAttribute(HIDDEN_BY_DATE_ATTR);
+      row.toggleAttribute(HIDDEN_BY_DATE_ATTR, hidden);
+      if (hidden) row.style.display = 'none';
+      else if (wasHidden) row.style.display = '';
+    });
+  }
+
+  /** Перерисовка видимости после смены настройки. */
+  function refreshRowVisibility() {
+    if (!isArchivedPage() && filtersInitialized) applyCombinedFilter();
+    else applyDateFilterOnly();
   }
 
   // --- КЭШ ДЛЯ ЗАГРУЖЕННЫХ ИКОНОК ---
@@ -147,10 +384,20 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       if (!isCleanedUp) {
         cleanupModifications();
       }
+      // Строки архива Angular досыпает постепенно, поэтому проходим по ним на
+      // каждой мутации, а не один раз вместе с уборкой.
+      void Promise.all([ensureHideBeforeSetting(), ensureArchivedTasks()]).then(() => {
+        stampArchivedDeadlines();
+        applyDateFilterOnly();
+      });
+      stampArchivedDeadlines();
+      applyDateFilterOnly();
       return;
     }
 
     isCleanedUp = false;
+    // Ушли с архива: его строки пересоздадутся, и штампы дедлайнов исчезнут.
+    archivedStampedRows = -1;
 
     if (!canRunLogic) return;
 
@@ -184,12 +431,19 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       // Angular рисует таблицу дольше, чем идёт наш запрос, поэтому к моменту
       // появления строк данные обычно уже готовы.
       const settingsPromise = browser.storage.sync.get('emojiHeartsEnabled');
+      const hideBeforePending = ensureHideBeforeSetting();
       const tasksPromise = fetchTasksData();
 
       await waitForElement('tr[class*="task-table__task"]');
       window.cuLmsLog('Task Status Updater: Task rows found. Starting DOM modification.');
 
-      const [settings, tasksData] = await Promise.all([settingsPromise, tasksPromise]);
+      // Дату скрытия ждём здесь же: примени её позже — строки успели бы
+      // мелькнуть на экране и тут же пропасть.
+      const [settings, tasksData] = await Promise.all([
+        settingsPromise,
+        tasksPromise,
+        hideBeforePending,
+      ]);
       const isEmojiSwapEnabled = !!settings.emojiHeartsEnabled;
 
       buildTableStructure();
@@ -540,8 +794,14 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         const weight = task.exercise?.activity?.weight;
         weightCell.textContent =
           weight !== undefined && weight !== null ? `${Math.round(weight * 100)}%` : '';
+
+        // Точный дедлайн держим на строке: в видимом тексте нет года, а
+        // фильтру «раньше даты N» его приходится угадывать.
+        if (task.deadline) row.dataset.culmsDeadline = task.deadline;
+        else delete row.dataset.culmsDeadline;
       } else {
         weightCell.textContent = '';
+        delete row.dataset.culmsDeadline;
       }
 
       if (isEmojiSwapEnabled) {
@@ -789,12 +1049,9 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     return matches;
   }
 
-  async function fetchTasksData() {
+  async function fetchTasksData(path = ACTIVE_TASKS_PATH) {
     try {
-      // Обновленная ссылка с фильтрацией по статусам
-      const response = await fetch(
-        '/api/micro-lms/tasks/student?state=inProgress&state=backlog&state=submitted&state=review&state=reworking'
-      );
+      const response = await fetch(path);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       return await response.json();
     } catch (error) {
@@ -923,18 +1180,28 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       window.cuLmsLog('Task Status Updater: Master course list created with saved selections.');
       saveFilterSettings();
     }
+    filtersInitialized = true;
     applyCombinedFilter();
   }
 
   function applyCombinedFilter() {
     document.querySelectorAll('tr[class*="task-table__task"]').forEach((row) => {
+      const hiddenByDate = isHiddenByDate(row);
+      const wasHiddenByDate = row.hasAttribute(HIDDEN_BY_DATE_ATTR);
+      row.toggleAttribute(HIDDEN_BY_DATE_ATTR, hiddenByDate);
+
       // Ищем по новому тегу
       const statusBadge = row.querySelector('cu-task-state-badge');
       const courseEl = row.querySelector('.task-table__course-name');
       if (statusBadge && courseEl) {
         const isStatusVisible = selectedStatuses.has(statusBadge.textContent.trim());
         const isCourseVisible = selectedCourses.has(originalCourseName(courseEl));
-        row.style.display = isStatusVisible && isCourseVisible ? '' : 'none';
+        row.style.display = !hiddenByDate && isStatusVisible && isCourseVisible ? '' : 'none';
+      } else if (hiddenByDate) {
+        row.style.display = 'none';
+      } else if (wasHiddenByDate) {
+        // Дату сдвинули назад — строку, спрятанную прошлым проходом, возвращаем.
+        row.style.display = '';
       }
     });
   }
@@ -1191,6 +1458,17 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   }
 
   browser.storage.onChanged.addListener((changes) => {
+    if (changes[HIDE_BEFORE_ENABLED_KEY] || changes[HIDE_BEFORE_DATE_KEY]) {
+      // Настройка живая: меню можно не закрывать, таблица перестроится сразу.
+      browser.storage.sync
+        .get([HIDE_BEFORE_ENABLED_KEY, HIDE_BEFORE_DATE_KEY])
+        .then((data) => {
+          applyHideBeforeSetting(data);
+          refreshRowVisibility();
+        })
+        .catch(() => {});
+    }
+
     if (changes.themeEnabled) {
       setTimeout(() => {
         window.cuLmsLog('Task Status Updater: Theme changed, refreshing styles and icons...');
