@@ -324,7 +324,21 @@ function groupSections() {
   wrapper.className = 'sections';
   sections[0].parentNode.insertBefore(wrapper, sections[0]);
 
-  sections.forEach((section) => wrapper.appendChild(section));
+  const left = document.createElement('div');
+  const right = document.createElement('div');
+  left.className = 'sections-column';
+  right.className = 'sections-column';
+  wrapper.append(left, right);
+
+  // Делим пополам по количеству и раз навсегда. Раньше раскладку делал сам
+  // CSS (`columns`), но колоночный поток перебалансируется: стоило раскрыть
+  // раздел, и нижние перепрыгивали в соседний столбец — меню ехало под
+  // руками. Теперь раздел закреплён за столбцом, и раскрытие меняет только
+  // его высоту.
+  const half = Math.ceil(sections.length / 2);
+  sections.forEach((section, index) => {
+    (index < half ? left : right).appendChild(section);
+  });
 }
 
 function initAccordion() {

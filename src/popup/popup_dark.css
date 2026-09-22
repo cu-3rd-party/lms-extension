@@ -66,8 +66,8 @@ body.dark-theme .btn-reset:hover {
   background-color: #4a3636;
 }
 
-body.dark-theme .sections {
-  column-rule-color: #3c4043;
+body.dark-theme .sections-column + .sections-column {
+  border-left-color: #3c4043;
 }
 
 body.dark-theme .section_collapsible > h3:hover {
