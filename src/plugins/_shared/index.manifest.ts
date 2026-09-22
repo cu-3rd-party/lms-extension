@@ -12,7 +12,13 @@ const manifest = {
     'browser-polyfill.js',
     'plugins/_shared/course_names.js',
     'plugins/_shared/custom_logo.js',
+    // Области фона (страница, курс, раздел) нужны фону раньше, чем он стартует.
+    'plugins/_shared/background_scopes.js',
     'plugins/_shared/custom_background.js',
+    // Редактору фона — пережатие гифок; файл защищён от повторной загрузки,
+    // так что со страницами курсов, где он тоже нужен, не конфликтует.
+    'plugins/course-view/gif_reencode.js',
+    'plugins/_shared/background_editor.js',
     // Каталог переменных нужен и теме, и редактору — поэтому идёт первым.
     'plugins/_shared/theme_tokens.js',
     'plugins/_shared/custom_theme.js',

@@ -321,6 +321,10 @@
         color: #9aa0a6;
       }
 
+      .bg-editor {
+        margin-top: 14px;
+      }
+
       .btn-reset {
         display: block;
         width: 100%;
@@ -624,10 +628,10 @@
       </div>
       <div id="custom-background-container" class="setting-group" style="display: none">
         <p class="course-hint">
-          Заменяет заливку под островками интерфейса на всех страницах LMS. Шапка, левое меню и
-          карточки остаются непрозрачными. Подложка — полупрозрачная заливка цветом темы поверх
-          картинки: без неё текст, который лежит прямо на фоне (например, таблица заданий), не
-          читается. Меньше подложки — ярче картинка.
+          Заменяет заливку под островками интерфейса на страницах LMS. Шапка, левое меню и карточки
+          остаются непрозрачными. Подложка — полупрозрачная заливка цветом темы поверх картинки: без
+          неё текст, который лежит прямо на фоне (например, таблица заданий), не читается. Меньше
+          подложки — ярче картинка.
         </p>
         <div class="logo-preview" id="custom-background-preview"></div>
         <p class="course-hint" id="custom-background-status"></p>
@@ -661,6 +665,17 @@
         <button id="pick-background-btn" class="action-button">Выбрать картинку</button>
         <button id="reset-background-btn" class="btn-reset">Вернуть обычный фон</button>
         <input type="file" id="custom-background-file" accept="image/*" hidden />
+
+        <div class="bg-editor">
+          <span class="setting-label">Разный фон на разных страницах:</span>
+          <p class="course-hint">
+            Откроет панель прямо на странице LMS. Переходите куда нужно — хоть на отдельный курс — и
+            ставьте картинку для этой страницы, всего курса или раздела. Картинка выше — общая: она
+            видна там, где своей нет.
+          </p>
+          <button id="open-background-editor-btn" class="action-button">Редактор фона</button>
+          <p class="course-hint" id="background-editor-status"></p>
+        </div>
       </div>
 
       <div class="toggle-container">

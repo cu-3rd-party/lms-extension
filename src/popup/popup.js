@@ -1185,8 +1185,17 @@ async function prepareImage(file, { maxSide, rawLimit, onStatus }) {
 
 /** Общая обвязка кнопок «выбрать» и «сбросить» для логотипа и фона. */
 function setupImagePicker(options) {
-  const { pickButtonId, resetButtonId, input, storageKey, limits, status, preview, emptyText } =
-    options;
+  const {
+    pickButtonId,
+    resetButtonId,
+    input,
+    storageKey,
+    limits,
+    status,
+    preview,
+    emptyText,
+    onChange,
+  } = options;
   const onStatus = setStatus(status);
   const refresh = () => refreshImagePreview(preview, storageKey, emptyText);
 
@@ -1218,6 +1227,8 @@ function setupImagePicker(options) {
       } finally {
         onStatus('');
       }
+      // После `finally`: статус уже стёрт, и подпись можно рисовать заново.
+      if (onChange) await onChange();
     });
   }
 
@@ -1226,6 +1237,7 @@ function setupImagePicker(options) {
     resetButton.addEventListener('click', async () => {
       await browser.storage.local.remove(storageKey);
       await refresh();
+      if (onChange) await onChange();
     });
   }
 }
@@ -1251,6 +1263,49 @@ setupImagePicker({
   preview: customBackgroundPreview,
   emptyText: 'Картинка не выбрана',
 });
+
+// --- РЕДАКТОР ФОНА ---
+//
+// Разные картинки на разных страницах ставятся не отсюда, а панелью прямо на
+// странице LMS (plugins/_shared/background_editor.js): там видно, как фон
+// ляжет, и там известно, на какой странице человек. Попап её только включает
+// флагом в хранилище — панель появится во всех открытых вкладках LMS.
+
+const openBackgroundEditorBtn = document.getElementById('open-background-editor-btn');
+const backgroundEditorStatus = document.getElementById('background-editor-status');
+
+async function activeLmsTab() {
+  try {
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    return tab && tab.url && isLmsUrl(tab.url) ? tab : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+if (openBackgroundEditorBtn) {
+  openBackgroundEditorBtn.addEventListener('click', async () => {
+    // Панель на странице LMS: из попапа над чужим сайтом её не увидеть.
+    if (!isInsideIframe && !(await activeLmsTab())) {
+      if (backgroundEditorStatus) {
+        backgroundEditorStatus.textContent = 'Откройте вкладку LMS и нажмите ещё раз.';
+      }
+      return;
+    }
+
+    await browser.storage.local.set({ backgroundEditorActive: true });
+    // Без тумблера картинки не видно — а редактор открывают, чтобы видеть.
+    await browser.storage.sync.set({ customBackgroundToggle: true });
+    if (toggles.customBackgroundToggle) toggles.customBackgroundToggle.checked = true;
+
+    // Обычный попап закрываем, чтобы не загораживал страницу. Меню на самой
+    // странице (iframe) закрывает его собственная кнопка.
+    if (!isInsideIframe) window.close();
+    else if (backgroundEditorStatus) {
+      backgroundEditorStatus.textContent = 'Панель редактора — в правом нижнем углу страницы.';
+    }
+  });
+}
 
 // --- НАСТРОЙКИ ФАЙЛОМ ---
 //

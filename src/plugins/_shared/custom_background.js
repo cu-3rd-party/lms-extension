@@ -33,6 +33,16 @@
 // Подложка — второй слой того же `background-image`, потому что отдельная
 // панель не работает: на странице курсов картинку рисует внутренний слой,
 // который лёг бы поверх панели.
+//
+// Картинка бывает не одна: своя у страницы, у курса, у раздела или общая на
+// все страницы — какие области бывают и в каком порядке ищутся, описано в
+// `background_scopes.js`. Скрипт инжектится один раз на вкладку, а LMS — SPA,
+// поэтому смену страницы ловим сами: на каждой мутации сверяем адрес.
+// Картинки читаются лениво — только ключи областей текущей страницы — и
+// запоминаются, чтобы при возврате на страницу не читать их заново.
+//
+// Наружу отдаётся `window.cuLmsCustomBackground`: через него редактор фона
+// (`background_editor.js`) узнаёт, какая картинка сейчас на экране и откуда.
 
 // Polyfill to handle browser namespace differences (Chrome uses 'chrome', Firefox uses 'browser')
 if (typeof browser === 'undefined') {
@@ -45,9 +55,11 @@ if (typeof window.__culmsCustomBackgroundInitialized === 'undefined') {
   ('use strict');
 
   const SETTING_KEY = 'customBackgroundToggle';
-  const IMAGE_KEY = 'customBackground';
   const FIT_KEY = 'backgroundFit';
   const VEIL_KEY = 'backgroundVeil';
+  // Пока редактор открыт, за переходами следим и без картинок: панель должна
+  // узнавать о смене страницы.
+  const EDITOR_KEY = 'backgroundEditorActive';
 
   const STYLE_ID = 'culms-custom-background';
   const CANVAS_CLASS = 'culms-bg-canvas';
@@ -80,8 +92,10 @@ if (typeof window.__culmsCustomBackgroundInitialized === 'undefined') {
   const DEFAULT_VEIL = 60;
   const FALLBACK_VEIL_COLOR = '255, 255, 255';
 
+  const scopes = window.cuLmsBackgroundScopes;
+
   let enabled = false;
-  let image = null;
+  let editorActive = false;
   let fit = DEFAULT_FIT;
   let veil = DEFAULT_VEIL;
   // Цвет подложки берём у самого полотна, поэтому он совпадает с темой:
@@ -89,6 +103,38 @@ if (typeof window.__culmsCustomBackgroundInitialized === 'undefined') {
   let veilColor = FALLBACK_VEIL_COLOR;
   let observer = null;
   let resizeTimer = null;
+
+  // Прочитанные картинки областей: ключ → dataUrl или null («нет картинки»).
+  const imageCache = new Map();
+  // Что сейчас на экране: адрес, его области и ключ, чья картинка победила.
+  let shownPath = null;
+  let shownKey = null;
+  let shownImage = null;
+  // Номер прохода: чтение из хранилища асинхронное, и ответ для страницы, с
+  // которой уже ушли, не должен перебить картинку новой.
+  let applyToken = 0;
+  const listeners = new Set();
+
+  const currentPath = () => scopes.normalizePath(location.pathname);
+
+  /** Картинки областей страницы; недостающие дочитывает из хранилища. */
+  async function loadScopeImages(list) {
+    const missing = list.map((scope) => scope.key).filter((key) => !imageCache.has(key));
+    if (missing.length) {
+      const data = await browser.storage.local.get(missing);
+      missing.forEach((key) => imageCache.set(key, data[key] || null));
+    }
+  }
+
+  function notify() {
+    listeners.forEach((fn) => {
+      try {
+        fn();
+      } catch (_error) {
+        // Слушатель — панель редактора; её ошибка фону не мешает.
+      }
+    });
+  }
 
   function normalizeFit(value) {
     return Object.prototype.hasOwnProperty.call(FITS, value) ? value : DEFAULT_FIT;
@@ -202,7 +248,7 @@ html,
     // разделы по-другому.
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (enabled && image && markCanvasLayers()) apply();
+      if (enabled && shownImage && markCanvasLayers()) render();
     }, 150);
   };
 
@@ -220,10 +266,16 @@ html,
         return;
       }
 
+      // Перешли на другую страницу — у неё может быть своя картинка.
+      if (currentPath() !== shownPath) {
+        void apply();
+        return;
+      }
+
       // Angular пересобирает раздел при переходе, и новое полотно приходит
       // уже без нашего класса. Если у нового раздела другой цвет темы,
       // подложку пересобираем под него.
-      if (enabled && image && markCanvasLayers()) apply();
+      if (enabled && shownImage && markCanvasLayers()) render();
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
@@ -239,20 +291,20 @@ html,
     clearTimeout(resizeTimer);
   }
 
-  function apply() {
+  /** Рисует `shownImage` — или убирает фон, если картинки нет. */
+  function render() {
     const style = document.getElementById(STYLE_ID);
 
-    if (!enabled || !image) {
+    if (!enabled || !shownImage) {
       if (style) style.remove();
       unmarkCanvasLayers();
-      stopWatching();
       return;
     }
 
     // Сначала разметка: из неё узнаём цвет темы для подложки.
     markCanvasLayers();
 
-    const css = buildCss(image);
+    const css = buildCss(shownImage);
     if (style) {
       if (style.textContent !== css) style.textContent = css;
     } else {
@@ -261,21 +313,51 @@ html,
       created.textContent = css;
       (document.head || document.documentElement).appendChild(created);
     }
+  }
 
-    startWatching();
+  /**
+   * Находит картинку для текущей страницы и рисует её. Пока новая картинка
+   * читается, на экране остаётся прежняя: мигнуть общей по пути хуже.
+   */
+  async function apply() {
+    const token = ++applyToken;
+    const path = currentPath();
+    const list = scopes.scopesFor(path);
+    shownPath = path;
+
+    // За переходами следим всегда, пока фон включён: следующая страница может
+    // оказаться со своей картинкой, даже если на этой её нет.
+    if (enabled || editorActive) startWatching();
+    else stopWatching();
+
+    if (enabled || editorActive) {
+      try {
+        await loadScopeImages(list);
+      } catch (_error) {
+        // Контекст расширения умер (обновили расширение) — тихо выходим.
+        return;
+      }
+    }
+    if (token !== applyToken) return;
+
+    const winner = list.find((scope) => imageCache.get(scope.key));
+    shownKey = winner ? winner.key : null;
+    shownImage = winner ? imageCache.get(winner.key) : null;
+    render();
+    notify();
   }
 
   async function init() {
     const [syncData, localData] = await Promise.all([
       browser.storage.sync.get([SETTING_KEY, FIT_KEY, VEIL_KEY]),
-      browser.storage.local.get(IMAGE_KEY),
+      browser.storage.local.get(EDITOR_KEY),
     ]);
 
     enabled = !!syncData[SETTING_KEY];
     fit = normalizeFit(syncData[FIT_KEY]);
     veil = normalizeVeil(syncData[VEIL_KEY]);
-    image = localData[IMAGE_KEY] || null;
-    apply();
+    editorActive = !!localData[EDITOR_KEY];
+    await apply();
   }
 
   browser.storage.onChanged.addListener((changes, area) => {
@@ -295,13 +377,43 @@ html,
         dirty = true;
       }
     }
-    if (area === 'local' && IMAGE_KEY in changes) {
-      image = changes[IMAGE_KEY].newValue || null;
-      dirty = true;
+
+    if (area === 'local') {
+      if (EDITOR_KEY in changes) {
+        editorActive = !!changes[EDITOR_KEY].newValue;
+        dirty = true;
+      }
+      Object.keys(changes).forEach((key) => {
+        if (!scopes.isScopeKey(key)) return;
+        // Кеш держим только для прочитанных ключей: чужие страницы дочитаются,
+        // когда на них зайдут.
+        if (imageCache.has(key) || scopes.scopesFor(currentPath()).some((s) => s.key === key)) {
+          imageCache.set(key, changes[key].newValue || null);
+          dirty = true;
+        }
+      });
     }
 
-    if (dirty) apply();
+    if (dirty) void apply();
   });
+
+  window.cuLmsCustomBackground = {
+    /** Области текущей страницы и у каких из них есть картинка. */
+    state() {
+      const list = scopes.scopesFor(currentPath());
+      return {
+        enabled,
+        shownKey,
+        scopes: list.map((scope) => ({ ...scope, image: imageCache.get(scope.key) || null })),
+      };
+    },
+    /** Подписка на смену страницы или картинки; возвращает отписку. */
+    subscribe(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+    refresh: () => apply(),
+  };
 
   if (document.body) void init();
   else document.addEventListener('DOMContentLoaded', () => void init());

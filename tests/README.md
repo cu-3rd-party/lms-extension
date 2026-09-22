@@ -70,6 +70,7 @@ tests/
 ├── course-names.test.ts         # свои названия курсов и обратное преобразование
 ├── custom-logo.test.ts          # свой логотип в шапке вместо фирменного
 ├── custom-background.test.ts    # своя картинка на фоне вместо заливки
+├── custom-background-editor.test.ts # фон по страницам, курсам, разделам и редактор фона
 ├── settings-profile.test.ts     # выгрузка и загрузка настроек файлом
 ├── dark-theme.test.ts           # переключение тёмной темы
 ├── future-exams.test.ts
@@ -80,8 +81,8 @@ tests/
 ```
 
 Не всем браузерным тестам нужны логин и расширение: `pdf-viewer-firefox`,
-`tasks-hide-before-date`, `tasks-archive-hide` и `theme-editor-hex` поднимают
-свою страницу и работают без куки. Последний отдаёт `theme-editor.html` с
+`tasks-hide-before-date`, `tasks-archive-hide`, `theme-editor-hex` и
+`custom-background-editor` поднимают свою страницу и работают без куки. Последний отдаёт `theme-editor.html` с
 диска через `page.route` и подменяет `browser.storage` заглушкой. Первый раздаёт страницу расширения по http, два других
 собирают поддельную таблицу задач и выполняют на ней настоящий `tasks_fix.js`
 с заглушками вместо API и `browser.storage` — общий стенд лежит в

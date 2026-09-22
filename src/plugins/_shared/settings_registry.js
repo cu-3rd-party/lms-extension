@@ -82,6 +82,15 @@ if (typeof window.cuLmsSettings === 'undefined') {
     fallback,
   });
 
+  // Семейство ключей с общим началом: ключ `…*` описывает их все разом.
+  const prefixed = (prefix, group, type) => ({
+    key: prefix + '*',
+    prefix,
+    area: 'local',
+    type,
+    group,
+  });
+
   const REGISTRY = [
     // --- оформление ---
     bool('themeEnabled', 'appearance'),
@@ -137,6 +146,11 @@ if (typeof window.cuLmsSettings === 'undefined') {
     data('courseIcons', 'content', 'object'),
     data('customLogo', 'content', 'string'),
     data('customBackground', 'content', 'string'),
+    // Свои картинки фона для страниц, курсов и разделов:
+    // `customBackground.page:/learn/…`, `customBackground.course:1234`,
+    // `customBackground.section:tasks` (см. background_scopes.js). Страниц
+    // сколько угодно, поэтому ключи не перечислить — описываем префиксом.
+    prefixed('customBackground.', 'content', 'string'),
 
     // --- личное ---
     data('courseNames', 'personal', 'object'),
@@ -159,6 +173,8 @@ if (typeof window.cuLmsSettings === 'undefined') {
     // Через них вкладка редактора тем и страница LMS договариваются о пипетке:
     // состояние одного сеанса, чужому профилю оно ни к чему.
     { key: 'themePickerActive', area: 'local', type: 'boolean', group: 'private' },
+    // Открыт ли редактор фона на страницах LMS — состояние одного сеанса.
+    { key: 'backgroundEditorActive', area: 'local', type: 'boolean', group: 'private' },
     data('themePageValues', 'private', 'object'),
     data('themePickResult', 'private', 'object'),
     data('themeEditorTabId', 'private', 'number'),
@@ -166,7 +182,17 @@ if (typeof window.cuLmsSettings === 'undefined') {
     data('themeSourceDump', 'private', 'object'),
   ];
 
-  const BY_KEY = new Map(REGISTRY.map((entry) => [entry.key, entry]));
+  const BY_KEY = new Map(REGISTRY.filter((e) => !e.prefix).map((entry) => [entry.key, entry]));
+  const PREFIXED = REGISTRY.filter((entry) => entry.prefix);
+
+  /** Описание ключа: точное или по префиксу. */
+  function entryFor(key) {
+    return (
+      BY_KEY.get(key) ||
+      PREFIXED.find((entry) => key.startsWith(entry.prefix) && key.length > entry.prefix.length) ||
+      null
+    );
+  }
 
   // Что входит в каждый вид профиля. `settings` — только поведение, его файл
   // весит килобайты; `visual` тянет картинки и может весить мегабайты.
@@ -220,16 +246,27 @@ if (typeof window.cuLmsSettings === 'undefined') {
 
   async function collect(kind, meta = {}) {
     const entries = entriesFor(kind);
-    const syncKeys = entries.filter((e) => e.area === 'sync').map((e) => e.key);
-    const localKeys = entries.filter((e) => e.area === 'local').map((e) => e.key);
+    const fixed = entries.filter((e) => !e.prefix);
+    const families = entries.filter((e) => e.prefix);
+    const syncKeys = fixed.filter((e) => e.area === 'sync').map((e) => e.key);
+    const localKeys = fixed.filter((e) => e.area === 'local').map((e) => e.key);
 
-    const [syncData, localData] = await Promise.all([
+    const [syncData, localData, allLocal] = await Promise.all([
       syncKeys.length ? browser.storage.sync.get(syncKeys) : Promise.resolve({}),
       localKeys.length ? browser.storage.local.get(localKeys) : Promise.resolve({}),
+      // Ключи семейства заранее неизвестны — берём всё и отбираем по началу.
+      families.length ? browser.storage.local.get(null) : Promise.resolve({}),
     ]);
 
     const values = {};
-    entries.forEach((entry) => {
+    families.forEach((entry) => {
+      Object.keys(allLocal).forEach((key) => {
+        if (key.startsWith(entry.prefix) && allLocal[key] !== undefined) {
+          values[key] = allLocal[key];
+        }
+      });
+    });
+    fixed.forEach((entry) => {
       const source = entry.area === 'sync' ? syncData : localData;
       // Ключа может не быть вовсе — настройку никогда не трогали. В файл его
       // не пишем: пустое значение при загрузке затёрло бы чужую настройку.
@@ -287,7 +324,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
     const accepted = [];
     const rejected = [];
     Object.entries(profile.values).forEach(([key, value]) => {
-      const entry = BY_KEY.get(key);
+      const entry = entryFor(key);
       if (!entry) {
         // Незнакомый ключ — скорее всего файл от новой версии. Пропускаем,
         // но говорим об этом вслух.
@@ -303,7 +340,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
         rejected.push({ key, reason: problem });
         return;
       }
-      accepted.push({ entry, value });
+      accepted.push({ entry, key, value });
     });
 
     return { ok: true, profile, accepted, rejected };
@@ -316,8 +353,8 @@ if (typeof window.cuLmsSettings === 'undefined') {
 
     const sync = {};
     const local = {};
-    result.accepted.forEach(({ entry, value }) => {
-      (entry.area === 'sync' ? sync : local)[entry.key] = value;
+    result.accepted.forEach(({ entry, key, value }) => {
+      (entry.area === 'sync' ? sync : local)[key] = value;
     });
 
     if (Object.keys(sync).length) await browser.storage.sync.set(sync);
@@ -325,7 +362,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
 
     return {
       ok: true,
-      applied: result.accepted.map(({ entry }) => entry.key),
+      applied: result.accepted.map(({ key }) => key),
       rejected: result.rejected,
       kind: result.profile.kind,
       meta: result.profile.meta || {},
@@ -334,7 +371,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
 
   /** Значение настройки, когда её ещё ни разу не трогали. */
   function defaultFor(key) {
-    const entry = BY_KEY.get(key);
+    const entry = entryFor(key);
     return entry ? entry.fallback : undefined;
   }
 
@@ -346,6 +383,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
     REGISTRY,
     defaultFor,
     entriesFor,
+    entryFor,
     collect,
     inspect,
     apply,
