@@ -13,6 +13,10 @@ const manifest = {
     'plugins/_shared/course_names.js',
     'plugins/_shared/custom_logo.js',
     'plugins/_shared/custom_background.js',
+    // Каталог переменных нужен и теме, и редактору — поэтому идёт первым.
+    'plugins/_shared/theme_tokens.js',
+    'plugins/_shared/custom_theme.js',
+    'plugins/_shared/theme_editor_host.js',
     'plugins/_shared/version_check.js',
     'plugins/_shared/reset.js',
     'plugins/_shared/friends_tab.js',

@@ -398,6 +398,23 @@
           <span class="slider"></span>
         </label>
       </div>
+      <div class="toggle-container">
+        <span class="toggle-label">Своя тема (палитра):</span>
+        <label class="switch">
+          <input type="checkbox" id="custom-theme-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div id="custom-theme-container" class="setting-group" style="display: none">
+        <p class="course-hint">
+          Своя палитра поверх светлой или тёмной темы: цвета фона, текста, кнопок и статусов плюс
+          произвольный CSS. Правится в редакторе — там же пипетка, которая показывает, какая
+          переменная красит выбранный элемент.
+        </p>
+        <p class="course-hint" id="custom-theme-status"></p>
+        <button id="open-theme-editor-btn" class="action-button">Открыть редактор темы</button>
+        <button id="reset-theme-btn" class="btn-reset">Сбросить свою тему</button>
+      </div>
     </div>
 
     <div class="section">
@@ -723,6 +740,7 @@
         <div class="dropdown-container">
           <select class="dropdown-select" id="profile-kind-select">
             <option value="settings" selected>Настройки (без картинок)</option>
+            <option value="theme">Только тема (палитра и свой CSS)</option>
             <option value="visual">Визуальный пак (оформление и картинки)</option>
             <option value="full">Всё, включая названия курсов и архив</option>
           </select>

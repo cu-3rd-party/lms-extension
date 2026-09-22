@@ -34,6 +34,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
   // описан: незнакомый ключ в хранилище — повод проверить, не забыли ли его.
   const GROUPS = {
     appearance: 'Оформление',
+    theme: 'Своя тема',
     features: 'Функции',
     integrations: 'Интеграции',
     content: 'Свои картинки и названия',
@@ -88,6 +89,14 @@ if (typeof window.cuLmsSettings === 'undefined') {
     choice('backgroundFit', 'appearance', ['cover', 'contain', 'fill', 'tile', 'none'], 'cover'),
     range('backgroundVeil', 'appearance', 0, 95, 60),
 
+    // --- своя тема ---
+    // Отдельная группа, а не часть оформления: темой делятся сама по себе,
+    // без обложек курсов и прочих настроек (вид профиля `theme`).
+    bool('customThemeToggle', 'theme'),
+    data('customThemeVars', 'theme', 'object'),
+    data('customThemeCss', 'theme', 'string'),
+    data('customThemeName', 'theme', 'string'),
+
     // --- функции ---
     bool('customCourseNamesToggle', 'features'),
     bool('futureExamsViewToggle', 'features'),
@@ -129,6 +138,14 @@ if (typeof window.cuLmsSettings === 'undefined') {
     data('cachedLatestVersion', 'private', 'string'),
     data('lastVersionCheckTimestamp', 'private', 'number'),
     data('lmsOrigin', 'private', 'string'),
+    // Через них вкладка редактора тем и страница LMS договариваются о пипетке:
+    // состояние одного сеанса, чужому профилю оно ни к чему.
+    { key: 'themePickerActive', area: 'local', type: 'boolean', group: 'private' },
+    data('themePageValues', 'private', 'object'),
+    data('themePickResult', 'private', 'object'),
+    data('themeEditorTabId', 'private', 'number'),
+    data('themeSourceRequest', 'private', 'number'),
+    data('themeSourceDump', 'private', 'object'),
   ];
 
   const BY_KEY = new Map(REGISTRY.map((entry) => [entry.key, entry]));
@@ -136,10 +153,11 @@ if (typeof window.cuLmsSettings === 'undefined') {
   // Что входит в каждый вид профиля. `settings` — только поведение, его файл
   // весит килобайты; `visual` тянет картинки и может весить мегабайты.
   const KINDS = {
-    settings: { groups: ['appearance', 'features', 'integrations'], title: 'Настройки' },
-    visual: { groups: ['appearance', 'content'], title: 'Визуальный пак' },
+    settings: { groups: ['appearance', 'theme', 'features', 'integrations'], title: 'Настройки' },
+    visual: { groups: ['appearance', 'theme', 'content'], title: 'Визуальный пак' },
+    theme: { groups: ['theme'], title: 'Тема' },
     full: {
-      groups: ['appearance', 'features', 'integrations', 'content', 'personal'],
+      groups: ['appearance', 'theme', 'features', 'integrations', 'content', 'personal'],
       title: 'Всё',
     },
   };

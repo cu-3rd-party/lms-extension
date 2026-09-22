@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Редактор темы LMS</title>
+    <style>
+      /* Редактор открывается двумя способами — отдельной вкладкой и в iframe
+         поверх LMS, — поэтому вся раскладка тянется по высоте окна: в оверлее
+         это прямоугольник с отступами, во вкладке — весь экран. */
+      :root {
+        --bg: #f1f2f4;
+        --panel: #ffffff;
+        --panel-2: #f7f8fa;
+        --text: #1f2226;
+        --muted: #6b7079;
+        --border: #d8dbe0;
+        --accent: #2f6fed;
+        --accent-text: #ffffff;
+        --danger: #c4381f;
+        --code-bg: #ffffff;
+      }
+
+      body.dark {
+        --bg: #202124;
+        --panel: #2a2b2e;
+        --panel-2: #313236;
+        --text: #e8eaed;
+        --muted: #9aa0a6;
+        --border: #3c4043;
+        --accent: #4c8dff;
+        --accent-text: #0e1116;
+        --danger: #ff8c67;
+        --code-bg: #232427;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.45 'Inter',
+          -apple-system,
+          system-ui,
+          sans-serif;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 17px;
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 2px 0 0;
+      }
+
+      /* --- ШАПКА --- */
+
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 12px 16px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+        flex-wrap: wrap;
+      }
+
+      button {
+        font: inherit;
+        padding: 7px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--panel-2);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      button:hover {
+        border-color: var(--accent);
+      }
+
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-text);
+      }
+
+      button.ghost {
+        background: transparent;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+
+      input[type='text'],
+      input[type='search'] {
+        font: inherit;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--panel-2);
+        color: var(--text);
+      }
+
+      input[type='color'] {
+        width: 34px;
+        height: 28px;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: none;
+        cursor: pointer;
+      }
+
+      .switch-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+
+      /* Пипетка — не настройка темы, а режим работы: выделяем, чтобы её не
+         искали среди тумблеров оформления. */
+      .pick-row {
+        padding: 5px 10px;
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+      }
+
+      /* --- ВКЛАДКИ --- */
+
+      .tabs {
+        display: flex;
+        gap: 4px;
+        padding: 8px 16px 0;
+        background: var(--panel);
+      }
+
+      .tab {
+        border: 1px solid transparent;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        background: transparent;
+        color: var(--muted);
+      }
+
+      .tab.active {
+        background: var(--bg);
+        border-color: var(--border);
+        color: var(--text);
+      }
+
+      main {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      section {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 16px 0;
+      }
+
+      section[hidden] {
+        display: none;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+
+      .spacer {
+        flex: 1 1 auto;
+      }
+
+      .source-select {
+        font: inherit;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--panel-2);
+        color: var(--text);
+      }
+
+      /* Текст справки не редактируется — показываем это и фоном, чтобы не
+         гадать, почему не печатается. */
+      #css-text[readonly] {
+        background: var(--panel-2);
+      }
+
+      /* --- ПАЛИТРА --- */
+
+      #palette {
+        flex: 1 1 auto;
+        overflow: auto;
+        padding-bottom: 16px;
+      }
+
+      .group {
+        margin-bottom: 18px;
+      }
+
+      .group > h2 {
+        margin: 0 0 2px;
+        font-size: 14px;
+      }
+
+      .group > p {
+        margin: 0 0 8px;
+      }
+
+      .tokens {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 8px;
+      }
+
+      .token {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 8px 10px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+      }
+
+      .token.changed {
+        border-color: var(--accent);
+      }
+
+      .token.flash {
+        animation: flash 1.2s ease-out;
+      }
+
+      @keyframes flash {
+        from {
+          background: var(--accent);
+        }
+      }
+
+      .token-body {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .token-label {
+        font-weight: 600;
+      }
+
+      .token-name {
+        font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+        font-size: 11px;
+        color: var(--muted);
+        word-break: break-all;
+      }
+
+      .token-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .token-row input[type='text'] {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+        font-size: 12px;
+      }
+
+      /* Значение, которое браузер не считает цветом: сохранять такое нельзя,
+         но и стирать из-под рук нельзя — человек ещё дописывает. */
+      .token-row input.invalid {
+        border-color: var(--danger);
+      }
+
+      .token-reset {
+        padding: 4px 8px;
+        font-size: 12px;
+      }
+
+      /* --- КОД --- */
+
+      .code {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--code-bg);
+      }
+
+      /* Номера строк и цветные квадратики живут в отдельной колонке, но должны
+         стоять ровно напротив своих строк — отсюда одинаковые шрифт и
+         межстрочный интервал с textarea и выключенный перенос строк. */
+      .gutter,
+      #css-text {
+        font:
+          13px/20px ui-monospace,
+          'SFMono-Regular',
+          Consolas,
+          monospace;
+        padding: 10px 0;
+        margin: 0;
+        border: 0;
+      }
+
+      .gutter {
+        flex: 0 0 auto;
+        min-width: 74px;
+        padding-right: 8px;
+        overflow: hidden;
+        background: var(--panel-2);
+        color: var(--muted);
+        user-select: none;
+      }
+
+      .gutter-line {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 3px;
+        height: 20px;
+        padding-right: 6px;
+        white-space: nowrap;
+      }
+
+      .chip {
+        width: 12px;
+        height: 12px;
+        padding: 0;
+        border-radius: 3px;
+        border: 1px solid rgba(128, 128, 128, 0.6);
+        cursor: pointer;
+      }
+
+      #css-text {
+        flex: 1 1 auto;
+        padding: 10px 12px;
+        background: var(--code-bg);
+        color: var(--text);
+        resize: none;
+        outline: none;
+        white-space: pre;
+        overflow: auto;
+        tab-size: 2;
+      }
+
+      .status {
+        margin: 8px 0;
+        min-height: 18px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+
+      /* --- ЭЛЕМЕНТ --- */
+
+      #element-empty {
+        color: var(--muted);
+      }
+
+      #element-result {
+        flex: 1 1 auto;
+        overflow: auto;
+        padding-bottom: 16px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+
+      .card h2 {
+        margin: 0 0 8px;
+        font-size: 14px;
+      }
+
+      .selector-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .selector-row input {
+        flex: 1 1 auto;
+        font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+        font-size: 12px;
+      }
+
+      .prop {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 0;
+        border-top: 1px solid var(--border);
+      }
+
+      .prop:first-of-type {
+        border-top: none;
+      }
+
+      .prop-name {
+        flex: 0 0 150px;
+        font-size: 13px;
+      }
+
+      .prop-value {
+        flex: 1 1 auto;
+        font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+        font-size: 12px;
+        color: var(--muted);
+        word-break: break-all;
+      }
+
+      .swatch {
+        width: 22px;
+        height: 22px;
+        flex: 0 0 auto;
+        border-radius: 5px;
+        border: 1px solid var(--border);
+        /* Шахматка видна сквозь полупрозрачный цвет — иначе rgba(0,0,0,0.04)
+           и «прозрачно» выглядят одинаково. */
+        background-image:
+          linear-gradient(45deg, #bbb 25%, transparent 25%),
+          linear-gradient(-45deg, #bbb 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #bbb 75%),
+          linear-gradient(-45deg, transparent 75%, #bbb 75%);
+        background-size: 8px 8px;
+        background-position:
+          0 0,
+          0 4px,
+          4px -4px,
+          -4px 0;
+      }
+
+      .swatch > span {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 4px;
+      }
+
+      /* --- ПОДВАЛ --- */
+
+      footer {
+        padding: 10px 16px;
+        background: var(--panel);
+        border-top: 1px solid var(--border);
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      footer[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <h1>Редактор темы</h1>
+        <p class="muted" id="context-note">Загрузка…</p>
+        <p class="muted" id="pick-note"></p>
+      </div>
+      <div class="top-actions">
+        <label class="switch-row">
+          <input type="checkbox" id="theme-enabled" />
+          Своя тема включена
+        </label>
+        <label class="switch-row pick-row">
+          <input type="checkbox" id="pick-toggle" />
+          Пипетка на странице
+        </label>
+        <button id="export-btn" class="ghost">Экспорт</button>
+        <button id="import-btn" class="ghost">Импорт</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden />
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="palette" type="button">Палитра</button>
+      <button class="tab" data-tab="css" type="button">styles.css</button>
+      <button class="tab" data-tab="element" type="button">Элемент</button>
+    </nav>
+
+    <main>
+      <section id="tab-palette">
+        <div class="toolbar">
+          <input type="search" id="palette-filter" placeholder="Фильтр: фон, текст, --accent…" />
+          <label class="switch-row">
+            <input type="checkbox" id="only-changed" />
+            только изменённые
+          </label>
+          <span class="spacer"></span>
+          <button id="reset-vars" class="ghost">Сбросить все переменные</button>
+        </div>
+        <div id="palette"></div>
+      </section>
+
+      <section id="tab-css" hidden>
+        <div class="toolbar">
+          <select id="css-source" class="source-select">
+            <option value="mine">Моя тема (можно править)</option>
+            <option value="vars">Все переменные плагина с подписями</option>
+            <option value="plugin">Стили плагина на странице</option>
+          </select>
+          <button id="css-apply" class="primary">Обновить</button>
+          <label class="switch-row">
+            <input type="checkbox" id="css-auto" checked />
+            применять сразу
+          </label>
+          <button id="css-revert" class="ghost">Отменить правки</button>
+          <button id="css-download" class="ghost">Скачать</button>
+          <button id="css-upload" class="ghost">Загрузить</button>
+          <input type="file" id="css-file" accept=".css,text/css" hidden />
+          <button id="css-copy" class="primary" hidden>Скопировать в мою тему</button>
+          <span class="switch-row" id="search-wrap" hidden>
+            <input type="search" id="css-search" placeholder="Найти в тексте…" />
+            <button id="css-search-next">Дальше</button>
+            <span class="muted" id="css-search-count"></span>
+          </span>
+          <span class="spacer"></span>
+          <span class="switch-row" id="caret-wrap" hidden>
+            цвет под курсором
+            <input type="color" id="caret-color" />
+          </span>
+        </div>
+        <div class="code">
+          <div class="gutter" id="gutter"></div>
+          <textarea id="css-text" spellcheck="false" wrap="off"></textarea>
+        </div>
+        <p class="status" id="css-status"></p>
+      </section>
+
+      <section id="tab-element" hidden>
+        <p id="element-empty">
+          Перейдите на вкладку с LMS и щёлкните правой кнопкой по любому элементу — здесь появятся
+          его цвета и переменные, которые до него дотягиваются. Пипетка включается тумблером в шапке
+          и работает, пока эта вкладка открыта.
+        </p>
+        <div id="element-result" hidden></div>
+      </section>
+    </main>
+
+    <footer id="warning" hidden>
+      <span id="warning-text"></span>
+      <button id="warning-action" class="primary" hidden>Включить</button>
+    </footer>
+
+    <script src="../_shared/theme_tokens.js"></script>
+    <script src="../_shared/settings_registry.js"></script>
+    <script src="theme_editor.js"></script>
+  </body>
+</html>

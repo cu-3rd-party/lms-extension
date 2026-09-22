@@ -91,6 +91,7 @@ type IncomingMessage =
   | { action: 'TABS_RELOAD'; tabId: number; options: browser.Tabs.ReloadReloadPropertiesType }
   | { action: 'TABS_SEND_MESSAGE'; tabId: number; message: unknown }
   | { action: 'OPEN_PDF_VIEWER'; url: string; filename: string }
+  | { action: 'OPEN_THEME_EDITOR' }
   | { action: 'GRADES_EXPORT_EXECUTE' }
   | { action: 'SAFARI_NAVIGATION'; url: string }
   | { action: string; [key: string]: unknown };
@@ -1768,6 +1769,49 @@ browser.runtime.onMessage.addListener(((
       .create({ url: viewerUrl })
       .then(() => sendResponse({ success: true }))
       .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  // Редактор тем — такая же страница расширения, как просмотрщик PDF, и
+  // открывается так же: из content-скрипта `tabs.create` недоступен, а
+  // `window.open` на `chrome-extension://` браузер не пустит.
+  if (request.action === 'OPEN_THEME_EDITOR') {
+    const editorUrl = browser.runtime.getURL('plugins/theme-editor/theme-editor.html');
+
+    // Вторая вкладка редактора не нужна и вредна: обе пишут одни и те же
+    // ключи и перетирали бы правки друг друга. Поэтому запоминаем свою.
+    // Именно id, а не `tabs.query({url})`: фильтр по URL требует разрешения
+    // `tabs`, которого у расширения нет и ради одной кнопки заводить не стоит.
+    void (async () => {
+      try {
+        const stored = await browser.storage.local.get('themeEditorTabId');
+        const knownId = stored.themeEditorTabId;
+
+        if (typeof knownId === 'number') {
+          try {
+            const tab = await browser.tabs.get(knownId);
+            // URL виден не всегда (то же разрешение `tabs`); если видно —
+            // проверяем, что вкладку не увели на другой сайт.
+            if (tab && (!tab.url || tab.url.startsWith(editorUrl))) {
+              await browser.tabs.update(knownId, { active: true });
+              if (tab.windowId != null) {
+                await browser.windows.update(tab.windowId, { focused: true });
+              }
+              sendResponse({ success: true });
+              return;
+            }
+          } catch (_error) {
+            // Вкладку закрыли — просто откроем новую.
+          }
+        }
+
+        const created = await browser.tabs.create({ url: editorUrl });
+        await browser.storage.local.set({ themeEditorTabId: created.id ?? null });
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: (error as Error).message });
+      }
+    })();
     return true;
   }
 

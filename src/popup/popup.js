@@ -103,6 +103,7 @@ const LIVE_SETTINGS = [
   'customCourseNamesToggle',
   'customLogoToggle',
   'customBackgroundToggle',
+  'customThemeToggle',
 ];
 
 // --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP ---
@@ -142,6 +143,7 @@ const toggles = {
   customCourseNamesToggle: document.getElementById('custom-course-names-toggle'),
   customLogoToggle: document.getElementById('custom-logo-toggle'),
   customBackgroundToggle: document.getElementById('custom-background-toggle'),
+  customThemeToggle: document.getElementById('custom-theme-toggle'),
   futureExamsViewToggle: document.getElementById('future-exams-view-toggle'),
   courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
   advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
@@ -171,6 +173,10 @@ const customBackgroundPreview = document.getElementById('custom-background-previ
 const customBackgroundFile = document.getElementById('custom-background-file');
 const backgroundFitSelect = document.getElementById('background-fit-select');
 const backgroundVeilSelect = document.getElementById('background-veil-select');
+const customThemeContainer = document.getElementById('custom-theme-container');
+const customThemeStatus = document.getElementById('custom-theme-status');
+const openThemeEditorBtn = document.getElementById('open-theme-editor-btn');
+const resetThemeBtn = document.getElementById('reset-theme-btn');
 const gradesExportBtn = document.getElementById('grades-export-btn');
 const gradesExportStatus = document.getElementById('grades-export-status');
 
@@ -206,6 +212,35 @@ function updateCustomBackgroundUI(isEnabled) {
     customBackgroundContainer.style.display = isEnabled ? 'block' : 'none';
   }
   if (isEnabled) void refreshImagePreview(customBackgroundPreview, 'customBackground');
+}
+
+/** Показывает, что уже накручено в теме: иначе непонятно, есть ли она вообще. */
+async function refreshThemeStatus() {
+  if (!customThemeStatus) return;
+
+  const data = await browser.storage.local.get(['customThemeVars', 'customThemeCss']);
+  const vars =
+    data.customThemeVars && typeof data.customThemeVars === 'object'
+      ? Object.keys(data.customThemeVars).length
+      : 0;
+  const cssLines =
+    typeof data.customThemeCss === 'string' && data.customThemeCss.trim()
+      ? data.customThemeCss.trim().split(/\r?\n/).length
+      : 0;
+
+  if (!vars && !cssLines) {
+    customThemeStatus.textContent = 'Пока ничего не настроено.';
+    return;
+  }
+  customThemeStatus.textContent =
+    'Изменённых переменных: ' + vars + ' · строк своего CSS: ' + cssLines;
+}
+
+function updateCustomThemeUI(isEnabled) {
+  if (customThemeContainer) {
+    customThemeContainer.style.display = isEnabled ? 'block' : 'none';
+  }
+  if (isEnabled) void refreshThemeStatus();
 }
 
 function updateCustomLogoUI(isEnabled) {
@@ -364,6 +399,7 @@ function refreshToggleStates() {
     updateCustomCourseNamesUI(!!data.customCourseNamesToggle);
     updateCustomLogoUI(!!data.customLogoToggle);
     updateCustomBackgroundUI(!!data.customBackgroundToggle);
+    updateCustomThemeUI(!!data.customThemeToggle);
     if (stickerFitSelect) stickerFitSelect.value = data.stickerObjectFit || 'cover';
     if (stickerScaleSelect) stickerScaleSelect.value = String(data.stickerScale || 100);
     if (logoFitSelect) logoFitSelect.value = data.logoObjectFit || 'contain';
@@ -464,6 +500,8 @@ allKeys.forEach((key) => {
         updateCustomLogoUI(isEnabled);
       } else if (key === 'customBackgroundToggle') {
         updateCustomBackgroundUI(isEnabled);
+      } else if (key === 'customThemeToggle') {
+        updateCustomThemeUI(isEnabled);
       } else if (key === 'akhIntegrationEnabled' || key === 'contestIntegrationEnabled') {
         updateCourseFilters();
         if (key === 'contestIntegrationEnabled') updateContestAuthStatus();
@@ -763,6 +801,7 @@ if (resetBtn) {
       logoObjectFit: 'contain',
       logoScale: 100,
       customBackgroundToggle: false,
+      customThemeToggle: false,
       backgroundFit: 'cover',
       backgroundVeil: 60,
       futureExamsViewToggle: false,
@@ -824,6 +863,30 @@ if (stickerFitSelect) {
 if (stickerScaleSelect) {
   stickerScaleSelect.addEventListener('change', () => {
     browser.storage.sync.set({ stickerScale: Number(stickerScaleSelect.value) });
+  });
+}
+
+// --- СВОЯ ТЕМА ---
+//
+// Редактор живёт на отдельной странице расширения и всегда открывается
+// вкладкой: поверх LMS он занимал полэкрана и закрывал то, что красишь.
+// Из меню на сайте вдобавок убираем само меню — страница нужна для пипетки.
+if (openThemeEditorBtn) {
+  openThemeEditorBtn.addEventListener('click', () => {
+    browser.runtime.sendMessage({ action: 'OPEN_THEME_EDITOR' });
+    if (isInsideIframe) {
+      window.parent.postMessage({ action: 'openThemeEditor' }, '*');
+      return;
+    }
+    window.close();
+  });
+}
+
+if (resetThemeBtn) {
+  resetThemeBtn.addEventListener('click', async () => {
+    if (!confirm('Удалить свою палитру и свой CSS? Тумблер останется включённым.')) return;
+    await browser.storage.local.set({ customThemeVars: {}, customThemeCss: '' });
+    await refreshThemeStatus();
   });
 }
 

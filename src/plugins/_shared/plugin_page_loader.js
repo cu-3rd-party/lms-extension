@@ -273,6 +273,13 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
       // Перезагрузка только если это реально нужно (снег, стикер)
       if (shouldReload) location.reload();
     }
+
+    // Редактор тем открывается отдельной вкладкой (её создаёт background по
+    // запросу попапа) — здесь остаётся только убрать меню со страницы, чтобы
+    // она была видна: пипетка работает именно по ней.
+    if (event.data && event.data.action === 'openThemeEditor') {
+      closePluginMenu();
+    }
   });
 
   // Слушатель изменений темы
