@@ -120,6 +120,9 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   // раньше границы, — иначе вернуть его было бы нельзя вовсе.
   const HIDDEN_TASKS_KEY = 'hiddenArchivedTaskIds';
   const SHOWN_TASKS_KEY = 'shownArchivedTaskIds';
+  // При какой границе («ГГГГ-ММ-ДД») сделаны исключения. Другая граница —
+  // исключения устарели: см. dropStaleExceptions().
+  const SHOWN_BORDER_KEY = 'shownArchivedTasksBorder';
   const HIDDEN_BY_USER_ATTR = 'data-culms-hidden-by-user';
   const ROW_SELECTOR = 'tr[class*="task-table__task"]';
   const ARCHIVE_TOOLBAR_ID = 'culms-archive-toolbar';
@@ -129,6 +132,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   let hiddenTaskIds = new Set();
   let shownTaskIds = new Set();
+  let shownBorder = '';
   let hiddenListsPromise = null;
   let hiddenListsLoaded = false;
   let selectionMode = false;
@@ -282,6 +286,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   function setHideBeforeDate(value) {
     const data = { [HIDE_BEFORE_ENABLED_KEY]: !!value, [HIDE_BEFORE_DATE_KEY]: value || '' };
     applyHideBeforeSetting(data);
+    dropStaleExceptions();
     applyArchiveFilter();
     renderArchiveUi();
     Promise.resolve()
@@ -371,14 +376,40 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   const toIdSet = (value) => new Set(Array.isArray(value) ? value.map(String) : []);
 
+  /**
+   * Исключения («вернули из списка скрытых») относятся к той границе, при
+   * которой их делали. Граница другая — исключения устарели: иначе задание,
+   * однажды возвращённое, не пряталось бы датой уже никогда, даже если снять
+   * дату и поставить её заново.
+   *
+   * Проверяем по сохранённой границе, а не по событию «дату поменяли»: дата
+   * меняется и в другой вкладке, и загрузкой профиля, а исключения могли
+   * остаться от версии, где границу к ним не записывали.
+   */
+  function dropStaleExceptions() {
+    if (shownBorder === hideBeforeDateValue) return;
+    shownBorder = hideBeforeDateValue;
+    if (!shownTaskIds.size) return;
+    shownTaskIds.clear();
+    void saveHiddenTaskLists();
+  }
+
   /** Списки читаем один раз за жизнь скрипта; дальше — через onChanged. */
   function ensureHiddenTaskLists() {
     if (!hiddenListsPromise) {
       hiddenListsPromise = Promise.resolve()
-        .then(() => browser.storage.local.get([HIDDEN_TASKS_KEY, SHOWN_TASKS_KEY]))
-        .then((data) => {
+        .then(() =>
+          Promise.all([
+            browser.storage.local.get([HIDDEN_TASKS_KEY, SHOWN_TASKS_KEY, SHOWN_BORDER_KEY]),
+            // Граница нужна, чтобы сразу отбросить устаревшие исключения.
+            ensureHideBeforeSetting(),
+          ])
+        )
+        .then(([data]) => {
           hiddenTaskIds = toIdSet(data?.[HIDDEN_TASKS_KEY]);
           shownTaskIds = toIdSet(data?.[SHOWN_TASKS_KEY]);
+          shownBorder = typeof data?.[SHOWN_BORDER_KEY] === 'string' ? data[SHOWN_BORDER_KEY] : '';
+          dropStaleExceptions();
         })
         .catch(() => {})
         .finally(() => {
@@ -394,6 +425,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         browser.storage.local.set({
           [HIDDEN_TASKS_KEY]: [...hiddenTaskIds],
           [SHOWN_TASKS_KEY]: [...shownTaskIds],
+          [SHOWN_BORDER_KEY]: shownBorder,
         })
       )
       .catch((error) =>
@@ -444,6 +476,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       hiddenTaskIds.delete(id);
       if (taskDeadlineBeforeBorder(byId.get(id))) shownTaskIds.add(id);
     });
+    shownBorder = hideBeforeDateValue;
     void saveHiddenTaskLists();
     applyArchiveFilter();
     renderArchiveUi();
@@ -2002,6 +2035,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         .get([HIDE_BEFORE_ENABLED_KEY, HIDE_BEFORE_DATE_KEY])
         .then((data) => {
           applyHideBeforeSetting(data);
+          if (hiddenListsLoaded) dropStaleExceptions();
           if (!isArchivedPage()) return;
           applyArchiveFilter();
           renderArchiveUi();
@@ -2009,10 +2043,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
         .catch(() => {});
     }
 
-    if (changes[HIDDEN_TASKS_KEY] || changes[SHOWN_TASKS_KEY]) {
+    if (changes[HIDDEN_TASKS_KEY] || changes[SHOWN_TASKS_KEY] || changes[SHOWN_BORDER_KEY]) {
       // Списки могли поменяться из другой вкладки или загрузкой профиля.
       if (changes[HIDDEN_TASKS_KEY]) hiddenTaskIds = toIdSet(changes[HIDDEN_TASKS_KEY].newValue);
       if (changes[SHOWN_TASKS_KEY]) shownTaskIds = toIdSet(changes[SHOWN_TASKS_KEY].newValue);
+      if (changes[SHOWN_BORDER_KEY]) shownBorder = changes[SHOWN_BORDER_KEY].newValue || '';
+      if (hiddenListsLoaded) dropStaleExceptions();
       if (isArchivedPage()) {
         applyArchiveFilter();
         renderArchiveUi();

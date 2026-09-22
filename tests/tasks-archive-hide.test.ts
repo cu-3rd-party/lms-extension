@@ -151,15 +151,47 @@ test('в списке и скрытые вручную, и скрытые по �
   const local = await storedLocal(page);
   expect(local.hiddenArchivedTaskIds).toEqual([]);
   expect(local.shownArchivedTaskIds).toEqual(['100']);
+  // Исключение помнит, при какой границе его сделали.
+  expect(local.shownArchivedTasksBorder).toBe(BORDER);
 });
 
 test('возвращённое задание не прячется датой и после перезагрузки', async ({ page }) => {
   await openArchive(page, {
     enabled: true,
     date: BORDER,
-    local: { shownArchivedTaskIds: ['100'] },
+    local: { shownArchivedTaskIds: ['100'], shownArchivedTasksBorder: BORDER },
   });
   await expect.poll(() => visibleTasks(page)).toEqual(ALL);
+});
+
+// Ровно то, что было на живой странице: исключения остались от версии, где
+// границу к ним не записывали, а дата уже стоит. Панель их не трогала, и
+// задание висело на экране мимо даты и мимо списка скрытых.
+test('исключения от другой границы сбрасываются при загрузке', async ({ page }) => {
+  for (const border of [undefined, asSettingValue(daysFromToday(-30))]) {
+    const local: Record<string, unknown> = { shownArchivedTaskIds: ['100'] };
+    if (border) local.shownArchivedTasksBorder = border;
+    await openArchive(page, { enabled: true, date: BORDER, local });
+
+    await expect.poll(() => visibleTasks(page)).not.toContain('ДЗ 1. Старое');
+    await expect(
+      toolbar(page).getByRole('button', { name: 'Открыть список скрытых задач (1)' })
+    ).toBeVisible();
+    expect((await storedLocal(page)).shownArchivedTaskIds).toEqual([]);
+  }
+});
+
+test('граница, сменённая в другой вкладке, тоже сбрасывает исключения', async ({ page }) => {
+  await openArchive(page, {
+    enabled: true,
+    date: BORDER,
+    local: { shownArchivedTaskIds: ['100'], shownArchivedTasksBorder: BORDER },
+  });
+  await expect.poll(() => visibleTasks(page)).toEqual(ALL);
+
+  const later = asSettingValue(daysFromToday(-12));
+  await page.evaluate((date) => (window as any).__changeSetting(true, date), later);
+  await expect.poll(() => visibleTasks(page)).not.toContain('ДЗ 1. Старое');
 });
 
 test('вернуть можно только отмеченные', async ({ page }) => {
@@ -233,4 +265,44 @@ test('Shift отмечает диапазон и в списке скрытых'
 
   await dialog.getByRole('button', { name: 'Вернуть в архив (3)' }).click();
   await expect.poll(() => visibleTasks(page)).toEqual(ALL);
+});
+
+// Регрессия: вернули всё из списка скрытых, сняли дату и поставили заново —
+// задания, спрятанные датой, обязаны снова пропасть и вернуться в список.
+test('новая граница по дате сбрасывает возвраты из списка', async ({ page }) => {
+  await openArchive(page, { enabled: true, date: BORDER });
+  await expect.poll(() => visibleTasks(page)).not.toContain('ДЗ 1. Старое');
+
+  await toolbar(page)
+    .getByRole('button', { name: /Открыть список скрытых задач/ })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Скрытые задачи' });
+  await dialog.getByText('Выбрать все').click();
+  await dialog.getByRole('button', { name: 'Вернуть в архив (1)' }).click();
+  await dialog.getByRole('button', { name: 'Закрыть' }).click();
+  await expect.poll(() => visibleTasks(page)).toEqual(ALL);
+  expect((await storedLocal(page)).shownArchivedTaskIds).toEqual(['100']);
+
+  await toolbar(page).getByRole('button', { name: 'Не скрывать по дате' }).click();
+  await toolbar(page).getByLabel('Скрывать задачи с дедлайном раньше даты').fill(BORDER);
+
+  await expect.poll(() => visibleTasks(page)).not.toContain('ДЗ 1. Старое');
+  expect((await storedLocal(page)).shownArchivedTaskIds).toEqual([]);
+  await expect(
+    toolbar(page).getByRole('button', { name: 'Открыть список скрытых задач (1)' })
+  ).toBeVisible();
+});
+
+test('смена даты на другую тоже сбрасывает возвраты', async ({ page }) => {
+  await openArchive(page, {
+    enabled: true,
+    date: BORDER,
+    local: { shownArchivedTaskIds: ['100'], shownArchivedTasksBorder: BORDER },
+  });
+  await expect.poll(() => visibleTasks(page)).toEqual(ALL);
+
+  // Ещё раньше, но «ДЗ 1. Старое» (−40 дней) всё равно под границей.
+  const earlier = asSettingValue(daysFromToday(-20));
+  await toolbar(page).getByLabel('Скрывать задачи с дедлайном раньше даты').fill(earlier);
+  await expect.poll(() => visibleTasks(page)).not.toContain('ДЗ 1. Старое');
 });

@@ -159,6 +159,15 @@ if (typeof window.cuLmsSettings === 'undefined') {
     // списка скрытых вопреки границе по дате.
     data('hiddenArchivedTaskIds', 'personal', 'array'),
     data('shownArchivedTaskIds', 'personal', 'array'),
+    // Граница по дате, при которой сделаны эти исключения: при другой они
+    // сбрасываются.
+    {
+      key: 'shownArchivedTasksBorder',
+      area: 'local',
+      type: 'string',
+      group: 'personal',
+      pattern: /^(\d{4}-\d{2}-\d{2})?$/,
+    },
 
     // --- наружу не отдаётся ---
     // Токены доступа: отдать их вместе с настройками — отдать аккаунт.
