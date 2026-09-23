@@ -68,7 +68,7 @@ tests/
 ├── course-archive.test.ts       # архивация/разархивация курсов
 ├── course-cards.test.ts         # старый дизайн карточек, иконки и свой архив
 ├── course-names.test.ts         # свои названия курсов и обратное преобразование
-├── custom-logo.test.ts          # свой логотип в шапке вместо фирменного
+├── custom-logo.test.ts          # свой логотип в шапке и надпись «НЕ ЯВЛЯЕТСЯ ОФИЦИАЛЬНОЙ LMS»
 ├── custom-background.test.ts    # своя картинка на фоне вместо заливки
 ├── custom-background-editor.test.ts # фон по страницам, курсам, разделам и редактор фона
 ├── settings-profile.test.ts     # выгрузка и загрузка настроек файлом

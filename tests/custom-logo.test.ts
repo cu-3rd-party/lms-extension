@@ -147,3 +147,70 @@ test.describe('Свой логотип в шапке', () => {
       .toContain('cuIconLogo');
   });
 });
+
+/** Текст псевдоэлемента логотипа: у родного — служебный пробел, у надписи — она сама. */
+async function logoContent(page: import('@playwright/test').Page) {
+  return page.evaluate(
+    (selector) => getComputedStyle(document.querySelector(selector) as Element, '::before').content,
+    LOGO_LINK
+  );
+}
+
+test.describe('Надпись «НЕ ЯВЛЯЕТСЯ ОФИЦИАЛЬНОЙ LMS»', () => {
+  test.setTimeout(60_000);
+
+  test('свои названия курсов заменяют логотип надписью', async ({ page, context, extensionId }) => {
+    await setExtensionStorage(context, extensionId, 'sync', 'customCourseNamesToggle', true);
+    await setExtensionStorage(context, extensionId, 'local', 'courseNames', { 1: 'Матанчик' });
+
+    await page.goto(ANY_PAGE);
+    await page.waitForSelector(LOGO_LINK, { timeout: 15_000 });
+
+    await expect.poll(async () => logoContent(page), { timeout: 10_000 }).toContain('НЕ ЯВЛЯЕТСЯ');
+    expect((await logoStyles(page)).mask).toBe('none');
+  });
+
+  test('картинка на фоне тоже включает надпись, выключенный тумблер — нет', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    await setExtensionStorage(context, extensionId, 'local', 'customBackground', TEST_LOGO);
+
+    await page.goto(ANY_PAGE);
+    await page.waitForSelector(LOGO_LINK, { timeout: 15_000 });
+    await page.waitForTimeout(1_500);
+    // Картинка лежит, но фон выключен — на экране LMS как есть.
+    expect((await logoStyles(page)).mask).toContain('cuIconLogo');
+
+    await setExtensionStorage(context, extensionId, 'sync', 'customBackgroundToggle', true);
+    await expect
+      .poll(async () => logoContent(page), { timeout: 10_000 })
+      .toContain('ОФИЦИАЛЬНОЙ LMS');
+
+    // Убрали картинку — надпись уходит без перезагрузки.
+    await clearExtensionStorage(context, extensionId, 'local', 'customBackground');
+    await expect
+      .poll(async () => (await logoStyles(page)).mask, { timeout: 10_000 })
+      .toContain('cuIconLogo');
+  });
+
+  test('свой логотип важнее надписи', async ({ page, context, extensionId }) => {
+    await setExtensionStorage(context, extensionId, 'sync', 'oldCoursesDesignToggle', true);
+    await setExtensionStorage(context, extensionId, 'local', 'courseIcons', { 1: TEST_LOGO });
+    await setExtensionStorage(context, extensionId, 'sync', 'customLogoToggle', true);
+    await setExtensionStorage(context, extensionId, 'local', 'customLogo', TEST_LOGO);
+
+    await page.goto(ANY_PAGE);
+    await page.waitForSelector(LOGO_LINK, { timeout: 15_000 });
+
+    await expect
+      .poll(async () => (await logoStyles(page)).background, { timeout: 10_000 })
+      .toContain('data:image/svg+xml;base64,');
+    expect(await logoContent(page)).not.toContain('НЕ ЯВЛЯЕТСЯ');
+
+    // Сняли свой логотип — на его месте надпись, а не родной логотип.
+    await clearExtensionStorage(context, extensionId, 'local', 'customLogo');
+    await expect.poll(async () => logoContent(page), { timeout: 10_000 }).toContain('НЕ ЯВЛЯЕТСЯ');
+  });
+});
