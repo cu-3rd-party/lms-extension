@@ -1,0 +1,1265 @@
+/* gradebook.css — вкладка «Сводная таблица» в ведомостях (см. gradebook.js). */
+
+/* --- Вкладка и подмена содержимого --- */
+
+/* Подчёркивание Taiga считает позицию только по своим вкладкам и о нашей не
+   знает. Пока открыта наша, прячем его и рисуем полосу на самой ссылке: она
+   той же высоты, что и ряд вкладок, так что полоса ложится на то же место.
+   Двигать полосу Taiga своими координатами ненадёжно — после перерисовки
+   Angular вкладка ещё не разложена и мерить нечего. ::before и ::after у
+   ссылки заняты иконками Taiga, поэтому box-shadow. */
+tui-tabs.culms-gb-tab-on::before {
+  opacity: 0 !important;
+}
+
+/* Родные вкладки Taiga заворачивает в свои обёртки, поэтому не `>`. */
+tui-tabs.culms-gb-tab-on a[tuitab]:not(#culms-gradebook-tab) {
+  color: var(--tui-text-secondary) !important;
+}
+
+/* На узком экране наша вкладка прячется в «Ещё» — тогда подсвечиваем его. */
+#culms-gradebook-tab.culms-gb-tab-active,
+tui-tabs-with-more > button.culms-gb-more-active {
+  color: var(--tui-text-primary) !important;
+  box-shadow: inset 0 -2px 0 var(--cu-tabs-selected-color, var(--tui-background-accent-1, #477df9));
+}
+
+/* Узкий экран: вкладка не влезает в строку (см. syncFold в gradebook.js).
+   Складываем так же, как Taiga свои не влезшие вкладки: ширина в ноль, а
+   содержимое на месте — по нему Taiga считает ширину строки. */
+#culms-gradebook-tab.culms-gb-tab-folded {
+  margin: 0 !important;
+  inline-size: 0 !important;
+  max-inline-size: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+}
+
+/* Родные вкладки влезли, и Taiga прячет «Ещё», — а в нём теперь наша. */
+tui-tabs-with-more.culms-gb-force-more > button.t-overflown {
+  margin-inline-start: 24px !important;
+  inline-size: auto !important;
+  max-inline-size: none !important;
+  overflow: visible !important;
+  visibility: visible !important;
+}
+
+/* Сводная — широкая таблица, а LMS держит страницу в колонке: от 1620px
+   экрана в 1444px, от 1200 до 1620px — всего в 1056px (на 1920px с масштабом
+   125% — как раз оно, и для дат оставалась треть экрана). Уже 1200px сама LMS
+   растягивает страницу во всю ширину с полями по 1.5rem — пока сводная
+   открыта, делаем так же на любом экране. */
+.cu-container:has(> cu-student-performance-layout section.culms-gb-on) {
+  --cu-container-content-width: auto !important;
+  --cu-container-margin-size: 1.5rem !important;
+}
+
+section.culms-gb-on > :not(tui-tabs-with-more):not(tui-tabs):not(#culms-gradebook) {
+  display: none !important;
+}
+
+/* --- Палитра --- */
+
+.culms-gb,
+.culms-gb-tip {
+  --gb-line: rgba(6, 9, 15, 0.08);
+  --gb-line-strong: rgba(6, 9, 15, 0.16);
+  /* Сетка таблицы — заметнее, чем рамки карточек и кнопок: по ней глаз
+     ведёт строку курса через десятки столбцов. */
+  --gb-grid: rgba(6, 9, 15, 0.13);
+  --gb-grid-strong: rgba(6, 9, 15, 0.3);
+  --gb-sticky-bg: var(--tui-background-base, #fcfcfd);
+  --gb-acts-width: 250px;
+  --gb-now: rgba(71, 125, 249, 0.06);
+  --gb-today: rgba(71, 125, 249, 0.14);
+  --gb-hover: rgba(36, 74, 127, 0.04);
+  --gb-accent: var(--tui-background-accent-1, #477df9);
+  --gb-neutral-bg: rgba(36, 74, 127, 0.07);
+  --gb-neutral-fg: var(--tui-text-primary, #1c1c1e);
+  /* Приглушённый текст — свой: в тёмной теме расширения все три
+     --tui-text-* белые, и подписи сливались бы со значениями. */
+  --gb-text-2: var(--tui-text-secondary, #5a5e62);
+  --gb-text-3: var(--tui-text-tertiary, #8a8e93);
+
+  --gb-fail-bg: #fde4e1;
+  --gb-fail-fg: #c0341d;
+  --gb-sat-bg: #ffecd2;
+  --gb-sat-fg: #b45309;
+  --gb-good-bg: #eaf5cc;
+  --gb-good-fg: #4d7c0f;
+  --gb-exc-bg: #d5f2e1;
+  --gb-exc-fg: #13773a;
+
+  --gb-st-backlog-bg: #f1f2f4;
+  --gb-st-backlog-fg: #6b7280;
+  --gb-st-progress-bg: #fdf2d5;
+  --gb-st-progress-fg: #b45309;
+  --gb-st-submitted-bg: #e3f4e6;
+  --gb-st-submitted-fg: #1f8a3a;
+  --gb-st-review-bg: #e0f4f6;
+  --gb-st-review-fg: #00839a;
+  --gb-st-rework-bg: #ffe8ee;
+  --gb-st-rework-fg: #e0335a;
+  --gb-st-skipped-bg: #f4e3f9;
+  --gb-st-skipped-fg: #9b12b8;
+
+  /* Контрольные — красным, как значок контрольной на странице курса. */
+  --gb-exam-fg: #dc2626;
+  --gb-exam-bg: rgba(220, 38, 38, 0.07);
+  --gb-exam-line: rgba(220, 38, 38, 0.4);
+  /* Уголок важной работы — того же красного, что контрольные. */
+  --gb-important: #dc2626;
+}
+
+/* Тёмная тема расширения: ее стиль лежит в документе, по нему и узнаём. */
+:root:has(#culms-dark-theme-style-base) .culms-gb,
+:root:has(#culms-dark-theme-style-base) .culms-gb-tip {
+  --gb-line: rgba(255, 255, 255, 0.08);
+  --gb-line-strong: rgba(255, 255, 255, 0.18);
+  --gb-grid: rgba(255, 255, 255, 0.15);
+  --gb-grid-strong: rgba(255, 255, 255, 0.34);
+  --gb-now: rgba(120, 160, 255, 0.07);
+  --gb-today: rgba(120, 160, 255, 0.18);
+  --gb-hover: rgba(255, 255, 255, 0.04);
+  --gb-neutral-bg: rgba(255, 255, 255, 0.09);
+  --gb-text-2: rgba(255, 255, 255, 0.72);
+  --gb-text-3: rgba(255, 255, 255, 0.5);
+
+  --gb-fail-bg: rgba(244, 87, 37, 0.24);
+  --gb-fail-fg: #ff9b7e;
+  --gb-sat-bg: rgba(249, 171, 0, 0.2);
+  --gb-sat-fg: #ffc15a;
+  --gb-good-bg: rgba(163, 214, 60, 0.18);
+  --gb-good-fg: #c3e57a;
+  --gb-exc-bg: rgba(74, 201, 155, 0.22);
+  --gb-exc-fg: #6ee0b0;
+
+  --gb-st-backlog-bg: rgba(255, 255, 255, 0.09);
+  --gb-st-backlog-fg: #bdc1c6;
+  --gb-st-progress-bg: rgba(249, 171, 0, 0.2);
+  --gb-st-progress-fg: #ffc15a;
+  --gb-st-submitted-bg: rgba(74, 201, 155, 0.2);
+  --gb-st-submitted-fg: #6ee0b0;
+  --gb-st-review-bg: rgba(0, 180, 210, 0.2);
+  --gb-st-review-fg: #62d3e6;
+  --gb-st-rework-bg: rgba(254, 69, 106, 0.2);
+  --gb-st-rework-fg: #ff8aa3;
+  --gb-st-skipped-bg: rgba(181, 22, 215, 0.24);
+  --gb-st-skipped-fg: #e08af2;
+
+  --gb-exam-fg: #ff8a80;
+  --gb-exam-bg: rgba(255, 82, 82, 0.12);
+  --gb-exam-line: rgba(255, 110, 100, 0.5);
+  --gb-important: #ff5c5c;
+}
+
+/* --- Каркас --- */
+
+.culms-gb {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 20px;
+  /* Пустота под таблицей: иначе она кончается у нижнего края экрана и выше
+     её не поднять — нижние строки и прокрутка недель всегда внизу. */
+  padding-bottom: 50vh;
+  color: var(--tui-text-primary);
+  font: var(--tui-font-text-s);
+}
+
+.culms-gb *,
+.culms-gb *::before,
+.culms-gb *::after {
+  box-sizing: border-box;
+}
+
+.culms-gb-muted {
+  color: var(--gb-text-3);
+}
+
+.culms-gb button {
+  font: inherit;
+  color: inherit;
+}
+
+/* --- Панель фильтров --- */
+
+.culms-gb-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+
+.culms-gb-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.culms-gb-toolbar__label {
+  color: var(--gb-text-3);
+  font-weight: 500;
+}
+
+.culms-gb-seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--gb-neutral-bg);
+}
+
+.culms-gb-seg__btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--gb-text-2) !important;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.culms-gb-seg__btn:hover {
+  color: var(--tui-text-primary) !important;
+}
+
+.culms-gb-seg__btn.is-on {
+  background: var(--tui-background-elevation-1, #fff);
+  color: var(--tui-text-primary) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  font-weight: 500;
+}
+
+:root:has(#culms-dark-theme-style-base) .culms-gb-seg__btn.is-on {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.culms-gb-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--gb-text-2);
+}
+
+.culms-gb-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--gb-accent);
+  cursor: pointer;
+}
+
+.culms-gb-button,
+.culms-gb-retry,
+.culms-gb-legend__reset {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--gb-line-strong);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--gb-text-2) !important;
+  white-space: nowrap;
+}
+
+/* «Скрыть сводку» и «Обновить» прижаты к правому краю. */
+.culms-gb-toolbar__actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.culms-gb-button:hover,
+.culms-gb-retry:hover,
+.culms-gb-legend__reset:hover {
+  color: var(--tui-text-primary) !important;
+  border-color: var(--gb-text-3);
+}
+
+/* --- Метрики --- */
+
+.culms-gb-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.culms-gb-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--gb-line);
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+}
+
+button.culms-gb-stat {
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+button.culms-gb-stat:hover {
+  border-color: var(--gb-line-strong);
+}
+
+.culms-gb-stat.is-on {
+  border-color: var(--gb-accent);
+  background: var(--gb-now);
+}
+
+.culms-gb-stat__value {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.culms-gb-stat__value small {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gb-text-3);
+}
+
+.culms-gb-stat[data-band='fail'] .culms-gb-stat__value {
+  color: var(--gb-fail-fg);
+}
+.culms-gb-stat[data-band='sat'] .culms-gb-stat__value {
+  color: var(--gb-sat-fg);
+}
+.culms-gb-stat[data-band='good'] .culms-gb-stat__value {
+  color: var(--gb-good-fg);
+}
+.culms-gb-stat[data-band='exc'] .culms-gb-stat__value {
+  color: var(--gb-exc-fg);
+}
+
+.culms-gb-stat__label {
+  color: var(--gb-text-3);
+  font-size: 13px;
+  line-height: 16px;
+}
+
+/* --- Легенда --- */
+
+.culms-gb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  min-height: 28px;
+}
+
+.culms-gb-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px 0 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--gb-text-2) !important;
+}
+
+.culms-gb-legend__item:hover {
+  background: var(--gb-neutral-bg);
+}
+
+.culms-gb-legend__item.is-on {
+  border-color: var(--gb-accent);
+  color: var(--tui-text-primary) !important;
+}
+
+.culms-gb .culms-gb-legend__swatch {
+  min-width: 18px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  pointer-events: none;
+}
+
+.culms-gb-legend__count {
+  color: var(--gb-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.culms-gb-legend__hint {
+  color: var(--gb-text-3);
+  font-size: 13px;
+}
+
+.culms-gb-legend__scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gb-text-2);
+}
+
+.culms-gb-legend__scale i {
+  display: block;
+  width: 120px;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--gb-accent) 10%, transparent),
+    var(--gb-accent)
+  );
+}
+
+.culms-gb-legend__note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gb-text-2);
+}
+
+/* --- Таблица --- */
+
+/* Фон под таблицей сплошной: со своей картинкой на фоне страницы
+   (custom_background.js) она просвечивала сквозь клетки и забивала сетку. */
+.culms-gb-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--gb-grid-strong);
+  border-radius: 12px;
+  background: var(--gb-sticky-bg);
+  scrollbar-width: thin;
+}
+
+.culms-gb-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.culms-gb-table th,
+.culms-gb-table td {
+  padding: 0;
+  border-right: 1px solid var(--gb-grid);
+  border-bottom: 1px solid var(--gb-grid);
+  vertical-align: middle;
+  background-clip: padding-box;
+}
+
+.culms-gb-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.culms-gb-table thead th {
+  color: var(--gb-text-3);
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 16px;
+  text-align: center;
+  white-space: nowrap;
+  background: var(--gb-sticky-bg);
+}
+
+.culms-gb-week {
+  padding: 8px 6px 6px !important;
+  color: var(--gb-text-2) !important;
+  border-bottom-color: var(--gb-grid-strong) !important;
+}
+
+.culms-gb-week.is-cur-week {
+  color: var(--gb-accent) !important;
+  background: linear-gradient(var(--gb-now), var(--gb-now)), var(--gb-sticky-bg) !important;
+}
+
+.culms-gb-week__range {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--gb-text-3);
+  font-weight: 400;
+}
+
+.culms-gb-day {
+  min-width: 48px;
+  padding: 6px 4px !important;
+  border-bottom-color: var(--gb-grid-strong) !important;
+}
+
+.culms-gb-day__sub {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+/* Недели разделены линией пожирнее — как на бумажном журнале. */
+.culms-gb-table .culms-gb-week,
+.culms-gb-table .is-week-end {
+  border-right-color: var(--gb-grid-strong);
+}
+
+/* Строка под курсором — чтобы глаз не терял курс, пока идёт по неделям. */
+.culms-gb-table tbody tr:hover > * {
+  background-color: var(--gb-hover);
+}
+
+.culms-gb-table tbody tr:hover > .culms-gb-sticky-l,
+.culms-gb-table tbody tr:hover > .culms-gb-sticky-r,
+.culms-gb-table tbody tr:hover > .culms-gb-sticky-r2 {
+  background: linear-gradient(var(--gb-hover), var(--gb-hover)), var(--gb-sticky-bg) !important;
+}
+
+.culms-gb-table .is-cur-week {
+  background-color: var(--gb-now);
+}
+
+.culms-gb-table thead .culms-gb-day.is-cur-week {
+  background: linear-gradient(var(--gb-now), var(--gb-now)), var(--gb-sticky-bg);
+}
+
+.culms-gb-table .is-today {
+  background-color: var(--gb-today) !important;
+}
+
+.culms-gb-table thead .culms-gb-day.is-today {
+  background: linear-gradient(var(--gb-today), var(--gb-today)), var(--gb-sticky-bg) !important;
+  color: var(--gb-accent);
+  font-weight: 600;
+}
+
+.culms-gb-table thead .culms-gb-day.is-past {
+  color: var(--gb-text-3);
+  opacity: 0.75;
+}
+
+.culms-gb-cell {
+  padding: 4px !important;
+  min-width: 48px;
+}
+
+.culms-gb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+}
+
+/* --- Липкие столбцы --- */
+
+.culms-gb-sticky-l,
+.culms-gb-sticky-r,
+.culms-gb-sticky-r2 {
+  position: sticky;
+  z-index: 2;
+  background: var(--gb-sticky-bg) !important;
+}
+
+.culms-gb-sticky-l {
+  left: 0;
+  border-right: 1px solid var(--gb-grid-strong) !important;
+}
+
+.culms-gb-sticky-r {
+  right: 0;
+}
+
+.culms-gb-sticky-r2 {
+  right: var(--gb-acts-width);
+  border-left: 1px solid var(--gb-grid-strong);
+}
+
+.culms-gb-course {
+  min-width: 200px;
+  max-width: 240px;
+  padding: 8px 12px !important;
+  text-align: left !important;
+  font-weight: 400;
+}
+
+thead .culms-gb-course {
+  vertical-align: bottom;
+}
+
+.culms-gb-course__link {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--tui-text-primary) !important;
+  text-decoration: none;
+  line-height: 18px;
+}
+
+.culms-gb-course__link:hover {
+  color: var(--tui-text-action, #526ed3) !important;
+}
+
+/* Название и кнопка «скрыть курс» рядом: место под кнопку занято всегда,
+   чтобы название не переносилось заново при наведении. */
+.culms-gb-course__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.culms-gb-course__row .culms-gb-course__link {
+  flex: 1;
+  min-width: 0;
+}
+
+.culms-gb-course__hide {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: -2px -6px -2px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--gb-text-3) !important;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.12s,
+    background 0.12s;
+}
+
+.culms-gb-course__hide .culms-gb-icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* Кнопка видна на строке под мышью и при фокусе с клавиатуры. */
+.culms-gb-table tbody tr:hover .culms-gb-course__hide,
+.culms-gb-course__hide:focus-visible {
+  opacity: 1;
+}
+
+.culms-gb-course__hide:hover {
+  background: var(--gb-neutral-bg);
+  color: var(--tui-text-primary) !important;
+}
+
+/* На сенсорном экране наводить нечем. */
+@media (hover: none) {
+  .culms-gb-course__hide {
+    opacity: 0.7;
+  }
+}
+
+.culms-gb-badge {
+  display: inline-block;
+  margin-top: 4px;
+  margin-right: 4px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--gb-fail-bg);
+  color: var(--gb-fail-fg);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.culms-gb-badge.is-muted {
+  background: var(--gb-neutral-bg);
+  color: var(--gb-text-3);
+}
+
+.culms-gb-acc {
+  min-width: 112px;
+  padding: 6px 8px !important;
+  text-align: center;
+  white-space: nowrap;
+}
+
+td.culms-gb-acc {
+  cursor: help;
+}
+
+/* Подпись под заголовком: что стоит слева от черты и что справа. */
+.culms-gb-acc__sub {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--gb-text-3);
+}
+
+/* «Набрано / можно»: набранное — крупно и в цвете успеваемости, возможное
+   к сегодняшнему дню — рядом, после черты. */
+.culms-gb-acc__value {
+  display: inline-block;
+  min-width: 44px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.culms-gb-acc__of {
+  margin-left: 4px;
+  color: var(--gb-text-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Архив: итоговая оценка, которую выставила LMS. */
+.culms-gb-acc__final {
+  display: block;
+  margin-top: 3px;
+  color: var(--gb-text-2);
+  font-size: 12px;
+  line-height: 14px;
+}
+
+.culms-gb-acts {
+  width: var(--gb-acts-width);
+  min-width: var(--gb-acts-width);
+  max-width: var(--gb-acts-width);
+  padding: 6px 8px !important;
+}
+
+/* Колонку активностей можно свернуть кнопкой в заголовке — в узкую полосу
+   с подписью поперёк, чтобы отдать место датам. Липкий «Накоп» стоит левее
+   неё на `--gb-acts-width`, так что сдвигается сам. */
+.culms-gb.is-acts-collapsed {
+  --gb-acts-width: 36px;
+}
+
+.culms-gb.is-acts-collapsed .culms-gb-acts {
+  padding: 6px 2px !important;
+}
+
+.culms-gb-acts__head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.culms-gb-acts__toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--gb-line-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--gb-text-2) !important;
+  cursor: pointer;
+}
+
+.culms-gb-acts__toggle:hover {
+  background: var(--gb-neutral-bg);
+  color: var(--tui-text-primary) !important;
+}
+
+.culms-gb.is-acts-collapsed .culms-gb-acts__head {
+  flex-direction: column-reverse;
+  gap: 4px;
+}
+
+.culms-gb.is-acts-collapsed .culms-gb-acts__title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.culms-gb.is-acts-collapsed .culms-gb-acts__toggle .culms-gb-icon {
+  transform: rotate(180deg);
+}
+
+.culms-gb-acts__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.culms-gb-act {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--gb-neutral-bg);
+  font-size: 12px;
+  line-height: 18px;
+  cursor: help;
+  white-space: nowrap;
+}
+
+.culms-gb-act.is-waiting {
+  border: 1px dashed var(--gb-line-strong);
+  background: transparent;
+  color: var(--gb-text-3);
+}
+
+.culms-gb-act__name {
+  color: var(--gb-text-2);
+}
+
+.culms-gb-act__value {
+  font-weight: 600;
+}
+
+.culms-gb-act__weight {
+  color: var(--gb-text-3);
+  font-size: 10px;
+}
+
+/* --- Клетка-оценка --- */
+
+.culms-gb-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--gb-neutral-bg);
+  color: var(--gb-neutral-fg) !important;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none !important;
+  cursor: pointer;
+  transition:
+    opacity 0.15s,
+    transform 0.1s,
+    box-shadow 0.15s;
+}
+
+.culms-gb-chip small {
+  margin-left: 1px;
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+/* Иконка статуса — в клетке, легенде и карточке; цвет берёт от текста. */
+.culms-gb-icon {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.culms-gb-tip__status .culms-gb-icon {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
+.culms-gb-chip.is-pending {
+  font-weight: 500;
+  color: var(--gb-text-3) !important;
+}
+
+.culms-gb-chip:hover,
+.culms-gb-chip:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 2px var(--gb-accent);
+}
+
+.culms-gb-chip.is-weightless {
+  border-style: dashed;
+  border-color: var(--gb-line-strong);
+}
+
+.culms-gb-chip.is-dim {
+  opacity: 0.18;
+}
+
+/* Подсветка по оценкам. Неоценённые остаются нейтральными. */
+.culms-gb--mode-grade .culms-gb-chip[data-band='fail'],
+.culms-gb--mode-grade .culms-gb-act[data-band='fail'],
+.culms-gb-acc__value[data-band='fail'] {
+  background: var(--gb-fail-bg);
+  color: var(--gb-fail-fg) !important;
+}
+.culms-gb--mode-grade .culms-gb-chip[data-band='sat'],
+.culms-gb--mode-grade .culms-gb-act[data-band='sat'],
+.culms-gb-acc__value[data-band='sat'] {
+  background: var(--gb-sat-bg);
+  color: var(--gb-sat-fg) !important;
+}
+.culms-gb--mode-grade .culms-gb-chip[data-band='good'],
+.culms-gb--mode-grade .culms-gb-act[data-band='good'],
+.culms-gb-acc__value[data-band='good'] {
+  background: var(--gb-good-bg);
+  color: var(--gb-good-fg) !important;
+}
+.culms-gb--mode-grade .culms-gb-chip[data-band='exc'],
+.culms-gb--mode-grade .culms-gb-act[data-band='exc'],
+.culms-gb-acc__value[data-band='exc'] {
+  background: var(--gb-exc-bg);
+  color: var(--gb-exc-fg) !important;
+}
+
+/* Накоп без подсветки — в режиме «без подсветки» он тоже нейтральный. */
+.culms-gb--mode-none .culms-gb-acc__value[data-band] {
+  background: transparent;
+  color: var(--tui-text-primary) !important;
+}
+
+/* Подсветка по статусам: цвета — как у чипов статусов в LMS. */
+.culms-gb--mode-status .culms-gb-chip[data-status='backlog'],
+.culms-gb-tip__status[data-status='backlog'] {
+  background: var(--gb-st-backlog-bg);
+  color: var(--gb-st-backlog-fg) !important;
+}
+.culms-gb--mode-status .culms-gb-chip[data-status='inProgress'],
+.culms-gb-tip__status[data-status='inProgress'] {
+  background: var(--gb-st-progress-bg);
+  color: var(--gb-st-progress-fg) !important;
+}
+.culms-gb--mode-status .culms-gb-chip[data-status='submitted'],
+.culms-gb-tip__status[data-status='submitted'] {
+  background: var(--gb-st-submitted-bg);
+  color: var(--gb-st-submitted-fg) !important;
+}
+.culms-gb--mode-status .culms-gb-chip[data-status='review'],
+.culms-gb-tip__status[data-status='review'] {
+  background: var(--gb-st-review-bg);
+  color: var(--gb-st-review-fg) !important;
+}
+.culms-gb--mode-status .culms-gb-chip[data-status='reworking'],
+.culms-gb-tip__status[data-status='reworking'] {
+  background: var(--gb-st-rework-bg);
+  color: var(--gb-st-rework-fg) !important;
+}
+.culms-gb--mode-status .culms-gb-chip[data-status='failed'],
+.culms-gb-tip__status[data-status='failed'] {
+  background: var(--gb-fail-bg);
+  color: var(--gb-fail-fg) !important;
+}
+.culms-gb--mode-status .culms-gb-chip[data-status='evaluated'],
+.culms-gb-tip__status[data-status='evaluated'] {
+  background: var(--gb-exc-bg);
+  color: var(--gb-exc-fg) !important;
+}
+.culms-gb--mode-status .culms-gb-chip[data-status='skipped'],
+.culms-gb-tip__status[data-status='skipped'] {
+  background: var(--gb-st-skipped-bg);
+  color: var(--gb-st-skipped-fg) !important;
+}
+
+/* Подсветка по весу: чем больше задание весит в итоговой, тем гуще цвет. */
+.culms-gb--mode-weight .culms-gb-chip {
+  background: color-mix(
+    in srgb,
+    var(--gb-accent) calc(8% + var(--w, 0) * 82%),
+    var(--gb-neutral-bg)
+  );
+}
+
+.culms-gb--mode-weight .culms-gb-chip.is-heavy {
+  color: #fff !important;
+}
+
+.culms-gb--mode-weight .culms-gb-chip.is-weightless {
+  background: transparent;
+}
+
+/* Контрольная по расписанию: не оценка и не задание, поэтому вид свой и не
+   зависит от подсветки — отсюда лишний класс в селекторе, чтобы перебить
+   правила режимов выше. */
+.culms-gb .culms-gb-chip[data-exam] {
+  gap: 3px;
+  padding: 0 6px;
+  border: 1px solid var(--gb-exam-line);
+  background: var(--gb-exam-bg);
+  color: var(--gb-exam-fg) !important;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.culms-gb .culms-gb-legend__swatch[data-exam] {
+  padding: 0;
+}
+
+/* Важная работа (экзамен, зачёт, контрольная, коллоквиум, контест) —
+   красный уголок справа сверху: поверх любой подсветки, цвет клетки не
+   трогает. Так же помечена и сама активность в колонке справа. */
+.culms-gb-chip[data-important],
+.culms-gb-act[data-important] {
+  position: relative;
+}
+
+.culms-gb-chip[data-important]::after,
+.culms-gb-act[data-important]::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  border-top: 9px solid var(--gb-important);
+  border-left: 9px solid transparent;
+  border-top-right-radius: 6px;
+  pointer-events: none;
+}
+
+.culms-gb-tip__kind {
+  margin-top: 2px;
+  color: var(--gb-important);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Столбец «Контр. — на неделе»: день у контрольной не известен. */
+.culms-gb-table thead .culms-gb-day.is-exam-col {
+  color: var(--gb-exam-fg);
+  font-weight: 600;
+}
+
+.culms-gb-tip__title .culms-gb-icon {
+  color: var(--gb-exam-fg);
+  vertical-align: -1px;
+}
+
+/* --- Скрытые курсы: строка под таблицей --- */
+
+.culms-gb-hidden {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.culms-gb-hidden__label {
+  color: var(--gb-text-3);
+  font-weight: 500;
+}
+
+/* Пунктир — «курса сейчас нет в таблице»; под мышью рамка сплошная. */
+.culms-gb-hidden__course {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px dashed var(--gb-line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gb-text-2) !important;
+  cursor: pointer;
+}
+
+.culms-gb-hidden__course:hover,
+.culms-gb-hidden__course:focus-visible {
+  border-style: solid;
+  border-color: var(--gb-accent);
+  color: var(--tui-text-primary) !important;
+}
+
+.culms-gb-hidden__course .culms-gb-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--gb-accent);
+}
+
+.culms-gb-hidden__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.culms-gb-hidden__hint {
+  color: var(--gb-text-3);
+  font-size: 13px;
+}
+
+/* --- Состояния --- */
+
+.culms-gb-loading,
+.culms-gb-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 16px;
+  border: 1px dashed var(--gb-line-strong);
+  border-radius: 12px;
+  color: var(--gb-text-2);
+  text-align: center;
+}
+
+.culms-gb-loading__progress {
+  color: var(--gb-text-3);
+}
+
+.culms-gb-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--gb-line-strong);
+  border-top-color: var(--gb-accent);
+  border-radius: 50%;
+  animation: culms-gb-spin 0.8s linear infinite;
+}
+
+@keyframes culms-gb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* На телефоне три липких столбца съели бы весь экран — держим только курс. */
+@media (max-width: 768px) {
+  .culms-gb-sticky-r,
+  .culms-gb-sticky-r2 {
+    position: static;
+  }
+
+  .culms-gb-course {
+    min-width: 150px;
+    max-width: 170px;
+  }
+
+  .culms-gb-toolbar__actions {
+    margin-left: 0;
+  }
+}
+
+/* --- Карточка задания при наведении --- */
+
+.culms-gb-tip {
+  position: fixed;
+  z-index: 10000;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: 12px 14px;
+  border: 1px solid var(--gb-line);
+  border-radius: 12px;
+  background: var(--tui-background-elevation-1, #fff);
+  color: var(--tui-text-primary);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+  font: var(--tui-font-text-s);
+  font-size: 13px;
+  line-height: 18px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.12s,
+    visibility 0.12s;
+}
+
+:root:has(#culms-dark-theme-style-base) .culms-gb-tip {
+  background: var(--culms-dark-bg-secondary, #28292c);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+
+.culms-gb-tip.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.culms-gb-tip__course {
+  color: var(--gb-text-3);
+  font-size: 12px;
+}
+
+.culms-gb-tip__title {
+  margin-top: 2px;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.culms-gb-tip__theme {
+  margin-top: 2px;
+  color: var(--gb-text-2);
+  font-size: 12px;
+}
+
+.culms-gb-tip__rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 10px 0 0;
+}
+
+.culms-gb-tip__rows dt {
+  color: var(--gb-text-3);
+}
+
+.culms-gb-tip__rows dd {
+  margin: 0;
+}
+
+/* Веса — отдельным блоком под чертой: доля активности в курсе и доля одного
+   задания в итоговой — разные числа, и рядом в таблице они путались. */
+.culms-gb-tip__weights {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--gb-line-strong);
+}
+
+.culms-gb-tip__label {
+  color: var(--gb-text-3);
+}
+
+.culms-gb-tip__name {
+  color: var(--gb-text-2);
+}
+
+.culms-gb-tip__hint {
+  color: var(--gb-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.culms-gb-tip__status {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.culms-gb-tip .culms-gb-muted {
+  color: var(--gb-text-3);
+}
+
+.culms-gb-tip__link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--tui-text-action, #526ed3) !important;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.culms-gb-tip__link:hover {
+  text-decoration: underline;
+}

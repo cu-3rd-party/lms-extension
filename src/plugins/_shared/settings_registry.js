@@ -167,6 +167,8 @@ if (typeof window.cuLmsSettings === 'undefined') {
     // списка скрытых вопреки границе по дате.
     data('hiddenArchivedTaskIds', 'personal', 'array'),
     data('shownArchivedTaskIds', 'personal', 'array'),
+    // Сводная таблица ведомостей: id курсов, убранных из неё кнопкой в строке.
+    data('gradebookHiddenCourseIds', 'personal', 'array'),
     // Граница по дате, при которой сделаны эти исключения: при другой они
     // сбрасываются.
     {
