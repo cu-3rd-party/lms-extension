@@ -1,8 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// В tests/source лежат проверки на bun:test — Playwright их грузить не должен.
+// Шаблон повторяется в проекте chromium: свой testIgnore проекта заменяет
+// общий, а не дополняет его.
+const BUN_TESTS = 'tests/source/**';
+
 export default defineConfig({
   testDir: './tests',
-  testIgnore: ['tests/source/**'],
+  testIgnore: [BUN_TESTS],
   timeout: 30_000,
   retries: 0,
   reporter: 'list',
@@ -15,7 +20,7 @@ export default defineConfig({
     {
       name: 'chromium',
       // Регрессия на Gecko живёт в отдельном проекте ниже
-      testIgnore: /pdf-viewer-firefox\.test\.ts/,
+      testIgnore: [BUN_TESTS, /pdf-viewer-firefox\.test\.ts/],
       use: { ...devices['Desktop Chrome'] },
     },
     {
