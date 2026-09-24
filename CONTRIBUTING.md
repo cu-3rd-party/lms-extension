@@ -50,6 +50,7 @@ bun install
 ```
 src/
 ├── background.ts          # Service worker: роутер навигации, авто-инжекция плагинов
+├── grades-export.ts       # Сбор оценок для Excel: выполняется во вкладке LMS, без замыканий
 ├── popup/                 # UI попапа расширения
 │   ├── popup.html
 │   ├── popup.js

@@ -45,7 +45,8 @@ bun run test:browser
 ```
 
 По умолчанию скрипт открывает страницу issue #185 и заранее включает `themeEnabled`, `advancedStatementsEnabled` и `endOfCourseCalcEnabled`. Если нужна другая страница, передай `TEST_BROWSER_URL=https://...`.
-`playwright.config.ts` игнорирует `tests/source/**`, потому что там лежат `bun:test` регрессионные проверки, а не браузерные E2E.
+`playwright.config.ts` игнорирует `tests/source/**`, потому что там лежат `bun:test` регрессионные проверки, а не браузерные E2E. Запускаются они так: `bun test tests/source`.
+Шаблон повторён и в проекте `chromium`: собственный `testIgnore` проекта заменяет общий, а не дополняет его, — без повтора Playwright брался грузить `bun:test` и падал на старте всего набора.
 
 ## Отдельные тесты
 
@@ -71,6 +72,7 @@ tests/
 ├── custom-logo.test.ts          # свой логотип в шапке и надпись «НЕ ЯВЛЯЕТСЯ ОФИЦИАЛЬНОЙ LMS»
 ├── custom-background.test.ts    # своя картинка на фоне вместо заливки
 ├── custom-background-editor.test.ts # фон по страницам, курсам, разделам и редактор фона
+├── grades-export.test.ts        # экспорт оценок в Excel из меню плагина: текущие и архивные курсы
 ├── settings-profile.test.ts     # выгрузка и загрузка настроек файлом
 ├── dark-theme.test.ts           # переключение тёмной темы
 ├── future-exams.test.ts
@@ -87,6 +89,16 @@ tests/
 собирают поддельную таблицу задач и выполняют на ней настоящий `tasks_fix.js`
 с заглушками вместо API и `browser.storage` — общий стенд лежит в
 `helpers/tasks-page.ts`.
+
+`grades-export` тоже обходится без куки, но расширение ему нужно настоящее:
+`launchExtensionContext({ headless: true })` из `helpers/extension.ts` поднимает
+Chrome с `dist/chrome` без логина, а страницу LMS и ответы API отдаёт
+`context.route`. Тест жмёт кнопку «Плагин», раскрывает «Экспорт оценок» в
+меню, скачивает обе книги и разбирает их. Скачанный файл Playwright сохраняет
+под GUID, поэтому имя `grades.xlsx` проверяется по строке статуса, а не по
+файлу. Функцию сбора оценок отдельно сторожит `tests/source/grades-export.test.ts`:
+она уезжает во вкладку LMS одним текстом, и тест запускает её так же — в пустом
+контексте, где нет ничего, кроме `fetch`.
 
 ## Как работает авторизация
 

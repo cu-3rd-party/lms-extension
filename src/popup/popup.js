@@ -73,25 +73,6 @@ const browserApi = {
       return await browser.runtime.sendMessage({ action: 'TABS_SEND_MESSAGE', tabId, message });
     },
   },
-  scripting: {
-    async executeScript(options) {
-      if (options.func && options.func.name === 'fetchAllGradesForExport') {
-        const resp = await browser.runtime.sendMessage({ action: 'GRADES_EXPORT_EXECUTE' });
-        if (resp.success) return [{ result: resp.result }];
-        throw new Error(resp.error || 'Ошибка выполнения скрипта экспорта');
-      }
-      try {
-        if (
-          typeof browser !== 'undefined' &&
-          browser.scripting &&
-          browser.scripting.executeScript
-        ) {
-          return await browser.scripting.executeScript(options);
-        }
-      } catch (e) {}
-      throw new Error('API scripting недоступно в этом контексте');
-    },
-  },
 };
 
 // Настройки, которые применяются "на лету" без перезагрузки (можно сохранять сразу)
@@ -183,6 +164,7 @@ const themeImportBtn = document.getElementById('theme-import-btn');
 const themeImportFile = document.getElementById('theme-import-file');
 const themeFileStatus = document.getElementById('theme-file-status');
 const gradesExportBtn = document.getElementById('grades-export-btn');
+const gradesExportArchivedBtn = document.getElementById('grades-export-archived-btn');
 const gradesExportStatus = document.getElementById('grades-export-status');
 
 const allKeys = [
@@ -1444,7 +1426,10 @@ if (resetCourseIconsBtn) {
 }
 
 if (gradesExportBtn) {
-  gradesExportBtn.addEventListener('click', handleGradesExportClick);
+  gradesExportBtn.addEventListener('click', () => handleGradesExportClick(false));
+}
+if (gradesExportArchivedBtn) {
+  gradesExportArchivedBtn.addEventListener('click', () => handleGradesExportClick(true));
 }
 
 function setGradesExportStatus(message, type = 'info') {
@@ -1455,11 +1440,22 @@ function setGradesExportStatus(message, type = 'info') {
     type === 'error' ? '#d93025' : type === 'success' ? '#188038' : '#666';
 }
 
-async function handleGradesExportClick() {
-  if (!gradesExportBtn) return;
+function setGradesExportBusy(isBusy) {
+  [gradesExportBtn, gradesExportArchivedBtn].forEach((button) => {
+    if (button) button.disabled = isBusy;
+  });
+}
+
+/**
+ * Выгрузка оценок в Excel.
+ *
+ * @param {boolean} archived false — текущие курсы, true — архивные.
+ */
+async function handleGradesExportClick(archived) {
+  const fileName = archived ? 'grades-archive.xlsx' : 'grades.xlsx';
 
   try {
-    gradesExportBtn.disabled = true;
+    setGradesExportBusy(true);
     setGradesExportStatus('Ищу активную вкладку LMS...');
 
     if (!window.XLSX) {
@@ -1471,188 +1467,71 @@ async function handleGradesExportClick() {
       throw new Error('Открой вкладку LMS (my.centraluniversity.ru или my.cu.ru) перед экспортом.');
     }
 
-    setGradesExportStatus('Собираю оценки через API LMS...');
-    const [injectionResult] = await browserApi.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: fetchAllGradesForExport,
+    setGradesExportStatus(
+      archived
+        ? 'Собираю оценки архивных курсов через API LMS...'
+        : 'Собираю оценки через API LMS...'
+    );
+    // Оценки собирает функция из src/grades-export.ts: background запускает её
+    // во вкладке LMS, и запросы к API идут оттуда с куками пользователя.
+    const response = await browser.runtime.sendMessage({
+      action: 'GRADES_EXPORT_EXECUTE',
+      tabId: tab.id,
+      archived,
     });
+    if (!response?.success) {
+      throw new Error(response?.error || 'Ошибка выполнения скрипта экспорта');
+    }
 
-    const result = injectionResult?.result;
+    const result = response.result;
     if (!result?.success) {
       throw new Error(result?.error || 'Не удалось получить данные LMS.');
     }
 
     if (!result.courses?.length) {
-      throw new Error('Не нашёл активных курсов с оценками.');
+      throw new Error(
+        archived ? 'Не нашёл архивных курсов.' : 'Не нашёл активных курсов с оценками.'
+      );
     }
 
     setGradesExportStatus(`Генерирую Excel: ${result.courses.length} курсов...`);
-    generateGradesWorkbook(result.courses);
-    setGradesExportStatus('Готово: grades.xlsx скачан.', 'success');
+    await downloadWorkbook(generateGradesWorkbook(result.courses), fileName);
+    setGradesExportStatus(`Готово: ${fileName} скачан.`, 'success');
   } catch (error) {
     console.error('[CU LMS] Grades export failed:', error);
     setGradesExportStatus(error.message || 'Ошибка экспорта оценок.', 'error');
   } finally {
-    gradesExportBtn.disabled = false;
+    setGradesExportBusy(false);
   }
 }
 
-async function fetchAllGradesForExport() {
-  const normalizeFetchedNumber = (value, fallback) => {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : fallback;
-  };
-
-  const enrichPerformanceTask = (task, exercisesById) => {
-    const exercise = exercisesById.get(task.exerciseId) || task.exercise || null;
-    const activity = task.activity || exercise?.activity || null;
-
-    return {
-      id: task.id,
-      exerciseId: task.exerciseId,
-      state: task.state,
-      score: task.score,
-      extraScore: task.extraScore,
-      maxScore: normalizeFetchedNumber(task.maxScore ?? exercise?.maxScore, 10),
-      activity: activity
-        ? {
-            id: activity.id,
-            name: activity.name,
-            weight: activity.weight,
-            maxExercisesCount: activity.maxExercisesCount,
-          }
-        : null,
-      exercise: exercise
-        ? {
-            id: exercise.id,
-            name: exercise.name,
-          }
-        : null,
-    };
-  };
-
-  const makeExerciseOnlyTask = (exercise) => ({
-    id: null,
-    exerciseId: exercise.id,
-    state: 'planned',
-    score: null,
-    extraScore: null,
-    maxScore: normalizeFetchedNumber(exercise.maxScore, 10),
-    activity: exercise.activity
-      ? {
-          id: exercise.activity.id,
-          name: exercise.activity.name,
-          weight: exercise.activity.weight,
-          maxExercisesCount: exercise.activity.maxExercisesCount,
-        }
-      : null,
-    exercise: {
-      id: exercise.id,
-      name: exercise.name,
-    },
+/**
+ * Отдаёт книгу на скачивание. Не через XLSX.writeFile: раз у расширения есть
+ * разрешение downloads, SheetJS зовёт downloads.download с saveAs: true и на
+ * каждую выгрузку открывает «Сохранить как», а попап на панели браузера,
+ * потеряв фокус, закрывается. Здесь спрашивать ли, куда сохранить, решает
+ * настройка браузера.
+ */
+async function downloadWorkbook(workbook, fileName) {
+  const data = window.XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
+  const url = URL.createObjectURL(blob);
+  // Браузер читает файл не мгновенно — ссылку держим живой с запасом.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
-  const fetchJson = async (url) => {
-    const response = await fetch(url, {
-      headers: { accept: 'application/json, text/plain, */*' },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error(`LMS API вернул ${response.status} для ${url}`);
-    }
-
-    return response.json();
-  };
-
-  try {
-    const coursesData = await fetchJson('/api/micro-lms/performance/student?isArchived=false');
-
-    const courses = Array.isArray(coursesData?.courses)
-      ? coursesData.courses
-      : Array.isArray(coursesData?.items)
-        ? coursesData.items
-        : [];
-
-    const activeCourses = courses.filter((course) => {
-      const status = course.courseStudentsStatus || course.courseStudentStatus || course.status;
-      return course.id && status !== 'listener' && status !== 'слушатель';
-    });
-
-    const exportedCourses = [];
-    for (const course of activeCourses) {
-      const [performance, exercisesData] = await Promise.all([
-        fetchJson(`/api/micro-lms/courses/${course.id}/student-performance`),
-        fetchJson(`/api/micro-lms/courses/${course.id}/exercises`),
-      ]);
-      const exercises = Array.isArray(exercisesData?.exercises) ? exercisesData.exercises : [];
-      // Fetch course-level activities to detect зачёт with оценкой and insert placeholders if missing
-      let courseActivities = [];
-      try {
-        const activitiesResp = await fetchJson(`/api/micro-lms/courses/${course.id}/activities`);
-        if (Array.isArray(activitiesResp)) courseActivities = activitiesResp;
-      } catch (e) {
-        // ignore if endpoint unavailable
-        courseActivities = [];
-      }
-      const exercisesById = new Map(exercises.map((exercise) => [exercise.id, exercise]));
-      const tasks = Array.isArray(performance?.tasks) ? performance.tasks : [];
-      const taskExerciseIds = new Set(tasks.map((task) => task.exerciseId));
-      const exerciseOnlyTasks = exercises
-        .filter((exercise) => exercise.id && !taskExerciseIds.has(exercise.id))
-        .map(makeExerciseOnlyTask);
-      // Build placeholders for activities that exist in course activities but have no tasks yet
-      // This ensures that exams, зачёт, etc. appear in the export regardless of their names.
-      const placeholders = [];
-      if (Array.isArray(courseActivities)) {
-        const existingActIds = new Set(tasks.map((t) => t.activity?.id).filter(Boolean));
-        for (const act of courseActivities) {
-          if (!act?.id) continue;
-          if (
-            !existingActIds.has(act.id) &&
-            typeof act.maxExercisesCount === 'number' &&
-            act.maxExercisesCount > 0
-          ) {
-            placeholders.push({
-              id: null,
-              exerciseId: null,
-              state: 'planned',
-              score: null,
-              extraScore: null,
-              maxScore: 10,
-              activity: {
-                id: act.id,
-                name: act.name,
-                weight: act.weight,
-                maxExercisesCount: act.maxExercisesCount,
-              },
-              exercise: {
-                id: null,
-                name: act.name,
-              },
-            });
-          }
-        }
-      }
-
-      // (stable) no extra handling of activities-perf data here
-
-      exportedCourses.push({
-        id: course.id,
-        name: course.name || `Курс ${course.id}`,
-        tasks: [
-          ...tasks.map((task) => enrichPerformanceTask(task, exercisesById)),
-          ...placeholders,
-          ...exerciseOnlyTasks,
-        ],
-      });
-    }
-
-    return { success: true, courses: exportedCourses };
-  } catch (error) {
-    console.error('[CU LMS] Grades export fetch failed:', error);
-    return { success: false, error: error.message || 'Ошибка запроса к LMS API.' };
+  if (browser.downloads?.download) {
+    await browser.downloads.download({ url, filename: fileName });
+    return;
   }
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 function generateGradesWorkbook(courses) {
@@ -1758,7 +1637,7 @@ function generateGradesWorkbook(courses) {
     XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
   });
 
-  XLSX.writeFile(workbook, 'grades.xlsx');
+  return workbook;
 }
 
 function groupTasksByActivity(tasks) {

@@ -55,27 +55,26 @@ export async function resolveExtensionId(context: BrowserContext): Promise<strin
   return new URL(serviceWorker.url()).hostname;
 }
 
-export async function launchAuthenticatedExtensionContext() {
+/**
+ * Chrome с расширением из dist/chrome на временном профиле, без логина — для
+ * тестов на подставной LMS (ответы API отдаёт `context.route`).
+ *
+ * `headless: true` запускает полный Chromium в новом headless-режиме: старая
+ * headless-оболочка Playwright расширения не грузит.
+ */
+export async function launchExtensionContext(options: { headless?: boolean } = {}) {
   if (!existsSync(EXTENSION_PATH)) {
     throw new Error(
       `Сборка расширения не найдена: ${EXTENSION_PATH}. Сначала выполни bun run build:chrome`
     );
   }
 
-  const cookies = JSON.parse(readFileSync(getCookiesFile(), 'utf-8'));
   const profileDir = mkdtempSync(join(tmpdir(), EXTENSION_PROFILE_PREFIX));
   const context = await chromium.launchPersistentContext(profileDir, {
-    headless: false,
+    headless: options.headless ?? false,
+    ...(options.headless ? { channel: 'chromium' } : {}),
     args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`],
   });
-
-  try {
-    await context.addCookies(cookies);
-  } catch (error) {
-    await context.close();
-    rmSync(profileDir, { recursive: true, force: true });
-    throw error;
-  }
 
   return {
     context,
@@ -85,6 +84,26 @@ export async function launchAuthenticatedExtensionContext() {
       rmSync(profileDir, { recursive: true, force: true });
     },
   };
+}
+
+export async function launchAuthenticatedExtensionContext() {
+  if (!existsSync(EXTENSION_PATH)) {
+    throw new Error(
+      `Сборка расширения не найдена: ${EXTENSION_PATH}. Сначала выполни bun run build:chrome`
+    );
+  }
+
+  const cookies = JSON.parse(readFileSync(getCookiesFile(), 'utf-8'));
+  const launched = await launchExtensionContext();
+
+  try {
+    await launched.context.addCookies(cookies);
+  } catch (error) {
+    await launched.cleanup();
+    throw error;
+  }
+
+  return launched;
 }
 
 async function openExtensionPopup(context: BrowserContext, extensionId: string) {

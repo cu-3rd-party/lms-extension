@@ -2,6 +2,7 @@
 import browser from 'webextension-polyfill';
 import type { PluginManifest } from './plugins/types';
 import { DEFAULT_LMS_ORIGIN, isLmsUrl, lmsOriginOf } from './plugins/lms-hosts';
+import { fetchAllGradesForExport } from './grades-export';
 
 // У LMS два домена с раздельными сессиями, поэтому фоновые запросы идут на тот,
 // где пользователь сейчас работает: cookie другого домена нам недоступны и
@@ -92,171 +93,13 @@ type IncomingMessage =
   | { action: 'TABS_SEND_MESSAGE'; tabId: number; message: unknown }
   | { action: 'OPEN_PDF_VIEWER'; url: string; filename: string }
   | { action: 'OPEN_THEME_EDITOR' }
-  | { action: 'GRADES_EXPORT_EXECUTE' }
+  | { action: 'GRADES_EXPORT_EXECUTE'; tabId?: number; archived?: boolean }
   | { action: 'SAFARI_NAVIGATION'; url: string }
   | { action: string; [key: string]: unknown };
 
 // Единственный внешний хост, куда background пускает запросы биржи обмена
 // парами. https://github.com/cu-3rd-party/lms-swap-backend
 const SWAP_BACKEND_ORIGIN = 'https://lms.swap.cu3rd.ru';
-
-// --- ФУНКЦИЯ СБОРА ОЦЕНОК ДЛЯ ЭКСПОРТА ---
-async function fetchAllGradesForExport() {
-  const normalizeFetchedNumber = (value: any, fallback: number) => {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : fallback;
-  };
-
-  const enrichPerformanceTask = (task: any, exercisesById: Map<any, any>) => {
-    const exercise = exercisesById.get(task.exerciseId) || task.exercise || null;
-    const activity = task.activity || exercise?.activity || null;
-
-    return {
-      id: task.id,
-      exerciseId: task.exerciseId,
-      state: task.state,
-      score: task.score,
-      extraScore: task.extraScore,
-      maxScore: normalizeFetchedNumber(task.maxScore ?? exercise?.maxScore, 10),
-      activity: activity
-        ? {
-            id: activity.id,
-            name: activity.name,
-            weight: activity.weight,
-            maxExercisesCount: activity.maxExercisesCount,
-          }
-        : null,
-      exercise: exercise
-        ? {
-            id: exercise.id,
-            name: exercise.name,
-          }
-        : null,
-    };
-  };
-
-  const makeExerciseOnlyTask = (exercise: any) => ({
-    id: null,
-    exerciseId: exercise.id,
-    state: 'planned',
-    score: null,
-    extraScore: null,
-    maxScore: normalizeFetchedNumber(exercise.maxScore, 10),
-    activity: exercise.activity
-      ? {
-          id: exercise.activity.id,
-          name: exercise.activity.name,
-          weight: exercise.activity.weight,
-          maxExercisesCount: exercise.activity.maxExercisesCount,
-        }
-      : null,
-    exercise: {
-      id: exercise.id,
-      name: exercise.name,
-    },
-  });
-
-  const fetchJson = async (url: string) => {
-    const response = await fetch(url, {
-      headers: { accept: 'application/json, text/plain, */*' },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error(`LMS API вернул ${response.status} для ${url}`);
-    }
-
-    return response.json();
-  };
-
-  try {
-    const coursesData = await fetchJson(
-      lmsApi('/api/micro-lms/performance/student?isArchived=false')
-    );
-
-    const courses = Array.isArray(coursesData?.courses)
-      ? coursesData.courses
-      : Array.isArray(coursesData?.items)
-        ? coursesData.items
-        : [];
-
-    const activeCourses = courses.filter((course: any) => {
-      const status = course.courseStudentsStatus || course.courseStudentStatus || course.status;
-      return course.id && status !== 'listener' && status !== 'слушатель';
-    });
-
-    const exportedCourses = [];
-    for (const course of activeCourses) {
-      const [performance, exercisesData] = await Promise.all([
-        fetchJson(lmsApi(`/api/micro-lms/courses/${course.id}/student-performance`)),
-        fetchJson(lmsApi(`/api/micro-lms/courses/${course.id}/exercises`)),
-      ]);
-      const exercises = Array.isArray(exercisesData?.exercises) ? exercisesData.exercises : [];
-      let courseActivities = [];
-      try {
-        const activitiesResp = await fetchJson(
-          lmsApi(`/api/micro-lms/courses/${course.id}/activities`)
-        );
-        if (Array.isArray(activitiesResp)) courseActivities = activitiesResp;
-      } catch (e) {
-        courseActivities = [];
-      }
-      const exercisesById = new Map(exercises.map((exercise: any) => [exercise.id, exercise]));
-      const tasks = Array.isArray(performance?.tasks) ? performance.tasks : [];
-      const taskExerciseIds = new Set(tasks.map((task: any) => task.exerciseId));
-      const exerciseOnlyTasks = exercises
-        .filter((exercise: any) => exercise.id && !taskExerciseIds.has(exercise.id))
-        .map(makeExerciseOnlyTask);
-
-      const placeholders = [];
-      if (Array.isArray(courseActivities)) {
-        const existingActIds = new Set(tasks.map((t: any) => t.activity?.id).filter(Boolean));
-        for (const act of courseActivities) {
-          if (!act?.id) continue;
-          if (
-            !existingActIds.has(act.id) &&
-            typeof act.maxExercisesCount === 'number' &&
-            act.maxExercisesCount > 0
-          ) {
-            placeholders.push({
-              id: null,
-              exerciseId: null,
-              state: 'planned',
-              score: null,
-              extraScore: null,
-              maxScore: 10,
-              activity: {
-                id: act.id,
-                name: act.name,
-                weight: act.weight,
-                maxExercisesCount: act.maxExercisesCount,
-              },
-              exercise: {
-                id: null,
-                name: act.name,
-              },
-            });
-          }
-        }
-      }
-
-      exportedCourses.push({
-        id: course.id,
-        name: course.name || `Курс ${course.id}`,
-        tasks: [
-          ...tasks.map((task: any) => enrichPerformanceTask(task, exercisesById)),
-          ...placeholders,
-          ...exerciseOnlyTasks,
-        ],
-      });
-    }
-
-    return { success: true, courses: exportedCourses };
-  } catch (error: any) {
-    console.error('[CU LMS] Grades export fetch failed:', error);
-    return { success: false, error: error.message || 'Ошибка запроса к LMS API.' };
-  }
-}
 
 // --- PLUGIN AUTO-DISCOVERY ---
 // All index.manifest.ts files are picked up automatically at build time.
@@ -1815,23 +1658,34 @@ browser.runtime.onMessage.addListener(((
     return true;
   }
 
+  // Сбор оценок для Excel. Идёт через background, а не из попапа, — так
+  // завели ради меню-iframe в Firefox (см. browserApi в popup.js).
   if (request.action === 'GRADES_EXPORT_EXECUTE') {
-    browser.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
-      const tab = tabs[0];
-      if (!tab?.id) {
-        sendResponse({ success: false, error: 'Активная вкладка не найдена.' });
-        return;
-      }
+    const exportRequest = request as { tabId?: number; archived?: boolean };
+    (async () => {
       try {
+        // Вкладку LMS называет попап — он её уже проверил.
+        let tabId = exportRequest.tabId;
+        if (typeof tabId !== 'number') {
+          const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+          tabId = tab?.id;
+        }
+        if (typeof tabId !== 'number') {
+          sendResponse({ success: false, error: 'Активная вкладка не найдена.' });
+          return;
+        }
+
+        // Функция уезжает во вкладку одним текстом — см. grades-export.ts.
         const results = await browser.scripting.executeScript({
-          target: { tabId: tab.id },
+          target: { tabId },
           func: fetchAllGradesForExport,
+          args: [exportRequest.archived === true],
         });
         sendResponse({ success: true, result: results[0]?.result });
       } catch (err: any) {
         sendResponse({ success: false, error: err.message });
       }
-    });
+    })();
     return true;
   }
 }) as Parameters<typeof browser.runtime.onMessage.addListener>[0]);
