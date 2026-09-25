@@ -34,6 +34,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const pluginDir = resolve(__dirname, '..', 'src', 'plugins', 'statements');
 const gradebookJs = readFileSync(resolve(pluginDir, 'gradebook.js'), 'utf8');
 const gradebookCss = readFileSync(resolve(pluginDir, 'gradebook.css'), 'utf8');
+// Общий с курсом и дэшбордом разбор расписания контрольных — в манифесте
+// ведомостей он стоит перед gradebook.js.
+const futureExamsApiJs = readFileSync(
+  resolve(__dirname, '..', 'src', 'plugins', 'course-view', 'future_exams_api.js'),
+  'utf8'
+);
 
 const ORIGIN = 'https://lms.test';
 const statementsPath = (scope: 'actual' | 'archived') =>
@@ -422,9 +428,14 @@ const EXAM_SCHEDULE = {
   ],
 };
 
+// Конфиг сервера расписания: начало семестра — то же, что в данных теста,
+// иначе future_exams_api.js взял бы «01 09», и весной даты разъехались бы.
+const EXAM_CONFIG = { semesterStart: ddmm(semesterStart) };
+
 /**
  * Заглушка API расширения: переключатель в `storage.sync`, кеш и скрытые
- * курсы в `storage.local` и фон, который отвечает на FETCH_JSON расписанием.
+ * курсы в `storage.local` и фон, который отвечает на FETCH_JSON расписанием
+ * и конфигом.
  * `__setExamsToggle(value)` меняет переключатель, как попап, с событием;
  * запись в `storage.local` тоже рассылает `onChanged` — так же, как если бы
  * список поменяли в другой вкладке. `__local` — что сейчас лежит в
@@ -436,7 +447,7 @@ async function stubExtension(
   initialLocal: Record<string, unknown> = {}
 ) {
   await page.evaluate(
-    ({ schedule, enabled, initial }) => {
+    ({ schedule, config, enabled, initial }) => {
       const sync: Record<string, unknown> = { futureExamsViewToggle: enabled };
       const local: Record<string, unknown> = { ...initial };
       const listeners: Array<(changes: object, area: string) => void> = [];
@@ -475,9 +486,10 @@ async function stubExtension(
         runtime: {
           sendMessage: async (message: { action: string; url: string }) => {
             (window as any).__examRequests = ((window as any).__examRequests || 0) + 1;
-            return message.action === 'FETCH_JSON' && message.url.endsWith('/api/schedule')
-              ? { success: true, data: schedule }
-              : { success: false, error: 'неизвестный запрос' };
+            if (message.action !== 'FETCH_JSON') return { success: false, error: 'не тот запрос' };
+            if (message.url.endsWith('/api/schedule')) return { success: true, data: schedule };
+            if (message.url.endsWith('/api/config')) return { success: true, data: config };
+            return { success: false, error: 'неизвестный запрос' };
           },
         },
       };
@@ -487,7 +499,7 @@ async function stubExtension(
       };
       (window as any).__local = local;
     },
-    { schedule: EXAM_SCHEDULE, enabled: examsEnabled, initial: initialLocal }
+    { schedule: EXAM_SCHEDULE, config: EXAM_CONFIG, enabled: examsEnabled, initial: initialLocal }
   );
 }
 
@@ -511,6 +523,7 @@ async function openStatements(
 
 async function injectPlugin(page: Page) {
   await page.addStyleTag({ content: gradebookCss });
+  await page.addScriptTag({ content: futureExamsApiJs });
   await page.addScriptTag({ content: gradebookJs });
 }
 
@@ -696,24 +709,72 @@ test('сводку над таблицей можно скрыть, и это з
   await expect(view(page).locator('.culms-gb-stats')).toHaveCount(0);
   await expect(toggle).toHaveText('Показать сводку');
 
+  // Ведомости открываются на родной вкладке — сводную открываем сами.
   await page.reload();
   await injectPlugin(page);
-  await expect(view(page).locator('tbody tr').first()).toBeVisible();
+  await openGradebook(page);
   await expect(view(page).locator('.culms-gb-stats')).toHaveCount(0);
 });
 
-test('родная вкладка закрывает сводную, а выбор переживает перезагрузку', async ({ page }) => {
+/** Переход внутри SPA, как у Angular: новый адрес и перерисовка без перезагрузки. */
+const spaNavigate = (page: Page, path: string) =>
+  page.evaluate((to) => {
+    history.pushState(null, '', to);
+    document.body.append(document.createElement('i'));
+  }, path);
+
+/** На родной вкладке: её содержимое видно, сводной нет. */
+async function expectNativeTab(page: Page) {
+  await expect(tab(page)).toBeVisible();
+  await expect(page.locator('cu-student-performance')).toBeVisible();
+  await expect(view(page)).toHaveCount(0);
+  await expect(tab(page)).not.toHaveClass(/culms-gb-tab-active/);
+}
+
+test('ведомости открываются на «Курсах по семестрам», родная вкладка закрывает сводную', async ({
+  page,
+}) => {
   await openStatements(page);
+  // Вход в ведомости — на родной вкладке, как без расширения.
+  await expectNativeTab(page);
   await openGradebook(page);
 
   await page.locator('tui-tabs a[href$="/without-semester"]').click();
-  await expect(view(page)).toHaveCount(0);
-  await expect(page.locator('cu-student-performance')).toBeVisible();
-  await expect(tab(page)).not.toHaveClass(/culms-gb-tab-active/);
+  await expectNativeTab(page);
 
-  // Открыли снова и перезагрузили — ведомость открывается сразу на сводной.
+  // Открыли снова и перезагрузили — снова «Курсы по семестрам». Даже если от
+  // прошлой версии в настройках осталось «сводная была открыта последней».
   await openGradebook(page);
+  await page.evaluate(() =>
+    localStorage.setItem('culms.gradebook.prefs', JSON.stringify({ open: true }))
+  );
   await page.reload();
+  await injectPlugin(page);
+  await expectNativeTab(page);
+});
+
+test('сводная держится внутри ведомостей, а после ухода из них не открывается сама', async ({
+  page,
+}) => {
+  await openStatements(page);
+  await openGradebook(page);
+
+  // Страница курса — ещё ведомости: вернулись с неё — снова сводная.
+  await spaNavigate(page, '/learn/reports/student-performance/actual/1/activity');
+  await expect(view(page)).toHaveCount(0);
+  await spaNavigate(page, statementsPath('actual'));
+  await expect(view(page).locator('tbody tr').first()).toBeVisible();
+
+  // Ушли в другой раздел и вернулись — снова «Курсы по семестрам».
+  await spaNavigate(page, '/learn/courses/view/actual');
+  await expect(view(page)).toHaveCount(0);
+  await spaNavigate(page, statementsPath('actual'));
+  await expectNativeTab(page);
+
+  // А ссылка с `#gradebook` — закладка или «открыть в новой вкладке» —
+  // открывает сразу сводную.
+  await page.goto('about:blank');
+  await page.goto(ORIGIN + statementsPath('actual') + '#gradebook');
   await injectPlugin(page);
   await expect(view(page).locator('tbody tr').first()).toBeVisible();
   await expect(page.locator('cu-student-performance')).toBeHidden();
@@ -772,6 +833,9 @@ test('предстоящие контрольные — когда в меню �
   // «Тест» из более короткого ключа «Английский» чужой.
   await expect(exams).toHaveCount(2);
   expect((await exams.allTextContents()).map(squash)).toEqual(['Зачёт', 'КР']);
+  // Расписание и начало семестра берёт общий future_exams_api.js — тот же,
+  // что у курса и дэшборда «Мои курсы».
+  expect(await page.evaluate(() => (window as any).__examRequests)).toBe(2);
 
   // Дня у контрольной нет — у недели свой столбец «на неделе».
   const examCols = view(page).locator('thead .culms-gb-day.is-exam-col');
@@ -828,9 +892,10 @@ test('колонку активностей можно свернуть в по�
   const acc = (await view(page).locator('thead th.culms-gb-acc').boundingBox())!;
   expect(Math.abs(acc.x + acc.width - strip.x)).toBeLessThanOrEqual(1);
 
+  // Ведомости открываются на родной вкладке — сводную открываем сами.
   await page.reload();
   await injectPlugin(page);
-  await expect(view(page).locator('tbody tr').first()).toBeVisible();
+  await openGradebook(page);
   await expect(view(page).locator('tbody .culms-gb-acts__list')).toHaveCount(0);
 
   await view(page).locator('thead [data-toggle="acts"]').click();

@@ -11,11 +11,12 @@
 //     его позицию только по своим вкладкам (см. gradebook.css);
 //   * нативное содержимое не удаляется, а прячется классом — вернуться на
 //     «Курсы по семестрам» можно без перерисовки;
-//   * последняя выбранная вкладка запоминается: кто пользуется сводной
-//     таблицей, открывает ведомости сразу на ней. Адрес при переключении не
-//     трогаем — на каждый replaceState фон расширения заново внедряет все
-//     скрипты страницы. `#gradebook` в ссылке вкладки нужен только для
-//     открытия в новой вкладке и закладок.
+//   * ведомости всегда открываются на родных «Курсах по семестрам», как без
+//     расширения; выбранная сводная держится, только пока пользователь внутри
+//     ведомостей (переход к курсу и обратно, актуальные ↔ архив). Адрес при
+//     переключении не трогаем — на каждый replaceState фон расширения заново
+//     внедряет все скрипты страницы. `#gradebook` в ссылке вкладки нужен
+//     только для открытия в новой вкладке и закладок.
 
 (function () {
   'use strict';
@@ -113,13 +114,11 @@
     return null;
   }
 
-  // Предстоящие контрольные — из того же расписания, что показывает
-  // «Видеть предстоящие контрольные» на странице курса
-  // (course-view/future_exams_view.js): тот же сервер, тот же переключатель
-  // и тот же кеш в storage.local, чтобы не тянуть расписание дважды.
-  const EXAMS_URL = 'https://lms.exams.cu3rd.ru/api/schedule';
-  const EXAMS_CACHE_KEY = 'futureExamsScheduleCache';
-  const EXAMS_CACHE_TTL_MS = 30 * 60 * 1000;
+  // Предстоящие контрольные — то же расписание, что показывает «Видеть
+  // предстоящие контрольные» на странице курса. Загрузку с кешем, разбор дат
+  // и поиск курса делает общий course-view/future_exams_api.js
+  // (`window.cuLmsFutureExams`), он подключается раньше этого файла:
+  // аккордеон курса, дэшборд «Мои курсы» и сводная видят одно и то же.
   const EXAMS_TOGGLE = 'futureExamsViewToggle';
 
   const STATUS_ORDER = [
@@ -165,6 +164,10 @@
   });
 
   const state = {
+    // Выбрана ли сводная. Не запоминается: ведомости открываются на родных
+    // «Курсах по семестрам», а выбор живёт, пока пользователь в разделе, —
+    // уход к курсу и назад его не сбрасывает, уход из ведомостей сбрасывает.
+    open: false,
     active: false,
     // Раздел, который сейчас открыт, — 'actual' или 'archived'. Данные
     // помнят, для какого раздела собраны (`data.scope`).
@@ -181,9 +184,11 @@
     spot: null,
     scrolledToNow: false,
     tasksByKey: new Map(),
-    // Расписание контрольных (объект «курс → список») или null, когда
-    // функция выключена. Контрольные курса считаются из него при отрисовке.
-    examSchedule: null,
+    // Расписание контрольных `{ schedule, config }` от future_exams_api.js или
+    // null, когда функция выключена. Контрольные курса считаются из него при
+    // отрисовке; `examKeys` — какой ключ расписания достался какому курсу.
+    exams: null,
+    examKeys: null,
     examsToken: 0,
     examsByCourse: new Map(),
     // id скрытых курсов; вернуть их можно из строки под таблицей.
@@ -206,8 +211,6 @@
       // Без веса — в основном служебные «Перезачёт» по нулю в каждом курсе:
       // на оценку не влияют, а красный 0 в каждой строке пугает.
       zeroWeight: false,
-      // Была ли сводная таблица открыта последней — тогда с неё и начинаем.
-      open: false,
       // Карточки метрик над таблицей; их можно спрятать.
       stats: true,
       // Колонка «По активностям» развёрнута; свёрнутая отдаёт место датам.
@@ -221,7 +224,6 @@
         cols: COLUMN_MODES.some((m) => m.id === saved.cols) ? saved.cols : defaults.cols,
         offSemester: bool('offSemester'),
         zeroWeight: bool('zeroWeight'),
-        open: bool('open'),
         stats: bool('stats'),
         acts: bool('acts'),
       };
@@ -653,37 +655,22 @@
   }
 
   /**
-   * Расписание контрольных, если в меню включено «Видеть предстоящие
-   * контрольные», иначе null. Без него таблица работает как раньше, поэтому
-   * любая ошибка здесь означает просто «контрольных нет».
-   *
-   * Запрос — через фон (FETCH_JSON), как у страницы курса: контент-скриптам
-   * Firefox кросс-доменный fetch не разрешает даже с CORS на сервере.
+   * Расписание контрольных `{ schedule, config }`, если в меню включено
+   * «Видеть предстоящие контрольные», иначе null. Без него таблица работает
+   * как раньше, поэтому любая ошибка здесь означает просто «контрольных нет».
+   * Кеш, запрос через фон и запасной ответ при недоступном сервере — в
+   * `cuLmsFutureExams.load()`.
    */
   async function loadExamSchedule() {
     const api = extApi();
-    if (!api) return null;
+    const exams = window.cuLmsFutureExams;
+    if (!api || !exams) return null;
     try {
       const settings = await api.storage.sync.get(EXAMS_TOGGLE);
       if (!settings?.[EXAMS_TOGGLE]) return null;
-
-      const stampKey = `${EXAMS_CACHE_KEY}Timestamp`;
-      const stored = await api.storage.local.get([EXAMS_CACHE_KEY, stampKey]);
-      const cached = stored?.[EXAMS_CACHE_KEY] || null;
-      if (cached && Date.now() - (stored[stampKey] || 0) < EXAMS_CACHE_TTL_MS) return cached;
-
-      try {
-        const response = await api.runtime.sendMessage({ action: 'FETCH_JSON', url: EXAMS_URL });
-        if (!response?.success) throw new Error(response?.error || 'фон не ответил');
-        await api.storage.local.set({ [EXAMS_CACHE_KEY]: response.data, [stampKey]: Date.now() });
-        return response.data;
-      } catch (error) {
-        // Сервер недоступен — прошлое расписание лучше, чем никакого.
-        log('расписание контрольных не загрузилось', error);
-        return cached;
-      }
+      return await exams.load();
     } catch (error) {
-      log('настройка контрольных недоступна', error);
+      log('расписание контрольных недоступно', error);
       return null;
     }
   }
@@ -691,9 +678,10 @@
   let examsListening = false;
   function refreshExams() {
     const token = ++state.examsToken;
-    loadExamSchedule().then((schedule) => {
+    loadExamSchedule().then((exams) => {
       if (token !== state.examsToken) return;
-      state.examSchedule = schedule && typeof schedule === 'object' ? schedule : null;
+      state.exams = exams?.schedule ? exams : null;
+      state.examKeys = null;
       state.examsByCourse.clear();
       renderView();
     });
@@ -709,47 +697,50 @@
   }
 
   /**
-   * Предстоящие контрольные курса. Курс ищется в расписании по названию:
-   * берём самый длинный ключ, который в него входит, — «Микроэкономика»
-   * входит и в «Микроэкономика. Продвинутый уровень», так что первый
-   * попавшийся ключ мог оказаться чужим курсом. Дата в расписании —
+   * Предстоящие контрольные курса. Курс в расписании ищет общий
+   * future_exams_api.js — так же, как аккордеон курса и дэшборд: из
+   * подходящих ключей побеждает самый длинный («Микроэкономика» входит и в
+   * «Микроэкономика. Продвинутый уровень»), и один ключ достаётся одному
+   * курсу. Он же подбирает год к датам «ДД ММ» от начала семестра: в январе
+   * декабрьские пункты — прошедшие, а не через год. Дата в расписании —
    * понедельник недели, день внутри неё не указан, поэтому контрольная
    * остаётся «предстоящей», пока неделя не кончилась.
    */
   function examsOf(course) {
-    const schedule = state.examSchedule;
+    const api = window.cuLmsFutureExams;
     // Расписание — только на текущий семестр.
-    if (!schedule || state.data?.scope !== 'actual') return [];
+    if (!state.exams || !api || state.data?.scope !== 'actual') return [];
     if (state.examsByCourse.has(course.id)) return state.examsByCourse.get(course.id);
 
-    const title = String(course.name || '').toLowerCase();
-    let key = null;
-    for (const candidate of Object.keys(schedule)) {
-      if (title.includes(candidate.toLowerCase()) && (!key || candidate.length > key.length)) {
-        key = candidate;
-      }
+    const { schedule, config } = state.exams;
+    // Ключи раздаются всем курсам раздела разом: «один ключ — одному курсу»
+    // решается сравнением курсов между собой.
+    if (state.examKeys?.data !== state.data) {
+      const matched = api.matchCourses(
+        state.data.courses.map((c) => ({ id: c.id, name: c.name })),
+        schedule
+      );
+      state.examKeys = {
+        data: state.data,
+        byCourse: new Map(matched.map((m) => [m.course.id, m.key])),
+      };
     }
 
-    const now = new Date();
-    const today = dayNumber(now);
-    const exams = (key && Array.isArray(schedule[key]) ? schedule[key] : [])
+    const key = state.examKeys.byCourse.get(course.id);
+    const start = api.semesterStartDay(config);
+    const today = dayNumber(new Date());
+    const exams = (key ? schedule[key] : [])
       .map((item, index) => {
-        const [day, month] = String(item?.date || '')
-          .trim()
-          .split(/\s+/)
-          .map(Number);
-        if (!day || !month) return null;
-        let date = new Date(now.getFullYear(), month - 1, day);
-        // Год в расписании не пишут: январь осеннего семестра смотрят ещё в
-        // декабре, и это уже следующий год.
-        if (now - date > 180 * DAY_MS) date = new Date(now.getFullYear() + 1, month - 1, day);
+        const name = typeof item?.name === 'string' ? item.name.trim() : '';
+        const day = name ? api.resolveDay(item.date, start) : null;
+        if (day == null) return null;
         return {
           type: 'exam',
           key: `exam:${course.id}:${index}`,
           courseId: course.id,
           courseName: course.name,
-          name: String(item.name || 'Контрольная'),
-          monday: mondayOf(dayNumber(date)),
+          name,
+          monday: mondayOf(day),
           link: `/learn/courses/view/actual/${course.id}`,
         };
       })
@@ -1098,7 +1089,7 @@
       },
       { value: count((t) => t.status === 'failed'), label: 'не сдано', spot: 'status:failed' },
       // Только когда в меню включены предстоящие контрольные.
-      state.examSchedule && state.data.scope === 'actual'
+      state.exams && state.data.scope === 'actual'
         ? {
             value: courses.reduce((n, c) => n + examsOf(c).length, 0),
             label: 'контрольных впереди',
@@ -1876,7 +1867,7 @@
     event.preventDefault();
     event.stopPropagation();
     const fromMore = event.currentTarget.id === MORE_ID;
-    rememberOpen(true);
+    state.open = true;
     activate();
     if (fromMore) closeMoreDropdown();
   }
@@ -1976,12 +1967,6 @@
     view.focus({ preventScroll: true });
   }
 
-  function rememberOpen(open) {
-    if (state.prefs.open === open) return;
-    state.prefs.open = open;
-    savePrefs();
-  }
-
   // Клик по родной вкладке ведомостей — и в строке, и в списке «Ещё», который
   // Taiga рисует вне вкладок, — уходим со своей раньше, чем Angular
   // перерисует содержимое: иначе на миг видны обе. Перехват на document
@@ -1992,7 +1977,7 @@
       const link = event.target.closest?.('a[tuitab]');
       if (!link || link.id === TAB_ID || link.id === MORE_ID || !isStatementsPage()) return;
       if (!isStatementsLink(link)) return;
-      rememberOpen(false);
+      state.open = false;
       if (state.active) deactivate();
     },
     true
@@ -2069,6 +2054,10 @@
   // --- СИНХРОНИЗАЦИЯ СО SPA ---
 
   function sync() {
+    // Скрипт живёт, пока живёт SPA. Ушли из ведомостей в другой раздел —
+    // следующий вход снова на «Курсах по семестрам». Страница курса
+    // (`…/activity`) — ещё ведомости: вернувшись с неё, попадаем в сводную.
+    if (!location.pathname.startsWith(BASE_PATH)) state.open = false;
     if (!isStatementsPage()) {
       if (state.active) deactivate();
       return;
@@ -2079,9 +2068,9 @@
     if (!tab) return;
 
     // Ссылка из закладки или «открыть в новой вкладке» — тоже выбор сводной.
-    if (location.hash === HASH) rememberOpen(true);
+    if (location.hash === HASH) state.open = true;
 
-    if (state.prefs.open) {
+    if (state.open) {
       // Angular мог перерисовать раздел — возвращаем классы и содержимое.
       const section = (tabs.closest('tui-tabs-with-more') || tabs).parentElement;
       if (
