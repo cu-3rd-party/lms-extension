@@ -37,7 +37,14 @@ type FutureExams = {
     courses: Course[];
     today?: Date;
     count?: number;
-  }) => { weeks: Week[]; currentWeek: number; matchedCourses: number };
+    start?: number;
+  }) => {
+    weeks: Week[];
+    currentWeek: number;
+    matchedCourses: number;
+    firstEventWeek: number | null;
+    lastEventWeek: number | null;
+  };
 };
 
 function load(browser: unknown = {}): FutureExams {
@@ -264,6 +271,56 @@ test('дэшборд: до начала семестра номера недел
   });
   expect(result.weeks.map((week) => week.number)).toEqual([-1, 0, 1]);
   expect(result.weeks[2].courses.map((course) => course.id)).toEqual([1]);
+});
+
+test('дэшборд листается: окно начинается со сдвига от текущей недели', () => {
+  const ahead = exams.upcomingWeeks({
+    schedule: SCHEDULE,
+    config: FALL,
+    courses: COURSES,
+    today: date(2026, 9, 25), // третья неделя
+    start: 2,
+  });
+  // Сдвиг у недели — от текущей, а не от начала окна: по нему её подписывают.
+  expect(ahead.weeks.map((week) => week.offset)).toEqual([2, 3, 4]);
+  expect(ahead.weeks.map(summary)).toEqual([
+    { number: 5, dates: '5–11 октября', courses: ['3: Коллоквиум'] },
+    { number: 6, dates: '12–18 октября', courses: ['2: Контест', '3: Контрольная работа'] },
+    { number: 7, dates: '19–25 октября', courses: [] },
+  ]);
+
+  const back = exams.upcomingWeeks({
+    schedule: SCHEDULE,
+    config: FALL,
+    courses: COURSES,
+    today: date(2026, 9, 25),
+    start: -2,
+  });
+  expect(back.weeks.map((week) => week.offset)).toEqual([-2, -1, 0]);
+  expect(back.weeks.map(summary).map((week) => [week.number, week.courses])).toEqual([
+    [1, []],
+    [2, ['1: Тест']],
+    [3, ['1: Защита проекта, Срез знаний ×2']],
+  ]);
+});
+
+test('дэшборд знает, где у курсов студента первая и последняя контрольная', () => {
+  const result = exams.upcomingWeeks({
+    schedule: SCHEDULE,
+    config: FALL,
+    courses: COURSES,
+    today: date(2026, 9, 25),
+  });
+  // 14 сентября — вторая неделя, 12 октября — шестая. «Чужой» курс не в счёт.
+  expect([result.firstEventWeek, result.lastEventWeek]).toEqual([2, 6]);
+
+  const nothing = exams.upcomingWeeks({
+    schedule: SCHEDULE,
+    config: FALL,
+    courses: [{ id: 4, name: 'Физическая культура' }],
+    today: date(2026, 9, 25),
+  });
+  expect([nothing.firstEventWeek, nothing.lastEventWeek]).toEqual([null, null]);
 });
 
 test('дэшборд: без курсов из расписания недели пустые', () => {

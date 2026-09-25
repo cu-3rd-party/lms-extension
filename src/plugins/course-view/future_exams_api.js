@@ -288,7 +288,9 @@ if (typeof window.cuLmsFutureExams === 'undefined') {
   }
 
   /**
-   * Контрольные на ближайшие недели: текущая и `count - 1` следующих.
+   * Контрольные по неделям: `count` недель подряд, начиная со сдвига `start`
+   * от текущей (0 — с текущей, 1 — со следующей, -1 — с прошлой). У недели
+   * `offset` — её сдвиг от текущей, по нему дэшборд подписывает недели.
    *
    * `courses` — курсы студента в порядке списка: `[{ id, name }]`. Пункты
    * одного курса за неделю сохраняют порядок расписания, одинаковые
@@ -297,23 +299,30 @@ if (typeof window.cuLmsFutureExams === 'undefined') {
    * Неделю считаем целиком, а не «с сегодняшнего дня»: в расписании у пункта
    * стоит понедельник его недели, и контрольная текущей недели иначе пропала
    * бы уже во вторник.
+   *
+   * `firstEventWeek`/`lastEventWeek` — первая и последняя неделя, где у этих
+   * курсов вообще есть контрольные (null — нигде): до них дэшборд и листает.
    */
-  function upcomingWeeks({ schedule, config, courses, today = new Date(), count = 3 }) {
+  function upcomingWeeks({ schedule, config, courses, today = new Date(), count = 3, start = 0 }) {
     const semesterStart = semesterStartDay(config, today);
     const currentWeek = weekNumber(dayOf(today), semesterStart);
+    const firstShown = currentWeek + start;
 
     const weeks = [];
-    for (let offset = 0; offset < count; offset++) {
-      const number = currentWeek + offset;
+    for (let index = 0; index < count; index++) {
+      const number = firstShown + index;
       const firstDay = semesterStart + (number - 1) * 7;
       weeks.push({
-        offset,
+        offset: number - currentWeek,
         number,
         first: dateOf(firstDay),
         last: dateOf(firstDay + 6),
         courses: [],
       });
     }
+
+    let firstEventWeek = null;
+    let lastEventWeek = null;
 
     const matched = matchCourses(courses, schedule);
     matched.forEach(({ course, key }) => {
@@ -326,7 +335,9 @@ if (typeof window.cuLmsFutureExams === 'undefined') {
         if (day === null) return;
 
         const number = weekNumber(day, semesterStart);
-        if (number < currentWeek || number >= currentWeek + count) return;
+        if (firstEventWeek === null || number < firstEventWeek) firstEventWeek = number;
+        if (lastEventWeek === null || number > lastEventWeek) lastEventWeek = number;
+        if (number < firstShown || number >= firstShown + count) return;
 
         if (!eventsByWeek.has(number)) eventsByWeek.set(number, new Map());
         const events = eventsByWeek.get(number);
@@ -345,7 +356,13 @@ if (typeof window.cuLmsFutureExams === 'undefined') {
       });
     });
 
-    return { weeks, currentWeek, matchedCourses: matched.length };
+    return {
+      weeks,
+      currentWeek,
+      matchedCourses: matched.length,
+      firstEventWeek,
+      lastEventWeek,
+    };
   }
 
   window.cuLmsFutureExams = {

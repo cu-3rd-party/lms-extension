@@ -290,6 +290,82 @@ test('под списком курсов — текущая неделя и дв
   await expect(dashboard()).not.toContainText('Экзамен');
 });
 
+// --- Листание недель ---
+
+const navButton = (kind: 'prev' | 'today' | 'next') =>
+  dashboard().locator(`[data-culms-nav="${kind}"]`);
+
+/** Показанные недели: номер и метка. */
+const shownWeeks = () =>
+  weeks().evaluateAll((cards) =>
+    cards.map(
+      (card) =>
+        `${card.querySelector('.culms-exams-week__title')?.textContent} · ` +
+        (card.querySelector('.culms-exams-week__badge')?.textContent ?? '')
+    )
+  );
+
+test('недели листаются кнопками: вперёд до последней контрольной, назад до начала семестра', async () => {
+  // Семестр начался три недели назад, последняя контрольная — «Экзамен» на
+  // седьмой неделе.
+  await expect(navButton('prev')).toBeEnabled();
+  await expect(navButton('today')).toBeDisabled();
+  await expect(navButton('next')).toBeEnabled();
+
+  await navButton('next').click();
+  expect(await shownWeeks()).toEqual([
+    'Неделя 5 · следующая',
+    'Неделя 6 · через одну',
+    'Неделя 7 · через 3 недели',
+  ]);
+  await expect(weeks().nth(2)).toContainText('Экзамен');
+  // После щелчка мышью фокус на пересобранной кнопке не держим — иначе
+  // Chrome обводит её рамкой фокуса.
+  expect(
+    await page.evaluate(
+      () => (document.activeElement as HTMLElement | null)?.dataset?.culmsNav ?? null
+    )
+  ).toBeNull();
+  // Неделя с последней контрольной уже в последней колонке — дальше некуда.
+  await expect(navButton('next')).toBeDisabled();
+  await expect(navButton('today')).toBeEnabled();
+  // Текущей недели в окне нет — и подсвечивать нечего.
+  await expect(dashboard().locator('.culms-exams-week--current')).toHaveCount(0);
+
+  await navButton('today').click();
+  expect(await shownWeeks()).toEqual([
+    'Неделя 4 · текущая',
+    'Неделя 5 · следующая',
+    'Неделя 6 · через одну',
+  ]);
+  await expect(navButton('today')).toBeDisabled();
+
+  for (let step = 0; step < 3; step++) await navButton('prev').click();
+  expect(await shownWeeks()).toEqual([
+    'Неделя 1 · 3 недели назад',
+    'Неделя 2 · 2 недели назад',
+    'Неделя 3 · прошлая',
+  ]);
+  await expect(navButton('prev')).toBeDisabled();
+
+  // С клавиатуры: дэшборд после нажатия собран заново, а фокус — на той же
+  // кнопке, так что листать можно, просто нажимая Enter.
+  await navButton('next').focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  expect(await shownWeeks()).toEqual([
+    'Неделя 3 · прошлая',
+    'Неделя 4 · текущая',
+    'Неделя 5 · следующая',
+  ]);
+  expect(
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.culmsNav)
+  ).toBe('next');
+
+  await navButton('today').click();
+  await expect(navButton('today')).toBeDisabled();
+});
+
 test('на широком экране недели стоят в три колонки, на узком — одна под другой', async () => {
   const columns = () =>
     dashboard()
@@ -571,6 +647,39 @@ test('компактно: полоска под курсами, мероприя
     .evaluateAll((links) => links.map((link) => link.getBoundingClientRect().height));
   expect(Math.max(...lineHeights)).toBeLessThanOrEqual(20);
 
+  await writeStorage({ sync: { futureExamsDashboardPlacement: 'below' } });
+  await page.setViewportSize({ width: 1280, height: 900 });
+});
+
+test('полоской кнопки листания — под заголовком, и стрелка не уезжает из-под курсора', async () => {
+  await page.setViewportSize({ width: 1536, height: 737 });
+  await writeStorage({ sync: { futureExamsDashboardPlacement: 'compact' } });
+  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--compact/);
+
+  // Кнопки — в узкой колонке заголовка, под ним, левее недель.
+  const layout = await dashboard().evaluate((board) => {
+    const rect = (selector: string) => board.querySelector(selector)!.getBoundingClientRect();
+    const title = rect('.culms-exams-dashboard__title');
+    const nav = rect('.culms-exams-dashboard__nav');
+    const weeksBox = rect('.culms-exams-dashboard__weeks');
+    return {
+      titleBottom: title.bottom,
+      navTop: nav.top,
+      navRight: nav.right,
+      weeksLeft: weeksBox.left,
+    };
+  });
+  expect(layout.navTop).toBeGreaterThanOrEqual(layout.titleBottom);
+  expect(layout.navRight).toBeLessThanOrEqual(layout.weeksLeft);
+
+  // Кнопка «к текущей» стоит между стрелками всегда, поэтому после первого
+  // листания стрелка «вперёд» на том же месте.
+  const before = await navButton('next').boundingBox();
+  await navButton('next').click();
+  await expect(navButton('today')).toBeEnabled();
+  expect(await navButton('next').boundingBox()).toEqual(before);
+
+  await navButton('today').click();
   await writeStorage({ sync: { futureExamsDashboardPlacement: 'below' } });
   await page.setViewportSize({ width: 1280, height: 900 });
 });

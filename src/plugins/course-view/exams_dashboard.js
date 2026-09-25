@@ -36,7 +36,25 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   const COURSES_API = '/api/micro-lms/courses/student?limit=200&offset=0&state=published';
   const COURSE_URL_PREFIX = '/learn/courses/view/actual/';
 
-  const WEEK_LABELS = ['текущая', 'следующая', 'через одну'];
+  // Сколько недель видно разом. Листается окно по одной неделе.
+  const WEEKS_SHOWN = 3;
+  const NAV_LABELS = {
+    prev: 'Предыдущая неделя',
+    today: 'К текущей неделе',
+    next: 'Следующая неделя',
+  };
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  // Стрелки и «текущая неделя» — точка в круге. Кнопка текущей стоит между
+  // стрелками всегда, а не появляется при листании: иначе стрелка «вперёд»
+  // уезжала бы из-под курсора после первого же нажатия.
+  const NAV_ICONS = {
+    prev: [['path', { d: 'M10 3.5 5.5 8l4.5 4.5' }]],
+    today: [
+      ['circle', { cx: '8', cy: '8', r: '5' }],
+      ['circle', { cx: '8', cy: '8', r: '1.6', fill: 'currentColor', stroke: 'none' }],
+    ],
+    next: [['path', { d: 'M6 3.5 10.5 8 6 12.5' }]],
+  };
 
   const PLACEMENT_KEY = 'futureExamsDashboardPlacement';
   // right/left — колонка рядом со списком; above и compact — полоска в пару
@@ -75,6 +93,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   let placement = DEFAULT_PLACEMENT;
   /** Где дэшборд стоит сейчас: выбранное место или запасное, если сбоку тесно. */
   let mode = null;
+  /**
+   * На сколько недель пролистано от текущей. Живёт, пока открыта страница:
+   * на смене вкладки фильтра сохраняется, при новом заходе — снова текущая.
+   */
+  let weekShift = 0;
   let layoutObserver = null;
   let observedLayout = null;
   let archivedKeys = new Set();
@@ -201,18 +224,126 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     }
     if (!scheduleData || !courses) return null;
 
-    const model = window.cuLmsFutureExams.upcomingWeeks({
+    const api = window.cuLmsFutureExams;
+    const options = {
       schedule: scheduleData.schedule,
       config: scheduleData.config,
       courses: courses.filter((course) => !isArchived(course)),
-      count: WEEK_LABELS.length,
-    });
-    return { model };
+      count: WEEKS_SHOWN,
+    };
+    let model = api.upcomingWeeks({ ...options, start: weekShift });
+
+    // Границы могли сдвинуться: началась новая неделя, курс ушёл в архив.
+    const limits = shiftLimits(model);
+    const clamped = Math.min(limits.max, Math.max(limits.min, weekShift));
+    if (clamped !== weekShift) {
+      weekShift = clamped;
+      model = api.upcomingWeeks({ ...options, start: weekShift });
+    }
+    return { model, shift: weekShift, limits };
+  }
+
+  /**
+   * Докуда листать. Назад — до первой недели семестра (или до первой
+   * контрольной, если она ещё раньше); вперёд — пока последней колонкой не
+   * станет последняя неделя с контрольными: дальше смотреть не на что.
+   * Текущее положение всегда в пределах, даже если семестр ещё не начался
+   * или контрольные уже кончились.
+   */
+  function shiftLimits({ currentWeek, firstEventWeek, lastEventWeek }) {
+    const firstWeek = Math.min(1, firstEventWeek === null ? 1 : firstEventWeek);
+    const lastStart = lastEventWeek === null ? currentWeek : lastEventWeek - (WEEKS_SHOWN - 1);
+    return {
+      min: Math.min(0, firstWeek - currentWeek),
+      max: Math.max(0, lastStart - currentWeek),
+    };
   }
 
   function weekTitle(week) {
     // До первой недели семестра номер вышел бы нулевым или отрицательным.
     return week.number >= 1 ? `Неделя ${week.number}` : 'До начала семестра';
+  }
+
+  /** «неделю», «недели», «недель» — к числу n. */
+  function weeksWord(n) {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return 'неделю';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'недели';
+    return 'недель';
+  }
+
+  /** Метка недели по её сдвигу от текущей: при листании видно, как далеко ушли. */
+  function weekLabel(offset) {
+    if (offset === 0) return 'текущая';
+    if (offset === 1) return 'следующая';
+    if (offset === 2) return 'через одну';
+    if (offset === -1) return 'прошлая';
+    return offset > 0
+      ? `через ${offset} ${weeksWord(offset)}`
+      : `${-offset} ${weeksWord(-offset)} назад`;
+  }
+
+  function navIcon(kind) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.8');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    NAV_ICONS[kind].forEach(([tag, attrs]) => {
+      const shape = document.createElementNS(SVG_NS, tag);
+      Object.entries(attrs).forEach(([name, value]) => shape.setAttribute(name, value));
+      svg.appendChild(shape);
+    });
+    return svg;
+  }
+
+  /** Кнопки листания: ‹ предыдущая, ◎ к текущей, › следующая. */
+  function renderNav(view) {
+    const nav = element('div', 'culms-exams-dashboard__nav');
+    nav.setAttribute('role', 'group');
+    nav.setAttribute('aria-label', 'Листать недели');
+
+    const disabled = {
+      prev: view.shift <= view.limits.min,
+      today: view.shift === 0,
+      next: view.shift >= view.limits.max,
+    };
+    ['prev', 'today', 'next'].forEach((kind) => {
+      const button = element('button', 'culms-exams-dashboard__nav-btn');
+      button.type = 'button';
+      button.dataset.culmsNav = kind;
+      button.title = NAV_LABELS[kind];
+      button.setAttribute('aria-label', NAV_LABELS[kind]);
+      button.disabled = disabled[kind];
+      button.appendChild(navIcon(kind));
+      // Нажатие с клавиатуры (Enter, пробел) даёт click без счётчика щелчков.
+      button.addEventListener('click', (event) => shiftWeeks(kind, event.detail === 0));
+      nav.appendChild(button);
+    });
+    return nav;
+  }
+
+  /**
+   * Листает на неделю или возвращает к текущей. Дэшборд после этого
+   * собирается заново, и при нажатии с клавиатуры фокус возвращается на ту же
+   * кнопку: иначе после каждого нажатия пришлось бы искать её заново. Если
+   * она погасла (дошли до края), фокус переходит на соседнюю. После щелчка
+   * мышью фокус не трогаем: Chrome обвёл бы кнопку рамкой фокуса.
+   */
+  function shiftWeeks(kind, fromKeyboard) {
+    if (kind === 'today') weekShift = 0;
+    else weekShift += kind === 'next' ? 1 : -1;
+    update();
+
+    if (!fromKeyboard || !root) return;
+    const target =
+      root.querySelector(`[data-culms-nav="${kind}"]:not(:disabled)`) ||
+      root.querySelector('[data-culms-nav]:not(:disabled)');
+    if (target) target.focus({ preventScroll: true });
   }
 
   /**
@@ -305,7 +436,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     // Метку там оставляем только текущей неделе: место в строке нужнее датам.
     if (compact) head.appendChild(dates);
     if (!compact || week.offset === 0) {
-      head.appendChild(element('span', 'culms-exams-week__badge', WEEK_LABELS[week.offset] || ''));
+      head.appendChild(element('span', 'culms-exams-week__badge', weekLabel(week.offset)));
     }
     card.appendChild(head);
     if (!compact) card.appendChild(dates);
@@ -332,9 +463,12 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     section.setAttribute('aria-labelledby', 'culms-exams-dashboard-title');
 
     const inner = element('div', 'culms-exams-dashboard__inner');
+    const head = element('div', 'culms-exams-dashboard__head');
     const title = element('h2', 'culms-exams-dashboard__title', 'Ближайшие контрольные');
     title.id = 'culms-exams-dashboard-title';
-    inner.appendChild(title);
+    head.appendChild(title);
+    if (!view.error) head.appendChild(renderNav(view));
+    inner.appendChild(head);
 
     if (view.error) {
       inner.appendChild(element('p', 'culms-exams-dashboard__note', view.error));
@@ -363,6 +497,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     return JSON.stringify([
       kind,
       matchedCourses,
+      // Сдвиг и границы решают, какие кнопки листания погашены.
+      [view.shift, view.limits.min, view.limits.max],
       weeks.map((week) => [week.number, week.first.getTime(), week.courses]),
     ]);
   }

@@ -75,7 +75,7 @@ tests/
 ├── grades-export.test.ts        # экспорт оценок в Excel из меню плагина: текущие и архивные курсы
 ├── settings-profile.test.ts     # выгрузка и загрузка настроек файлом
 ├── dark-theme.test.ts           # переключение тёмной темы
-├── exams-dashboard.test.ts      # дэшборд ближайших контрольных на «Мои курсы» (все места) и аккордеон курса
+├── exams-dashboard.test.ts      # дэшборд ближайших контрольных на «Мои курсы» (все места, листание недель) и аккордеон курса
 ├── future-exams.test.ts
 ├── tasks-fix.test.ts
 ├── tasks-hide-before-date.test.ts # скрытие архивных заданий раньше выбранной даты

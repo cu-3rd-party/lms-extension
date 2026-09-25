@@ -66,6 +66,59 @@
   color: var(--culms-ed-text);
 }
 
+/* Заголовок и кнопки листания недель — одной строкой; узко — кнопки
+   переносятся под заголовок. */
+.culms-exams-dashboard__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.culms-exams-dashboard__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.culms-exams-dashboard__nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  color: var(--culms-ed-text);
+  background: var(--culms-ed-chip-bg);
+  border: 1px solid var(--culms-ed-chip-border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.culms-exams-dashboard__nav-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.culms-exams-dashboard__nav-btn:hover:not(:disabled) {
+  color: var(--culms-ed-accent);
+  border-color: var(--culms-ed-accent);
+}
+
+.culms-exams-dashboard__nav-btn:focus-visible {
+  outline: 2px solid var(--culms-ed-accent);
+  outline-offset: 2px;
+}
+
+.culms-exams-dashboard__nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .culms-exams-dashboard__note {
   margin: 8px 0 0;
   font-size: 14px;
@@ -289,6 +342,29 @@ cu-course-learning-layout .content-container.culms-exams-host--left {
   line-height: 18px;
 }
 
+/* Полоской кнопки листания встают под заголовком, в его узкой колонке. */
+.culms-exams-dashboard--compact .culms-exams-dashboard__head {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-dashboard__nav {
+  gap: 4px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-dashboard__nav-btn {
+  width: 24px;
+  height: 24px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-dashboard__nav-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 .culms-exams-dashboard--compact .culms-exams-dashboard__note,
 .culms-exams-dashboard--compact .culms-exams-dashboard__weeks {
   grid-column: 2;
@@ -392,6 +468,12 @@ cu-course-learning-layout .content-container.culms-exams-host--left {
   .culms-exams-dashboard--compact .culms-exams-dashboard__inner {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 8px;
+  }
+
+  .culms-exams-dashboard--compact .culms-exams-dashboard__head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .culms-exams-dashboard--compact .culms-exams-dashboard__note,
