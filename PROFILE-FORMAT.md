@@ -67,6 +67,8 @@
 - `swapDeviceKey` — ключ устройства для биржи обмена парами;
 - `courseMetaCache`, `cachedLatestVersion`, `lastVersionCheckTimestamp` — кеши,
   в чужом профиле бесполезны;
+- `futureExamsScheduleCache`, `futureExamsConfigCache` и их `…Timestamp` —
+  расписание контрольных с сервера и время его загрузки: кеш, приедет заново;
 - `lmsOrigin` — домен последней навигации, вычисляется сам;
 - `themePickerActive`, `themePageValues`, `themePickResult`, `themeEditorTabId`,
   `themeSourceRequest`, `themeSourceDump` — через них вкладка редактора тем и

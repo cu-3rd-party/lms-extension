@@ -1,55 +1,16 @@
-// https://github.com/cu-3rd-party/lms-future-exams-backend
-const FUTURE_EXAMS_BACKEND_URL = 'https://lms.exams.cu3rd.ru';
-// Расписание и дата первой недели правятся вручную через админку сервера,
-// а не каждую минуту — получасовой TTL достаточен и не дёргает сервер на
-// каждое открытие курса.
-const FUTURE_EXAMS_CACHE_TTL_MS = 30 * 60 * 1000;
-
-/**
- * Тянет JSON с удалённого сервера (см. README.md этого плагина) с кэшем в
- * browser.storage.local. Раньше расписание было захардкожено прямо в этом
- * файле — теперь его правят через админку сервера без релиза расширения.
- * При недоступности сервера отдаём последний закэшированный ответ (или
- * `fallback`, если кэша ещё нет) — плагин никогда не должен ронять страницу
- * курса из-за сетевой ошибки.
- *
- * Запрос идёт через background (сообщение FETCH_JSON), а не напрямую
- * fetch() отсюда: в Firefox content-скрипты не получают CORS-обход из
- * host_permissions (в отличие от Chrome), и прямой кросс-доменный fetch
- * падает с "CORS request did not succeed" даже когда сервер шлёт
- * Access-Control-Allow-Origin. У background-скрипта такого ограничения нет.
- */
-async function fetchWithCache(url, cacheKey, fallback) {
-  const api = typeof browser !== 'undefined' ? browser : chrome;
-  const timestampKey = `${cacheKey}Timestamp`;
-  const stored = await api.storage.local.get([cacheKey, timestampKey]);
-  const cached = stored[cacheKey];
-  const cachedAt = stored[timestampKey] || 0;
-
-  if (cached && Date.now() - cachedAt < FUTURE_EXAMS_CACHE_TTL_MS) {
-    return cached;
-  }
-
-  try {
-    const response = await api.runtime.sendMessage({ action: 'FETCH_JSON', url });
-    if (!response || !response.success) {
-      throw new Error((response && response.error) || 'no response from background');
-    }
-    const data = response.data;
-    await api.storage.local.set({ [cacheKey]: data, [timestampKey]: Date.now() });
-    return data;
-  } catch (e) {
-    console.log(`[FutureExams] Failed to fetch ${url}, falling back to cache:`, e);
-    return cached || fallback;
-  }
-}
+// Расписание, его кэш и разбор дат живут в future_exams_api.js
+// (`window.cuLmsFutureExams`): тем же расписанием пользуется дэшборд под
+// списком курсов, и номера недель у них должны совпадать.
 
 // eslint-disable-next-line no-unused-vars
 async function viewFutureExams(displayFormat) {
-  const [schedule, config] = await Promise.all([
-    fetchWithCache(`${FUTURE_EXAMS_BACKEND_URL}/api/schedule`, 'futureExamsScheduleCache', {}),
-    fetchWithCache(`${FUTURE_EXAMS_BACKEND_URL}/api/config`, 'futureExamsConfigCache', {}),
-  ]);
+  const futureExams = window.cuLmsFutureExams;
+  if (!futureExams) return;
+
+  // null — сервер недоступен и кэша нет: показывать нечего.
+  const data = await futureExams.load();
+  if (!data) return;
+  const { schedule, config } = data;
 
   try {
     const themesContainer = await waitForElement('cu-course-overview .themes-container', 10000);
@@ -74,12 +35,7 @@ async function viewFutureExams(displayFormat) {
     const courseTitle = window.cuLmsCourseNames
       ? window.cuLmsCourseNames.originalFor(titleElement, titleElement.textContent.trim())
       : titleElement.textContent.trim();
-    const items = getUpcomingScheduleItems(
-      courseTitle,
-      schedule,
-      displayFormat,
-      config.semesterStart
-    );
+    const items = getUpcomingScheduleItems(courseTitle, schedule, displayFormat, config);
 
     if (items.length === 0) {
       return;
@@ -193,71 +149,44 @@ function createAccordionItem(themeId, title, index) {
   return accordionWrapper;
 }
 
-function getUpcomingScheduleItems(courseTitle, schedule, displayFormat, semesterStartStr) {
-  const titleLower = courseTitle.toLowerCase();
+function getUpcomingScheduleItems(courseTitle, schedule, displayFormat, config) {
+  const futureExams = window.cuLmsFutureExams;
 
-  let matchingKey = null;
-  for (const key of Object.keys(schedule)) {
-    if (titleLower.includes(key.toLowerCase())) {
-      matchingKey = key;
-      break;
-    }
-  }
-
+  // Курс ищется по вхождению ключа в название; из нескольких подходящих
+  // ключей побеждает самый длинный (см. findScheduleKey).
+  const matchingKey = futureExams.findScheduleKey(courseTitle, schedule);
   if (!matchingKey) {
     return [];
   }
 
-  const now = new Date();
-  const currentYear = now.getFullYear();
-
-  // Дата отсечения (показывать события начиная с "завтра")
-  const daysLater = new Date(now);
-  daysLater.setDate(now.getDate() + 1);
-  daysLater.setHours(0, 0, 0, 0);
-
-  // 1. Точка отсчета для расчёта номера недели — задаётся в админке сервера
+  const today = new Date();
+  // Точка отсчёта для номера недели задаётся в админке сервера
   // (data/config.json, поле semesterStart), а не хардкодится тут: иначе
   // при смене семестра номера недель "уезжают" (было именно так — тут
-  // раньше было захардкожено "2 февраля").
-  const [startDay, startMonth] = (semesterStartStr || '01 09').split(' ').map((d) => d.trim());
-  const semesterStart = new Date(currentYear, parseInt(startMonth, 10) - 1, parseInt(startDay, 10));
+  // раньше было захардкожено "2 февраля"). Год к ней подбирает общий модуль.
+  const semesterStart = futureExams.semesterStartDay(config, today);
+  // Показываем события начиная с "завтра"
+  const tomorrow = futureExams.dayOf(today) + 1;
 
-  const items = schedule[matchingKey]
+  const formatDate = (date) => {
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    return `${d}.${m}`;
+  };
+
+  return schedule[matchingKey]
+    .filter((item) => item && typeof item.name === 'string')
+    .map((item) => ({ ...item, day: futureExams.resolveDay(item.date, semesterStart) }))
+    .filter((item) => item.day !== null && item.day >= tomorrow)
     .map((item) => {
-      const [day, month] = item.date.split(' ').map((d) => d.trim().padStart(2, '0'));
-      // Месяцы в JS начинаются с 0 (Январь - 0, Май - 4)
-      const itemDate = new Date(currentYear, parseInt(month, 10) - 1, parseInt(day, 10));
-      return {
-        ...item,
-        parsedDate: itemDate,
-      };
-    })
-    .filter((item) => item.parsedDate >= daysLater)
-    .map((item) => {
-      const startDate = item.parsedDate;
       let title;
 
       if (displayFormat === 'week') {
-        const msPerDay = 24 * 60 * 60 * 1000;
-
-        // Разница в днях от даты первой недели семестра
-        const diffTime = startDate.getTime() - semesterStart.getTime();
-        const diffDays = Math.floor(diffTime / msPerDay);
-
-        // Делим на 7 дней, +1 так как старт с 1-й недели
-        const weekNumber = Math.floor(diffDays / 7) + 1;
-
-        title = `Неделя ${weekNumber}. ${item.name}`;
+        title = `Неделя ${futureExams.weekNumber(item.day, semesterStart)}. ${item.name}`;
       } else {
         // Формат даты, если не 'week'
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 7); // условно +неделя
-        const formatDate = (date) => {
-          const d = String(date.getDate()).padStart(2, '0');
-          const m = String(date.getMonth() + 1).padStart(2, '0');
-          return `${d}.${m}`;
-        };
+        const startDate = futureExams.dateOf(item.day);
+        const endDate = futureExams.dateOf(item.day + 7); // условно +неделя
         title = `${item.name}. ${formatDate(startDate)}-${formatDate(endDate)}`;
       }
 
@@ -266,6 +195,4 @@ function getUpcomingScheduleItems(courseTitle, schedule, displayFormat, semester
         originalName: item.name,
       };
     });
-
-  return items;
 }

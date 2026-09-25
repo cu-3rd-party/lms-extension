@@ -63,6 +63,9 @@ if (typeof window.__culmsCourseNamesInitialized === 'undefined') {
     'tui-multi-select-option span',
     // Свёрнутый чип того же фильтра с выбранным курсом.
     '.cu-filter-value__first',
+    // Дэшборд ближайших контрольных на странице «Мои курсы»
+    // (course-view/exams_dashboard.js) — он пишет туда настоящее название.
+    '.culms-exams-dashboard__course-name',
   ];
 
   let enabled = false;

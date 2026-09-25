@@ -65,7 +65,11 @@ if (typeof window.__culmsCustomBackgroundInitialized === 'undefined') {
   const CANVAS_CLASS = 'culms-bg-canvas';
 
   // Панели, а не полотно: на них картинка сделала бы текст нечитаемым.
-  const SKIP_INSIDE = 'cu-sidebar, cu-header, tui-dialogs, tui-dialog, [role="dialog"], tui-alerts';
+  // `[data-culms-island]` — островки самого расширения (например, дэшборд
+  // контрольных на «Мои курсы»): высокий островок проходит по размеру
+  // как полотно, но картинка на нём не нужна.
+  const SKIP_INSIDE =
+    'cu-sidebar, cu-header, tui-dialogs, tui-dialog, [role="dialog"], tui-alerts, [data-culms-island]';
   // Доля окна, начиная с которой непрозрачный слой считаем полотном.
   const MIN_WIDTH_RATIO = 0.6;
   const MIN_AREA_RATIO = 0.4;

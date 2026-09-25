@@ -710,6 +710,36 @@
           </select>
         </div>
       </div>
+
+      <div class="toggle-container">
+        <span class="toggle-label">Дэшборд ближайших контрольных:</span>
+        <label class="switch">
+          <input type="checkbox" id="future-exams-dashboard-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div id="future-exams-dashboard-container" class="setting-group" style="display: none">
+        <p class="course-hint">
+          На странице «Мои курсы» — текущая неделя семестра и две следующие: номер недели, даты и
+          контрольные по каждому вашему курсу.
+        </p>
+        <div class="setting-container">
+          <span class="setting-label">Где показывать:</span>
+          <div class="dropdown-container">
+            <select class="dropdown-select" id="future-exams-dashboard-placement">
+              <option value="right">Справа от курсов</option>
+              <option value="left">Слева от курсов</option>
+              <option value="above">Над курсами, компактно</option>
+              <option value="compact" selected>Под курсами, компактно</option>
+              <option value="below">Под курсами</option>
+            </select>
+          </div>
+        </div>
+        <p class="course-hint">
+          Справа и слева — колонкой рядом со списком, её видно без прокрутки. Ей нужно место: если
+          его нет (например, развёрнуто меню LMS), дэшборд встаёт полоской над курсами.
+        </p>
+      </div>
     </div>
 
     <div class="section">

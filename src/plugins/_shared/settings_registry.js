@@ -120,6 +120,14 @@ if (typeof window.cuLmsSettings === 'undefined') {
     bool('customCourseNamesToggle', 'features'),
     bool('futureExamsViewToggle', 'features'),
     choice('futureExamsDisplayFormat', 'features', ['date', 'week'], 'date'),
+    // Дэшборд ближайших контрольных на странице «Мои курсы» и его место.
+    bool('futureExamsDashboardToggle', 'features'),
+    choice(
+      'futureExamsDashboardPlacement',
+      'features',
+      ['right', 'left', 'above', 'compact', 'below'],
+      'compact'
+    ),
     bool('courseOverviewTaskStatusToggle', 'features'),
     bool('courseOverviewAutoscrollToggle', 'features'),
     bool('courseExporterToggle', 'features'),
@@ -176,6 +184,12 @@ if (typeof window.cuLmsSettings === 'undefined') {
     data('swapDeviceKey', 'private', 'string'),
     // Кеши и служебное: в чужом профиле бесполезны и только мешают.
     data('courseMetaCache', 'private', 'array'),
+    // Расписание контрольных с сервера и время, когда его скачали
+    // (course-view/future_exams_api.js).
+    data('futureExamsScheduleCache', 'private', 'object'),
+    data('futureExamsScheduleCacheTimestamp', 'private', 'number'),
+    data('futureExamsConfigCache', 'private', 'object'),
+    data('futureExamsConfigCacheTimestamp', 'private', 'number'),
     data('cachedLatestVersion', 'private', 'string'),
     data('lastVersionCheckTimestamp', 'private', 'number'),
     data('lmsOrigin', 'private', 'string'),

@@ -1,0 +1,418 @@
+/* exams_dashboard.css — дэшборд ближайших контрольных на странице «Мои курсы»
+   (exams_dashboard.js). Островок повторяет шапку «Мои курсы»: белый на светлой
+   теме, а на тёмной — те же переменные `--culms-dark-*`, что красят шапку в
+   dark-theme.css. OLED переопределяет эти переменные, поэтому отдельных правил
+   для него нет. Вариант выбирает класс `--dark`, который ставит скрипт по
+   настройке тёмной темы.
+
+   Вид и место: карточки под курсами (правила по умолчанию), колонка сбоку
+   (`--side` и классы `culms-exams-host--*` на контейнере страницы) и полоска
+   над курсами или под ними (`--compact`, над курсами ещё `--above`). */
+
+.culms-exams-dashboard {
+  --culms-ed-bg: #ffffff;
+  --culms-ed-border: transparent;
+  --culms-ed-card-bg: var(--tui-background-base-alt, #f2f4f7);
+  --culms-ed-card-border: transparent;
+  --culms-ed-text: var(--text-primary, #1c1c1e);
+  --culms-ed-muted: var(--text-secondary, #5a5e62);
+  --culms-ed-chip-bg: #ffffff;
+  --culms-ed-chip-border: rgba(0, 16, 36, 0.1);
+  --culms-ed-divider: rgba(0, 16, 36, 0.1);
+  --culms-ed-accent: var(--accent, #477df9);
+
+  display: block;
+  box-sizing: border-box;
+  margin-top: 24px;
+  /* Раскладка недель зависит от ширины самого дэшборда, а не окна: у LMS
+     несколько раскладок, и ширина списка курсов в них разная. Заодно
+     дэшборд не раздувает контейнер страницы (у него `width: fit-content`). */
+  container-type: inline-size;
+  color: var(--culms-ed-text);
+  background: var(--culms-ed-bg);
+  border: 1px solid var(--culms-ed-border);
+  border-radius: 24px;
+}
+
+.culms-exams-dashboard--dark {
+  --culms-ed-bg: var(--culms-dark-bg-primary, rgb(32, 33, 36));
+  --culms-ed-border: var(--culms-dark-border-primary, rgb(55, 56, 60));
+  --culms-ed-card-bg: var(--culms-dark-bg-secondary, rgb(40, 41, 44));
+  --culms-ed-card-border: var(--culms-dark-border-primary, rgb(55, 56, 60));
+  --culms-ed-text: var(--culms-dark-text-primary, #ffffff);
+  --culms-ed-muted: var(--culms-dark-text-tertiary, #bdc1c6);
+  --culms-ed-chip-bg: var(--culms-dark-bg-hover, rgb(50, 51, 54));
+  --culms-ed-chip-border: var(--culms-dark-border-secondary, rgb(70, 71, 74));
+  --culms-ed-divider: var(--culms-dark-border-primary, rgb(55, 56, 60));
+}
+
+/* В узкой раскладке LMS скругляет островки меньше. */
+@media (max-width: 74.999em) {
+  .culms-exams-dashboard {
+    border-radius: 16px;
+  }
+}
+
+.culms-exams-dashboard__inner {
+  padding: 24px 32px 32px;
+}
+
+.culms-exams-dashboard__title {
+  margin: 0;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+  color: var(--culms-ed-text);
+}
+
+.culms-exams-dashboard__note {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--culms-ed-muted);
+}
+
+.culms-exams-dashboard__weeks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+@container (width >= 640px) {
+  .culms-exams-dashboard__weeks {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+@container (width < 640px) {
+  .culms-exams-dashboard__inner {
+    padding: 20px 16px 24px;
+  }
+}
+
+/* --- Неделя --- */
+
+.culms-exams-week {
+  display: block;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 16px;
+  background: var(--culms-ed-card-bg);
+  border: 1px solid var(--culms-ed-card-border);
+  border-radius: 16px;
+}
+
+.culms-exams-week--current {
+  border-color: var(--culms-ed-accent);
+}
+
+.culms-exams-week__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.culms-exams-week__title {
+  margin: 0;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  color: var(--culms-ed-text);
+}
+
+.culms-exams-week__badge {
+  flex: none;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  color: var(--culms-ed-muted);
+  background: var(--culms-ed-chip-bg);
+  border: 1px solid var(--culms-ed-chip-border);
+  border-radius: 999px;
+}
+
+.culms-exams-week--current .culms-exams-week__badge {
+  color: #ffffff;
+  background: var(--culms-ed-accent);
+  border-color: var(--culms-ed-accent);
+}
+
+.culms-exams-week__dates {
+  display: block;
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--culms-ed-muted);
+}
+
+.culms-exams-week__empty {
+  margin: 16px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--culms-ed-muted);
+}
+
+/* --- Курсы недели --- */
+
+.culms-exams-week__courses {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.culms-exams-week__course {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.culms-exams-dashboard__course-name {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--culms-ed-text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.culms-exams-dashboard__course-name:hover {
+  color: var(--culms-ed-accent);
+  text-decoration: underline;
+}
+
+.culms-exams-week__events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.culms-exams-week__event {
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--culms-ed-text);
+  background: var(--culms-ed-chip-bg);
+  border: 1px solid var(--culms-ed-chip-border);
+  border-radius: 8px;
+}
+
+/* --- Колонка сбоку от списка --- */
+
+/* Контейнер «Мои курсы» становится сеткой: список (66rem, как у LMS) и
+   колонка дэшборда. Третья строка `1fr` забирает лишнюю высоту дэшборда: тот
+   занимает все строки, и будь их две, при дэшборде выше шапки и списка вместе
+   сетка растянула бы их строки — между шапкой и курсами появился бы зазор.
+   Элемент, пересекающий гибкую строку, растит только её.
+
+   Селекторы длиннее родного `.content-container[_ngcontent-…]`, а `!important`
+   — у того, что задаёт сама LMS: порядок подключения стилей не гарантирован. */
+cu-course-learning-layout .content-container.culms-exams-host {
+  display: grid !important;
+  grid-template-rows: auto auto 1fr;
+  column-gap: 24px;
+  align-items: start;
+  max-width: calc(100% - 48px) !important;
+}
+
+/* Список — ровно 66rem: при нехватке места сжимается колонка дэшборда, а не
+   он (группа курсов всё равно не уже 66rem и вылезла бы за край шапки).
+   Нижняя граница колонки — SIDE_MIN_WIDTH минус SIDE_HYSTERESIS из скрипта. */
+cu-course-learning-layout .content-container.culms-exams-host--right {
+  grid-template-columns: 66rem minmax(240px, 340px);
+}
+
+cu-course-learning-layout .content-container.culms-exams-host--left {
+  grid-template-columns: minmax(240px, 340px) 66rem;
+}
+
+.culms-exams-host--right > :not(.culms-exams-dashboard) {
+  grid-column: 1;
+}
+
+.culms-exams-host--left > :not(.culms-exams-dashboard) {
+  grid-column: 2;
+}
+
+.culms-exams-host--right > .culms-exams-dashboard {
+  grid-column: 2;
+}
+
+.culms-exams-host--left > .culms-exams-dashboard {
+  grid-column: 1;
+}
+
+/* Начинается вровень с шапкой «Мои курсы» и прилипает при прокрутке списка.
+   Листает страницу не окно, а `main.main` под шапкой LMS (72px), поэтому
+   высота колонки — окно без шапки и отступов; не влезло — прокрутка внутри. */
+.culms-exams-dashboard--side {
+  grid-row: 1 / 4;
+  position: sticky;
+  top: 24px;
+  margin-top: 0;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+/* --- Полоской над курсами или под ними --- */
+
+/* Над курсами полоска — первый ребёнок группы курсов, отступ у неё снизу. */
+.culms-exams-dashboard--above {
+  margin: 0 0 24px;
+}
+
+/* Заголовок — узкой колонкой слева, недели — в строку через разделители,
+   мероприятия и курс — одной строкой. При двух курсах в неделе полоска
+   около 90px высотой. */
+.culms-exams-dashboard--compact .culms-exams-dashboard__inner {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: start;
+  padding: 14px 20px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-dashboard__title {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-dashboard__note,
+.culms-exams-dashboard--compact .culms-exams-dashboard__weeks {
+  grid-column: 2;
+}
+
+.culms-exams-dashboard--compact .culms-exams-dashboard__note {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-dashboard__weeks {
+  gap: 0;
+  margin-top: 0;
+}
+
+.culms-exams-dashboard--compact .culms-exams-week {
+  min-width: 0;
+  padding: 0 12px 0 16px;
+  background: none;
+  border: 0;
+  border-left: 1px solid var(--culms-ed-divider);
+  border-radius: 0;
+}
+
+/* Текущая неделя отмечена разделителем цвета акцента. */
+.culms-exams-dashboard--compact .culms-exams-week--current {
+  border-left-color: var(--culms-ed-accent);
+}
+
+.culms-exams-dashboard--compact .culms-exams-week__head {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  column-gap: 6px;
+  row-gap: 2px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-week__title {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-week__dates {
+  display: inline;
+  margin: 0;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-week__badge {
+  margin-left: auto;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-week__courses {
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-week__course {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* Мероприятие — первым и в полный цвет, курс — за ним приглушённо; режется
+   многоточием в первую очередь курс. */
+.culms-exams-week__summary {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 65%;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--culms-ed-text);
+}
+
+.culms-exams-dashboard--compact .culms-exams-dashboard__course-name {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--culms-ed-muted);
+}
+
+.culms-exams-dashboard--compact .culms-exams-week__empty {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+/* Узко для заголовка слева — он встаёт над неделями. */
+@container (width < 800px) {
+  .culms-exams-dashboard--compact .culms-exams-dashboard__inner {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 8px;
+  }
+
+  .culms-exams-dashboard--compact .culms-exams-dashboard__note,
+  .culms-exams-dashboard--compact .culms-exams-dashboard__weeks {
+    grid-column: 1;
+  }
+}
+
+/* Узко для трёх колонок — недели одна под другой, разделители горизонтальные. */
+@container (width < 640px) {
+  .culms-exams-dashboard--compact .culms-exams-dashboard__weeks {
+    gap: 10px;
+  }
+
+  .culms-exams-dashboard--compact .culms-exams-week {
+    padding: 10px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--culms-ed-divider);
+  }
+
+  .culms-exams-dashboard--compact .culms-exams-week--current {
+    border-top-color: var(--culms-ed-accent);
+  }
+}
