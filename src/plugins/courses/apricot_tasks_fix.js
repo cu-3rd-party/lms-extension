@@ -56,8 +56,6 @@ if (typeof window.__akhCheckApi === 'undefined') {
 
 // 2. Основная логика
 (async function () {
-  const APRICOT_COURSE_ID = 98;
-
   // Курсы, выбранные в попапе. Скрипт работает в page-context и до storage не дотянется,
   // поэтому tasks_fix.js кладёт список имён в data-атрибут <html> — DOM у обоих миров общий.
   function getSelectedCourses() {
@@ -103,6 +101,14 @@ if (typeof window.__akhCheckApi === 'undefined') {
       .replace(/[^a-zа-яё0-9]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  // Имена совпадают, если одно входит в другое. Пустое после normalize имя
+  // («ДЗ 3.») входило бы в любое, поэтому такие не сравниваем вовсе.
+  function namesMatch(lmsName, akhNameRaw) {
+    const akhName = normalize(akhNameRaw || '');
+    if (!lmsName || !akhName) return false;
+    return lmsName.includes(akhName) || akhName.includes(lmsName);
   }
 
   function getHighestPriorityStatus(tasks) {
@@ -239,6 +245,52 @@ if (typeof window.__akhCheckApi === 'undefined') {
     }
   }
 
+  // Ищет задачу LMS в одном курсе AKHCheck. null — в этом курсе её нет.
+  function matchInCourse(lmsName, { individualTasks, taskGroups, courseTasks }) {
+    let finalStatus = null;
+    let scoreStr = '';
+    let akhDeadline = null;
+    let isDeadlineUrgent = false;
+
+    // Поиск по отдельным задачам
+    const directMatches = individualTasks.filter((t) => namesMatch(lmsName, t.name));
+
+    if (directMatches.length > 0) {
+      finalStatus = getHighestPriorityStatus(directMatches);
+      const curScore = directMatches.reduce((acc, t) => acc + (t.score || 0), 0);
+      const maxScore = directMatches.reduce((acc, t) => acc + (t.maxScore || 0), 0);
+      scoreStr = `${curScore}/${maxScore}`;
+    } else {
+      // Поиск по группам задач
+      const groupMatch = taskGroups.find(
+        (g) =>
+          namesMatch(lmsName, g.groupName) ||
+          (lmsName.includes('git') && g.groupName?.toLowerCase().includes('git'))
+      );
+      if (groupMatch && groupMatch.tasks?.length > 0) {
+        finalStatus = getHighestPriorityStatus(groupMatch.tasks);
+        const curScore = groupMatch.tasks.reduce((acc, t) => acc + (t.score || 0), 0);
+        scoreStr = `${curScore}/${groupMatch.aggregatedMaxScore || 0}`;
+      }
+    }
+
+    // Поиск дедлайна
+    let matchedCourseTasks = courseTasks.filter((t) => namesMatch(lmsName, t.name));
+    if (matchedCourseTasks.length === 0 && lmsName.includes('git')) {
+      matchedCourseTasks = courseTasks.filter((t) => normalize(t.name).includes('git'));
+    }
+
+    const taskWithDeadline = matchedCourseTasks.find((t) => t.deadline);
+    if (taskWithDeadline) {
+      akhDeadline = formatDeadline(taskWithDeadline.deadline);
+      const timeRemaining = new Date(taskWithDeadline.deadline).getTime() - Date.now();
+      isDeadlineUrgent = timeRemaining < 24 * 60 * 60 * 1000;
+    }
+
+    if (!finalStatus && !akhDeadline) return null;
+    return { finalStatus, scoreStr, akhDeadline, isDeadlineUrgent };
+  }
+
   let isFetching = false;
 
   async function tick() {
@@ -265,13 +317,10 @@ if (typeof window.__akhCheckApi === 'undefined') {
     targetRows.forEach((r) => (r.dataset.apricotProcessed = 'processing'));
     isFetching = true;
 
-    let allProgress, courseDetails;
+    let allProgress;
 
     try {
-      [allProgress, courseDetails] = await Promise.all([
-        window.__akhCheckApi.fetchAllProgress(),
-        window.__akhCheckApi.fetchCourseDetails(APRICOT_COURSE_ID),
-      ]);
+      allProgress = await window.__akhCheckApi.fetchAllProgress();
       removeAkhAuthNotification();
     } catch (e) {
       console.warn('[CU LMS] AKH Fetch Failed:', e.message);
@@ -280,69 +329,38 @@ if (typeof window.__akhCheckApi === 'undefined') {
       targetRows.forEach((r) => r.removeAttribute('data-apricot-processed'));
       isFetching = false;
       return;
-    } finally {
-      isFetching = false;
     }
 
-    if (!allProgress || !courseDetails) return;
+    // id курса на AKHCheck меняется каждый семестр, поэтому не зашиваем его, а берём
+    // все курсы студента. Свежие — первыми: у них id больше, и одноимённая задача
+    // прошлого семестра не перебьёт текущую.
+    const akhCourses = (Array.isArray(allProgress) ? allProgress : [])
+      .filter((c) => c && c.id != null)
+      .sort((a, b) => b.id - a.id);
 
-    const courseData = allProgress.find((c) => c.id === APRICOT_COURSE_ID);
-    if (!courseData) return;
+    // Детали курса нужны только ради дедлайнов, так что сбой тут не повод прятать статусы
+    const courseDetails = await Promise.all(
+      akhCourses.map((c) => window.__akhCheckApi.fetchCourseDetails(c.id).catch(() => null))
+    );
+    isFetching = false;
 
-    const individualTasks = courseData.tasks?.result || [];
-    const taskGroups = courseData.taskGroups?.result || [];
-    const courseTasks = courseDetails.tasks || [];
+    const courses = akhCourses.map((c, i) => ({
+      individualTasks: c.tasks?.result || [],
+      taskGroups: c.taskGroups?.result || [],
+      courseTasks: courseDetails[i]?.tasks || [],
+    }));
 
     for (const row of targetRows) {
       const lmsNameRaw = row.querySelector('.task-table__task-name')?.textContent || '';
       const lmsName = normalize(lmsNameRaw);
 
-      let finalStatus = null;
-      let scoreStr = '';
-      let akhDeadline = null;
-      let isDeadlineUrgent = false;
-
-      // Поиск по отдельным задачам
-      const directMatches = individualTasks.filter(
-        (t) => lmsName.includes(normalize(t.name)) || normalize(t.name).includes(lmsName)
-      );
-
-      if (directMatches.length > 0) {
-        finalStatus = getHighestPriorityStatus(directMatches);
-        const curScore = directMatches.reduce((acc, t) => acc + (t.score || 0), 0);
-        const maxScore = directMatches.reduce((acc, t) => acc + (t.maxScore || 0), 0);
-        scoreStr = `${curScore}/${maxScore}`;
-      } else {
-        // Поиск по группам задач
-        const groupMatch = taskGroups.find(
-          (g) =>
-            lmsName.includes(normalize(g.groupName)) ||
-            normalize(g.groupName).includes(lmsName) ||
-            (lmsName.includes('git') && g.groupName.toLowerCase().includes('git'))
-        );
-        if (groupMatch && groupMatch.tasks?.length > 0) {
-          finalStatus = getHighestPriorityStatus(groupMatch.tasks);
-          const curScore = groupMatch.tasks.reduce((acc, t) => acc + (t.score || 0), 0);
-          scoreStr = `${curScore}/${groupMatch.aggregatedMaxScore || 0}`;
-        }
+      let match = null;
+      for (const course of courses) {
+        match = matchInCourse(lmsName, course);
+        if (match) break;
       }
 
-      // Поиск дедлайна
-      let matchedCourseTasks = courseTasks.filter(
-        (t) => lmsName.includes(normalize(t.name)) || normalize(t.name).includes(lmsName)
-      );
-      if (matchedCourseTasks.length === 0 && lmsName.includes('git')) {
-        matchedCourseTasks = courseTasks.filter((t) => normalize(t.name).includes('git'));
-      }
-
-      if (matchedCourseTasks.length > 0) {
-        const taskWithDeadline = matchedCourseTasks.find((t) => t.deadline);
-        if (taskWithDeadline) {
-          akhDeadline = formatDeadline(taskWithDeadline.deadline);
-          const timeRemaining = new Date(taskWithDeadline.deadline).getTime() - Date.now();
-          isDeadlineUrgent = timeRemaining < 24 * 60 * 60 * 1000;
-        }
-      }
+      const { finalStatus, scoreStr, akhDeadline, isDeadlineUrgent } = match || {};
 
       // Отрисовка результатов
       if (finalStatus || akhDeadline) {
