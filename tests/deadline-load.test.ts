@@ -136,6 +136,9 @@ const TASKS = [
   // Через шесть — семь, через девять — тринадцать.
   ...Array.from({ length: 7 }, (_, index) => task(6, `ДЗ ${index + 10}`)),
   ...Array.from({ length: 13 }, (_, index) => task(9, `ДЗ ${index + 20}`, { minute: index })),
+  // Через одиннадцать — два, и оба уже сданы: день закрыт.
+  task(11, 'ДЗ 40', { done: true }),
+  task(11, 'ДЗ 41', { done: true }),
 ];
 
 // Минимальная страница «Мои курсы»: контейнер и группа курсов, куда
@@ -228,7 +231,7 @@ const dayCell = (offset: number) =>
   dashboard().locator(`[data-culms-day="${dayKey(addDays(today, offset))}"]`);
 const popover = () => page.locator('#culms-deadlines-popover');
 
-test('14 дней с сегодняшнего: число дедлайнов и цвет по количеству', async () => {
+test('14 дней с сегодняшнего: сдано/всего и цвет по количеству', async () => {
   await expect(days()).toHaveCount(14, { timeout: 30_000 });
   await expect(dashboard().locator('.culms-deadlines__title')).toHaveText('Дедлайны на две недели');
   // Дни идут подряд с сегодняшнего; вчера и через две недели в окно не попали.
@@ -246,22 +249,24 @@ test('14 дней с сегодняшнего: число дедлайнов и 
   );
   // Завтра шум (семинар, ознакомление, перезачёт, дорешивание, бонус, тест на
   // паре, архивные курсы) не считается — только «ДЗ 1».
+  // Сдано из всех: у «Условной вероятности» через три дня — галочка.
   expect(read.map((day) => day.count)).toEqual([
-    '1',
-    '1',
-    '1',
-    '4',
+    '0/1',
+    '0/1',
+    '0/1',
+    '1/4',
     '',
     '',
-    '7',
+    '0/7',
     '',
     '',
-    '13',
+    '0/13',
     '',
-    '',
+    '2/2',
     '',
     '',
   ]);
+  // Цвет — по числу дедлайнов, сданы они или нет.
   expect(read.map((day) => day.level)).toEqual([
     '1',
     '1',
@@ -274,10 +279,17 @@ test('14 дней с сегодняшнего: число дедлайнов и 
     '0',
     '4',
     '0',
-    '0',
+    '1',
     '0',
     '0',
   ]);
+  // Всё сдано — день приглушён; остальные нет.
+  await expect(dayCell(11)).toHaveClass(/culms-deadlines__day--closed/);
+  await expect(dayCell(3)).not.toHaveClass(/culms-deadlines__day--closed/);
+  await expect(dayCell(3)).toHaveAttribute(
+    'aria-label',
+    `${dayTitle(addDays(today, 3))}: 4 дедлайна, сдано 1`
+  );
   await expect(dashboard().locator('.culms-deadlines__legend-item')).toHaveText([
     '1–2',
     '3–5',
@@ -293,7 +305,7 @@ test('наведение на день показывает его задани�
     dayTitle(addDays(today, 3))
   );
   await expect(popover().locator('.culms-deadlines-popover__summary')).toHaveText(
-    '4 дедлайна, осталось 3'
+    '4 дедлайна, сдано 1'
   );
   // По времени дедлайна.
   await expect(popover().locator('.culms-deadlines-popover__name')).toHaveText([
@@ -327,6 +339,10 @@ test('длинный день обрезается, пустой — «Дедл�
   await expect(popover().locator('.culms-deadlines-popover__more')).toHaveText('и ещё 1');
   await dayCell(4).hover();
   await expect(popover().locator('.culms-deadlines-popover__empty')).toHaveText('Дедлайнов нет');
+  await dayCell(11).hover();
+  await expect(popover().locator('.culms-deadlines-popover__summary')).toHaveText(
+    '2 дедлайна, всё сдано'
+  );
   await page.mouse.move(5, 5);
   await expect(popover()).toHaveCount(0);
 });

@@ -293,13 +293,44 @@
   line-height: 18px;
 }
 
+/* «3/4»: сдано — крупно, «/4» — мельче, иначе «13/13» не влезало бы в узкую
+   ячейку. */
 .culms-deadlines__count {
   min-height: 24px;
+  max-width: 100%;
   font-size: 18px;
   font-weight: 700;
   line-height: 24px;
+  white-space: nowrap;
   color: var(--culms-dl-fg, var(--culms-ed-muted));
   font-variant-numeric: tabular-nums;
+}
+
+.culms-deadlines__total {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+@container (width < 640px) {
+  .culms-deadlines__count {
+    font-size: 15px;
+  }
+
+  .culms-deadlines__total {
+    font-size: 10px;
+  }
+}
+
+/* Всё сдано — день приглушён и с галочкой: делать там уже нечего, даже если
+   дедлайнов было десять. */
+.culms-deadlines__day--closed {
+  opacity: 0.55;
+}
+
+.culms-deadlines__day--closed .culms-deadlines__done::before {
+  content: '✓ ';
+  font-size: 0.75em;
 }
 
 /* Всплывашка с заданиями дня — в `body`, со своими переменными: дэшборда
@@ -653,6 +684,10 @@ cu-course-learning-layout .content-container.culms-exams-host--left {
   min-height: 20px;
   font-size: 15px;
   line-height: 20px;
+}
+
+.culms-exams-dashboard--compact .culms-deadlines__total {
+  font-size: 11px;
 }
 
 .culms-exams-dashboard--compact .culms-exams-dashboard__note {

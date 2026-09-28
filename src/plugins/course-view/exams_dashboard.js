@@ -409,9 +409,16 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     });
     days.forEach((day) => {
       day.tasks.sort((a, b) => a.deadline - b.deadline || a.name.localeCompare(b.name, 'ru'));
+      day.done = day.tasks.filter((task) => task.done).length;
       day.level = levelOf(day.tasks.length);
     });
     return days;
+  }
+
+  /** «4 дедлайна, сдано 3», «4 дедлайна, всё сдано». */
+  function daySummary(day) {
+    if (day.done === day.tasks.length) return `${deadlinesText(day.tasks.length)}, всё сдано`;
+    return `${deadlinesText(day.tasks.length)}, сдано ${day.done}`;
   }
 
   /** «Среда, 30 сентября» */
@@ -419,10 +426,20 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     `${WEEKDAYS_FULL[date.getDay()]}, ${date.getDate()} ${MONTHS_GENITIVE[date.getMonth()]}`;
 
   function dayLabel(day) {
-    const left = day.tasks.filter((task) => !task.done).length;
     if (!day.tasks.length) return `${dayTitle(day.date)}: дедлайнов нет`;
-    const tail = left < day.tasks.length ? `, осталось ${left}` : '';
-    return `${dayTitle(day.date)}: ${deadlinesText(day.tasks.length)}${tail}`;
+    return `${dayTitle(day.date)}: ${daySummary(day)}`;
+  }
+
+  /**
+   * «3/4» — сдано из всех дедлайнов дня. Сданная часть крупно, «/4» мельче:
+   * в узкой колонке «13/13» иначе не влезало бы в ячейку.
+   */
+  function renderCount(day) {
+    const count = element('span', 'culms-deadlines__count');
+    if (!day.tasks.length) return count;
+    count.appendChild(element('span', 'culms-deadlines__done', String(day.done)));
+    count.appendChild(element('span', 'culms-deadlines__total', `/${day.tasks.length}`));
+    return count;
   }
 
   function renderDays(days) {
@@ -448,6 +465,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       cell.classList.toggle('culms-deadlines__day--today', day.offset === 0);
       const weekday = day.date.getDay();
       cell.classList.toggle('culms-deadlines__day--weekend', weekday === 0 || weekday === 6);
+      // Всё сдано — день приглушён: делать там уже нечего, даже если дедлайнов десять.
+      cell.classList.toggle(
+        'culms-deadlines__day--closed',
+        day.tasks.length > 0 && day.done === day.tasks.length
+      );
       cell.setAttribute('aria-label', dayLabel(day));
       cell.appendChild(
         element(
@@ -457,9 +479,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
         )
       );
       cell.appendChild(element('span', 'culms-deadlines__date', String(day.date.getDate())));
-      cell.appendChild(
-        element('span', 'culms-deadlines__count', day.tasks.length ? String(day.tasks.length) : '')
-      );
+      cell.appendChild(renderCount(day));
 
       // Наведение и фокус показывают задания дня. Касание на телефоне ставит
       // фокус — там всплывашка тоже открывается. Отдельного click нет: он
@@ -496,16 +516,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     if (!day.tasks.length) {
       popover.appendChild(element('div', 'culms-deadlines-popover__empty', 'Дедлайнов нет'));
     } else {
-      const left = day.tasks.filter((task) => !task.done).length;
-      popover.appendChild(
-        element(
-          'div',
-          'culms-deadlines-popover__summary',
-          left < day.tasks.length
-            ? `${deadlinesText(day.tasks.length)}, осталось ${left}`
-            : deadlinesText(day.tasks.length)
-        )
-      );
+      popover.appendChild(element('div', 'culms-deadlines-popover__summary', daySummary(day)));
       const list = element('ul', 'culms-deadlines-popover__list');
       day.tasks.slice(0, POPOVER_LIMIT).forEach((task) => {
         const item = element('li', 'culms-deadlines-popover__item');
