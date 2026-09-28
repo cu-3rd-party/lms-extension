@@ -15,6 +15,12 @@
 // Включена хотя бы одна часть — полоска есть. Место одно — под курсами:
 // колонки сбоку, полоска над курсами и крупные карточки были, но их убрали,
 // чтобы дэшборд не спорил со списком курсов за место.
+//
+// Список курсов и полоска появляются вместе: пока данных нет, на <html>
+// висит `data-culms-dashboard-pending` и список невидим (правило — в
+// exams_dashboard.css и в exams_dashboard_gate.js). Шлюз ставит атрибут ещё
+// до отрисовки страницы и заранее качает данные; снимает атрибут этот файл,
+// когда нарисовал полоску, — или таймер, если данные не пришли за HOLD_MS.
 
 // Polyfill to handle browser namespace differences (Chrome uses 'chrome', Firefox uses 'browser')
 if (typeof browser === 'undefined') {
@@ -39,6 +45,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   const META_CACHE_KEY = 'courseMetaCache';
   const COURSES_API = '/api/micro-lms/courses/student?limit=200&offset=0&state=published';
   const COURSE_URL_PREFIX = '/learn/courses/view/actual/';
+  // Пока данные не пришли, список курсов невидим — но не дольше HOLD_MS:
+  // дальше показываем, что есть, а остальное дорисуется. Те же атрибут и срок
+  // — в exams_dashboard_gate.js.
+  const PENDING_ATTR = 'data-culms-dashboard-pending';
+  const HOLD_MS = 4000;
 
   // --- Дедлайны на две недели ---
   const DEADLINES_KEY = 'futureExamsDashboardDeadlines';
@@ -167,6 +178,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   let signature = '';
   let observer = null;
   let currentUrl = location.href;
+  /** До какого момента ждём все данные на этом заходе на список; 0 — не ждём. */
+  let waitUntil = 0;
 
   const log = (...args) =>
     typeof window.cuLmsLog === 'function' ? window.cuLmsLog(...args) : undefined;
@@ -206,6 +219,28 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
   // --- ДАННЫЕ ---
 
+  /**
+   * Ответ, который шлюз уже запросил, или null. Забирается один раз и только
+   * свежим: иначе после долгой стоянки на странице дэшборд взял бы старый.
+   */
+  function takePrefetched(key) {
+    const prefetched = window.__culmsDashboardPrefetch;
+    if (!prefetched || !prefetched[key] || Date.now() - prefetched.at > TASKS_TTL_MS) return null;
+    const request = prefetched[key];
+    prefetched[key] = null;
+    return request;
+  }
+
+  function getJson(url) {
+    return fetch(url, {
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+    }).then((response) => {
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return response.json();
+    });
+  }
+
   function loadSchedule() {
     if (scheduleLoading) return scheduleLoading;
 
@@ -236,14 +271,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     // Курсы за время жизни страницы не меняются — тянем один раз.
     if (coursesFetched || coursesLoading) return coursesLoading;
 
-    coursesLoading = fetch(COURSES_API, {
-      credentials: 'same-origin',
-      headers: { accept: 'application/json' },
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        return response.json();
-      })
+    coursesLoading = (takePrefetched('courses') || getJson(COURSES_API))
       .then((payload) => {
         courses = toCourses(Array.isArray(payload) ? payload : payload && payload.items);
         coursesFetched = true;
@@ -327,14 +355,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     if (tasksLoading) return tasksLoading;
     if (tasks && Date.now() - tasksFetchedAt < TASKS_TTL_MS) return Promise.resolve();
 
-    tasksLoading = fetch(TASKS_API, {
-      credentials: 'same-origin',
-      headers: { accept: 'application/json' },
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        return response.json();
-      })
+    tasksLoading = (takePrefetched('tasks') || getJson(TASKS_API))
       .then((payload) => {
         tasks = toTasks(payload);
         tasksFetchedAt = Date.now();
@@ -691,6 +712,16 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     return ready ? view : null;
   }
 
+  /**
+   * Приехало ли всё для включённых частей — или стало ясно, что не приедет.
+   * Свежесть не важна: при обновлении данных старые показываются до ответа.
+   */
+  function dataReady() {
+    const examsReady = !showExams || !!examsError() || (!!scheduleData && !!courses);
+    const daysReady = !showDeadlines || !!tasks || tasksFailed;
+    return examsReady && daysReady;
+  }
+
   /** Недели с контрольными; null — расписание или курсы ещё не приехали. */
   function buildExams() {
     if (!scheduleData || !courses) return null;
@@ -961,6 +992,38 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     ]);
   }
 
+  // --- СКРЫТИЕ СПИСКА ДО ДАННЫХ ---
+
+  /**
+   * Прячет список курсов, пока нет данных. Начало ожидания — в значении
+   * атрибута: если его поставил шлюз, ждём от его отметки, а не заново.
+   */
+  function hold() {
+    const rootEl = document.documentElement;
+    const started = Number(rootEl.getAttribute(PENDING_ATTR)) || 0;
+    if (!waitUntil) waitUntil = (started || Date.now()) + HOLD_MS;
+    if (Date.now() >= waitUntil) {
+      release();
+      return false;
+    }
+    if (!started) rootEl.setAttribute(PENDING_ATTR, String(Date.now()));
+    clearTimeout(window.__culmsDashboardHoldTimer);
+    window.__culmsDashboardHoldTimer = setTimeout(
+      () => {
+        release();
+        // Дождались не всего — показываем то, что есть.
+        update();
+      },
+      Math.max(0, waitUntil - Date.now())
+    );
+    return true;
+  }
+
+  function release() {
+    clearTimeout(window.__culmsDashboardHoldTimer);
+    document.documentElement.removeAttribute(PENDING_ATTR);
+  }
+
   // --- РАЗМЕЩЕНИЕ ---
 
   /**
@@ -1020,6 +1083,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   function retire() {
     stopObserver();
     detach();
+    release();
     enabled = false;
   }
 
@@ -1030,7 +1094,16 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     }
 
     if (!enabled || !isActualListPage()) {
+      waitUntil = 0;
+      release();
       detach();
+      return;
+    }
+
+    // Нет данных — полоску по частям не рисуем, а прячем список, чтобы он
+    // появился вместе с ней. Время вышло — рисуем, что есть.
+    if (!dataReady() && hold()) {
+      place();
       return;
     }
 
@@ -1049,11 +1122,15 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       }
     }
     place();
+    release();
   }
 
   /** Сверяет дэшборд с текущей страницей и подтягивает свежие данные. */
   function refresh() {
     if (!enabled || !isActualListPage()) {
+      // Ушли со списка: на следующем заходе ждём данные заново.
+      waitUntil = 0;
+      release();
       detach();
       return;
     }
@@ -1109,6 +1186,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     } else {
       stopObserver();
       detach();
+      release();
     }
   }
 

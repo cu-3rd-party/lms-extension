@@ -8,6 +8,15 @@
    Вид один — полоска под курсами (`--compact`). Общие правила ниже писались
    для крупных карточек, которых больше нет; полоска их переопределяет. */
 
+/* Пока дэшборд ждёт данные, список курсов невидим: он появляется вместе с
+   полоской, а не на секунду раньше. visibility, а не display — место под
+   список остаётся, и страница не прыгает. Атрибут ставят
+   exams_dashboard_gate.js и exams_dashboard.js; то же правило вставляет сам
+   шлюз — до того, как приедет этот файл. */
+html[data-culms-dashboard-pending] cu-courses-group {
+  visibility: hidden !important;
+}
+
 .culms-exams-dashboard {
   --culms-ed-bg: #ffffff;
   --culms-ed-border: transparent;

@@ -57,6 +57,17 @@ export default defineManifest({
       run_at: 'document_start',
     },
     {
+      // Дэшборд на «Мои курсы» появляется вместе со списком: шлюз прячет
+      // список до данных и заранее качает их. future_exams_api.js — раньше
+      // шлюза: тот просит у него расписание. См. exams_dashboard_gate.js.
+      matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
+      js: [
+        'plugins/course-view/future_exams_api.js',
+        'plugins/course-view/exams_dashboard_gate.js',
+      ],
+      run_at: 'document_start',
+    },
+    {
       // Safari does not reliably expose SPA history changes through
       // webNavigation. The script is a no-op in Chrome and Firefox.
       matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
