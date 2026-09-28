@@ -86,7 +86,6 @@ const LIVE_SETTINGS = [
   'customBackgroundToggle',
   'customThemeToggle',
   'futureExamsDashboardToggle',
-  'futureExamsDashboardPlacement',
   'futureExamsDashboardDeadlines',
 ];
 
@@ -142,8 +141,6 @@ const toggles = {
 const endOfCourseCalcLabel = document.getElementById('end-of-course-calc-label');
 const futureExamsDisplayContainer = document.getElementById('future-exams-display-container');
 const futureExamsDisplayFormat = document.getElementById('future-exams-display-format');
-const futureExamsDashboardContainer = document.getElementById('future-exams-dashboard-container');
-const futureExamsDashboardPlacement = document.getElementById('future-exams-dashboard-placement');
 const autoRenameFormatContainer = document.getElementById('auto-rename-format-container');
 const renameTemplateSelect = document.getElementById('rename-template-select');
 const reloadNotice = document.getElementById('reload-notice');
@@ -177,7 +174,6 @@ const gradesExportStatus = document.getElementById('grades-export-status');
 const allKeys = [
   ...Object.keys(toggles),
   'futureExamsDisplayFormat',
-  'futureExamsDashboardPlacement',
   'autoRenameTemplate',
   'akhCourseFilter',
   'contestCourseFilter',
@@ -193,12 +189,6 @@ let pendingChanges = {};
 function updateOldCoursesDesignUI(isEnabled) {
   if (oldCoursesDesignContainer) {
     oldCoursesDesignContainer.style.display = isEnabled ? 'block' : 'none';
-  }
-}
-
-function updateFutureExamsDashboardUI(isEnabled) {
-  if (futureExamsDashboardContainer) {
-    futureExamsDashboardContainer.style.display = isEnabled ? 'block' : 'none';
   }
 }
 
@@ -418,15 +408,11 @@ function refreshToggleStates() {
     }
 
     updateAutoRenameUI(isAutoRenameEnabled);
-    updateFutureExamsDashboardUI(!!data.futureExamsDashboardToggle);
     updateOldCoursesDesignUI(!!data.oldCoursesDesignToggle);
     updateCustomCourseNamesUI(!!data.customCourseNamesToggle);
     updateCustomLogoUI(!!data.customLogoToggle);
     updateCustomBackgroundUI(!!data.customBackgroundToggle);
     updateCustomThemeUI(!!data.customThemeToggle);
-    if (futureExamsDashboardPlacement) {
-      futureExamsDashboardPlacement.value = data.futureExamsDashboardPlacement || 'compact';
-    }
     if (stickerFitSelect) stickerFitSelect.value = data.stickerObjectFit || 'cover';
     if (stickerScaleSelect) stickerScaleSelect.value = String(data.stickerScale || 100);
     if (logoFitSelect) logoFitSelect.value = data.logoObjectFit || 'contain';
@@ -517,8 +503,6 @@ allKeys.forEach((key) => {
         }
       } else if (key === 'futureExamsViewToggle') {
         updateFormatDisplayVisibility();
-      } else if (key === 'futureExamsDashboardToggle') {
-        updateFutureExamsDashboardUI(isEnabled);
       } else if (key === 'autoRenameEnabled') {
         updateAutoRenameUI(isEnabled);
       } else if (key === 'oldCoursesDesignToggle') {
@@ -836,8 +820,7 @@ if (resetBtn) {
       futureExamsViewToggle: false,
       futureExamsDisplayFormat: 'date',
       futureExamsDashboardToggle: false,
-      futureExamsDashboardPlacement: 'compact',
-      futureExamsDashboardDeadlines: true,
+      futureExamsDashboardDeadlines: false,
       courseOverviewAutoscrollToggle: false,
       friendsEnabled: true,
       hideBonusButtonEnabled: false,
@@ -872,10 +855,6 @@ if (resetBtn) {
 
       if (autoRenameFormatContainer) autoRenameFormatContainer.style.display = 'none';
       if (futureExamsDisplayContainer) futureExamsDisplayContainer.style.display = 'none';
-      if (futureExamsDashboardContainer) futureExamsDashboardContainer.style.display = 'none';
-      if (futureExamsDashboardPlacement) {
-        futureExamsDashboardPlacement.value = defaultSettings.futureExamsDashboardPlacement;
-      }
       if (oldCoursesDesignContainer) oldCoursesDesignContainer.style.display = 'none';
       if (customCourseNamesContainer) customCourseNamesContainer.style.display = 'none';
       if (stickerFitSelect) stickerFitSelect.value = defaultSettings.stickerObjectFit;
@@ -889,16 +868,6 @@ if (resetBtn) {
     } else {
       browser.storage.sync.set(defaultSettings);
     }
-  });
-}
-
-// Место дэшборда контрольных меняется на странице на лету — сохраняем сразу,
-// чтобы варианты можно было сравнить, не закрывая меню.
-if (futureExamsDashboardPlacement) {
-  futureExamsDashboardPlacement.addEventListener('change', () => {
-    browser.storage.sync.set({
-      futureExamsDashboardPlacement: futureExamsDashboardPlacement.value,
-    });
   });
 }
 

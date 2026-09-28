@@ -1,5 +1,6 @@
 /**
- * Дэшборд ближайших контрольных на странице «Мои курсы» — на подставной LMS.
+ * Дэшборд на странице «Мои курсы» — часть с контрольными — на подставной LMS.
+ * Дедлайны на две недели в той же полоске проверяет deadline-load.test.ts.
  *
  * Логин не нужен: страницу и ответы API отдаёт `context.route`, а расширение
  * настоящее, из dist/chrome. Сервер расписания тоже не нужен — расписание
@@ -205,14 +206,9 @@ test.beforeAll(async () => {
 
   const now = Date.now();
   await writeStorage({
-    // Первые сценарии — про дэшборд под курсами; места сбоку проверяются ниже.
-    // Нагрузка (дедлайны заданий) проверяется отдельно, в deadline-load.test.ts:
-    // здесь — контрольные сами по себе, и размеры полоски без неё.
-    sync: {
-      futureExamsDashboardToggle: true,
-      futureExamsDashboardPlacement: 'below',
-      futureExamsDashboardDeadlines: false,
-    },
+    // Дедлайны заданий проверяются отдельно, в deadline-load.test.ts: здесь —
+    // контрольные сами по себе, и размеры полоски без дедлайнов.
+    sync: { futureExamsDashboardToggle: true, futureExamsDashboardDeadlines: false },
     local: {
       futureExamsScheduleCache: SCHEDULE,
       futureExamsScheduleCacheTimestamp: now,
@@ -239,22 +235,20 @@ async function readWeeks() {
   return weeks().evaluateAll((cards) =>
     cards.map((card) => ({
       title: card.querySelector('.culms-exams-week__title')?.textContent,
-      badge: card.querySelector('.culms-exams-week__badge')?.textContent,
+      badge: card.querySelector('.culms-exams-week__badge')?.textContent ?? null,
       dates: card.querySelector('.culms-exams-week__dates')?.textContent,
       courses: Array.from(card.querySelectorAll('.culms-exams-week__course')).map(
         (course) =>
           course.querySelector('.culms-exams-dashboard__course-name')?.textContent +
           ': ' +
-          Array.from(course.querySelectorAll('.culms-exams-week__event'))
-            .map((chip) => chip.textContent)
-            .join(', ')
+          course.querySelector('.culms-exams-week__summary')?.textContent
       ),
       empty: card.querySelector('.culms-exams-week__empty')?.textContent ?? null,
     }))
   );
 }
 
-test('под списком курсов — текущая неделя и две следующие', async () => {
+test('полоской под списком курсов — текущая неделя и две следующие', async () => {
   await expect(weeks()).toHaveCount(3, { timeout: 30_000 });
 
   // Дэшборд — последний ребёнок группы курсов: так он повторяет её ширину.
@@ -262,20 +256,22 @@ test('под списком курсов — текущая неделя и дв
     'cu-courses-group'
   );
   await expect(dashboard().locator('h2')).toHaveText('Ближайшие контрольные');
+  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--compact/);
 
   expect(await readWeeks()).toEqual([
     {
       title: 'Неделя 4',
       badge: 'текущая',
-      dates: weekDates(thisMonday),
+      dates: weekDates(thisMonday, MONTHS_SHORT),
       // Английский — в своём архиве, «чужой» курс — не у студента.
       courses: ['🔴 Теория вероятностей. Основной уровень: Контрольная работа'],
       empty: null,
     },
     {
       title: 'Неделя 5',
-      badge: 'следующая',
-      dates: weekDates(addDays(thisMonday, 7)),
+      // Метка в строке заголовка — только у текущей недели.
+      badge: null,
+      dates: weekDates(addDays(thisMonday, 7), MONTHS_SHORT),
       // Порядок курсов — как в списке; «Отборочная работа» ключ не получила.
       courses: [
         '🔴 Теория вероятностей. Основной уровень: Тест ×2',
@@ -285,8 +281,8 @@ test('под списком курсов — текущая неделя и дв
     },
     {
       title: 'Неделя 6',
-      badge: 'через одну',
-      dates: weekDates(addDays(thisMonday, 14)),
+      badge: null,
+      dates: weekDates(addDays(thisMonday, 14), MONTHS_SHORT),
       courses: [],
       empty: 'Контрольных нет',
     },
@@ -301,14 +297,14 @@ test('под списком курсов — текущая неделя и дв
 const navButton = (kind: 'prev' | 'today' | 'next') =>
   dashboard().locator(`[data-culms-nav="${kind}"]`);
 
-/** Показанные недели: номер и метка. */
+/** Показанные недели: номер, у текущей — «· текущая». */
 const shownWeeks = () =>
   weeks().evaluateAll((cards) =>
-    cards.map(
-      (card) =>
-        `${card.querySelector('.culms-exams-week__title')?.textContent} · ` +
-        (card.querySelector('.culms-exams-week__badge')?.textContent ?? '')
-    )
+    cards.map((card) => {
+      const title = card.querySelector('.culms-exams-week__title')?.textContent;
+      const badge = card.querySelector('.culms-exams-week__badge')?.textContent;
+      return badge ? `${title} · ${badge}` : title;
+    })
   );
 
 test('недели листаются кнопками: вперёд до последней контрольной, назад до начала семестра', async () => {
@@ -319,11 +315,7 @@ test('недели листаются кнопками: вперёд до пос
   await expect(navButton('next')).toBeEnabled();
 
   await navButton('next').click();
-  expect(await shownWeeks()).toEqual([
-    'Неделя 5 · следующая',
-    'Неделя 6 · через одну',
-    'Неделя 7 · через 3 недели',
-  ]);
+  expect(await shownWeeks()).toEqual(['Неделя 5', 'Неделя 6', 'Неделя 7']);
   await expect(weeks().nth(2)).toContainText('Экзамен');
   // После щелчка мышью фокус на пересобранной кнопке не держим — иначе
   // Chrome обводит её рамкой фокуса.
@@ -339,19 +331,11 @@ test('недели листаются кнопками: вперёд до пос
   await expect(dashboard().locator('.culms-exams-week--current')).toHaveCount(0);
 
   await navButton('today').click();
-  expect(await shownWeeks()).toEqual([
-    'Неделя 4 · текущая',
-    'Неделя 5 · следующая',
-    'Неделя 6 · через одну',
-  ]);
+  expect(await shownWeeks()).toEqual(['Неделя 4 · текущая', 'Неделя 5', 'Неделя 6']);
   await expect(navButton('today')).toBeDisabled();
 
   for (let step = 0; step < 3; step++) await navButton('prev').click();
-  expect(await shownWeeks()).toEqual([
-    'Неделя 1 · 3 недели назад',
-    'Неделя 2 · 2 недели назад',
-    'Неделя 3 · прошлая',
-  ]);
+  expect(await shownWeeks()).toEqual(['Неделя 1', 'Неделя 2', 'Неделя 3']);
   await expect(navButton('prev')).toBeDisabled();
 
   // С клавиатуры: дэшборд после нажатия собран заново, а фокус — на той же
@@ -359,11 +343,7 @@ test('недели листаются кнопками: вперёд до пос
   await navButton('next').focus();
   await page.keyboard.press('Enter');
   await page.keyboard.press('Enter');
-  expect(await shownWeeks()).toEqual([
-    'Неделя 3 · прошлая',
-    'Неделя 4 · текущая',
-    'Неделя 5 · следующая',
-  ]);
+  expect(await shownWeeks()).toEqual(['Неделя 3', 'Неделя 4 · текущая', 'Неделя 5']);
   expect(
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.culmsNav)
   ).toBe('next');
@@ -390,7 +370,7 @@ test('курс, вернувшийся из своего архива, появ�
   await writeStorage({ local: { archivedCourseIds: [] } });
 
   await expect(weeks().first()).toContainText('Английский язык 204S3');
-  await expect(weeks().first().locator('.culms-exams-week__event')).toHaveText([
+  await expect(weeks().first().locator('.culms-exams-week__summary')).toHaveText([
     'Контрольная работа',
     'Зачёт по английскому',
   ]);
@@ -499,8 +479,6 @@ test('клик по курсу из списка — через его карт�
 
 // --- Место на странице ---
 
-const container = () => page.locator('cu-course-learning-layout .content-container');
-
 /** Где дэшборд относительно шапки «Мои курсы» и группы курсов. */
 function geometry() {
   return page.evaluate(() => {
@@ -529,89 +507,13 @@ const weekColumns = () =>
     .locator('.culms-exams-dashboard__weeks')
     .evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length);
 
-test('справа: колонка рядом со списком, вровень с шапкой и без прокрутки', async () => {
-  // Экран 1536 × 737 при масштабе 125 % и свёрнутом меню LMS — на нём
-  // дэшборд под курсами уходил за нижний край.
-  await page.setViewportSize({ width: 1536, height: 737 });
-  await writeStorage({ sync: { futureExamsDashboardPlacement: 'right' } });
+test('полоска: мероприятия и курс одной строкой, высота — пара строк', async () => {
+  // Прошлый тест ушёл на страницу курса — возвращаемся к списку.
   await page.goto(LIST_URL);
-
-  await expect(container()).toHaveClass(/culms-exams-host--right/, { timeout: 30_000 });
-  await expect(page.locator('.content-container > .culms-exams-dashboard')).toHaveCount(1);
-  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--side/);
-  await expect(weeks()).toHaveCount(3);
-
-  const box = await geometry();
-  // Список курсов не сжимается, колонка — справа от него через отступ. Шапка
-  // той же ширины, что список: сжимается колонка дэшборда, а не колонка списка.
-  expect(box.groupWidth).toBe(1056);
-  expect(box.islandRight - box.islandLeft).toBe(1056);
-  expect(box.boardLeft).toBeGreaterThanOrEqual(box.islandRight + 23);
-  expect(box.boardWidth).toBeGreaterThanOrEqual(240);
-  expect(box.boardWidth).toBeLessThanOrEqual(340);
-  // Начинается вровень с шапкой «Мои курсы» и помещается в окно целиком.
-  expect(Math.abs(box.boardTop - box.islandTop)).toBeLessThan(1);
-  expect(box.boardBottom).toBeLessThanOrEqual(box.viewportHeight);
-  // Недели в узкой колонке — одна под другой.
-  expect(await weekColumns()).toBe(1);
-});
-
-test('слева: та же колонка перед списком', async () => {
-  await writeStorage({ sync: { futureExamsDashboardPlacement: 'left' } });
-
-  await expect(container()).toHaveClass(/culms-exams-host--left/);
-  await expect(container()).not.toHaveClass(/culms-exams-host--right/);
-  const box = await geometry();
-  expect(box.boardRight).toBeLessThanOrEqual(box.islandLeft - 23);
-  expect(Math.abs(box.boardTop - box.islandTop)).toBeLessThan(1);
-  expect(box.groupWidth).toBe(1056);
-  expect(box.islandRight - box.islandLeft).toBe(1056);
-});
-
-test('развернули меню LMS — сбоку тесно, дэшборд полоской над курсами; свернули — снова сбоку', async () => {
-  await writeStorage({ sync: { futureExamsDashboardPlacement: 'right' } });
-  await expect(container()).toHaveClass(/culms-exams-host--right/);
-
-  // Развёрнутое меню — 320px: рядом со списком остаётся около 145px. Полоска
-  // встаёт над курсами, а не под ними — снизу её не видно без прокрутки.
-  await page.evaluate(() => document.documentElement.style.setProperty('--sidebar-width', '320px'));
-  await expect(page.locator('cu-courses-group > .culms-exams-dashboard:first-child')).toHaveCount(
-    1
+  await expect(page.locator('cu-courses-group > .culms-exams-dashboard:last-child')).toHaveCount(
+    1,
+    { timeout: 30_000 }
   );
-  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--compact/);
-  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--above/);
-  await expect(container()).not.toHaveClass(/culms-exams-host/);
-
-  await page.evaluate(() => document.documentElement.style.setProperty('--sidebar-width', '80px'));
-  await expect(page.locator('.content-container > .culms-exams-dashboard')).toHaveCount(1);
-  await expect(dashboard()).not.toHaveClass(/culms-exams-dashboard--compact/);
-  await expect(container()).toHaveClass(/culms-exams-host--right/);
-});
-
-test('над курсами: та же полоска первым ребёнком группы, выше списка', async () => {
-  await writeStorage({ sync: { futureExamsDashboardPlacement: 'above' } });
-
-  await expect(page.locator('cu-courses-group > .culms-exams-dashboard:first-child')).toHaveCount(
-    1
-  );
-  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--above/);
-  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--compact/);
-  const listTop = await page
-    .locator('ul.course-list')
-    .evaluate((node) => node.getBoundingClientRect().top);
-  const box = await geometry();
-  expect(box.boardBottom + 23).toBeLessThanOrEqual(listTop);
-  expect(box.boardBottom).toBeLessThanOrEqual(box.viewportHeight);
-});
-
-test('компактно: полоска под курсами, мероприятия и курс одной строкой', async () => {
-  await writeStorage({ sync: { futureExamsDashboardPlacement: 'compact' } });
-
-  // Смена места на лету: дэшборд уже в группе, но теперь — последним.
-  await expect(page.locator('cu-courses-group > .culms-exams-dashboard:last-child')).toHaveCount(1);
-  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--compact/);
-  await expect(dashboard()).not.toHaveClass(/culms-exams-dashboard--above/);
-  await expect(container()).not.toHaveClass(/culms-exams-host/);
 
   const rows = await weeks().evaluateAll((cards) =>
     cards.map((card) => ({
@@ -652,15 +554,10 @@ test('компактно: полоска под курсами, мероприя
     .locator('.culms-exams-dashboard__course-name')
     .evaluateAll((links) => links.map((link) => link.getBoundingClientRect().height));
   expect(Math.max(...lineHeights)).toBeLessThanOrEqual(20);
-
-  await writeStorage({ sync: { futureExamsDashboardPlacement: 'below' } });
-  await page.setViewportSize({ width: 1280, height: 900 });
 });
 
 test('полоской кнопки листания — под заголовком, и стрелка не уезжает из-под курсора', async () => {
   await page.setViewportSize({ width: 1536, height: 737 });
-  await writeStorage({ sync: { futureExamsDashboardPlacement: 'compact' } });
-  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--compact/);
 
   // Кнопки — в узкой колонке заголовка, под ним, левее недель.
   const layout = await dashboard().evaluate((board) => {
@@ -686,7 +583,6 @@ test('полоской кнопки листания — под заголовк
   expect(await navButton('next').boundingBox()).toEqual(before);
 
   await navButton('today').click();
-  await writeStorage({ sync: { futureExamsDashboardPlacement: 'below' } });
   await page.setViewportSize({ width: 1280, height: 900 });
 });
 
@@ -705,20 +601,23 @@ test('аккордеон курса берёт недели из того же �
   await expect(items).toHaveText(['Неделя 5. Тест', 'Неделя 5. Тест'], { timeout: 30_000 });
 });
 
-test('тумблер в меню плагина пишет настройку и показывает подсказку', async () => {
+test('в меню две галочки — контрольные и дедлайны, выбора места нет', async () => {
   await writeStorage({ sync: { futureExamsDashboardToggle: false } });
 
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
   await popup.locator('h3', { hasText: 'Визуальные улучшения' }).click();
 
-  const toggle = popup.locator('#future-exams-dashboard-toggle');
-  await expect(toggle).not.toBeChecked();
-  await expect(popup.locator('#future-exams-dashboard-container')).toBeHidden();
+  const exams = popup.locator('#future-exams-dashboard-toggle');
+  const deadlines = popup.locator('#future-exams-dashboard-deadlines-toggle');
+  await expect(exams).not.toBeChecked();
+  await expect(deadlines).not.toBeChecked();
+  // Обе галочки видны сразу — одна не прячется за другой.
+  await expect(popup.locator('label.switch', { has: deadlines })).toBeVisible();
+  await expect(popup.locator('#future-exams-dashboard-placement')).toHaveCount(0);
 
-  await popup.locator('label.switch', { has: toggle }).click();
-  await expect(toggle).toBeChecked();
-  await expect(popup.locator('#future-exams-dashboard-container')).toBeVisible();
+  await popup.locator('label.switch', { has: exams }).click();
+  await expect(exams).toBeChecked();
   await expect
     .poll(() =>
       popup.evaluate(
@@ -730,43 +629,25 @@ test('тумблер в меню плагина пишет настройку и
     )
     .toBe(true);
 
-  // Место выбирается сразу под тумблером и сохраняется без закрытия меню.
-  const placement = popup.locator('#future-exams-dashboard-placement');
-  await expect(placement).toHaveValue('below');
-  await placement.selectOption('left');
-  await expect
-    .poll(() =>
-      popup.evaluate(
-        async () =>
-          (await chrome.storage.sync.get('futureExamsDashboardPlacement'))[
-            'futureExamsDashboardPlacement'
-          ]
-      )
-    )
-    .toBe('left');
-
   await popup.close();
 });
 
-test('по умолчанию — полоской под курсами, и в меню выбран этот же вариант', async () => {
-  // Свежая установка: места в хранилище нет вовсе.
+test('по умолчанию обе части выключены — и полоски нет', async () => {
+  // Свежая установка: галочек в хранилище нет вовсе.
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
-  await popup.evaluate(() => chrome.storage.sync.remove('futureExamsDashboardPlacement'));
+  await popup.evaluate(() =>
+    chrome.storage.sync.remove(['futureExamsDashboardToggle', 'futureExamsDashboardDeadlines'])
+  );
   await popup.reload();
   await popup.locator('h3', { hasText: 'Визуальные улучшения' }).click();
-  await expect(popup.locator('#future-exams-dashboard-placement')).toHaveValue('compact');
+  await expect(popup.locator('#future-exams-dashboard-toggle')).not.toBeChecked();
+  await expect(popup.locator('#future-exams-dashboard-deadlines-toggle')).not.toBeChecked();
   await popup.close();
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(LIST_URL);
-  await expect(page.locator('cu-courses-group > .culms-exams-dashboard:last-child')).toHaveCount(
-    1,
-    {
-      timeout: 30_000,
-    }
-  );
-  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--compact/);
-  await expect(dashboard()).not.toHaveClass(/culms-exams-dashboard--above/);
-  await expect(container()).not.toHaveClass(/culms-exams-host/);
+  await expect(page.locator('cu-courses-group .course-list')).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(1000);
+  await expect(dashboard()).toHaveCount(0);
 });

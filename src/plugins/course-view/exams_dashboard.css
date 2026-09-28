@@ -1,13 +1,12 @@
-/* exams_dashboard.css — дэшборд ближайших контрольных на странице «Мои курсы»
+/* exams_dashboard.css — дэшборд контрольных и дедлайнов на странице «Мои курсы»
    (exams_dashboard.js). Островок повторяет шапку «Мои курсы»: белый на светлой
    теме, а на тёмной — те же переменные `--culms-dark-*`, что красят шапку в
    dark-theme.css. OLED переопределяет эти переменные, поэтому отдельных правил
    для него нет. Вариант выбирает класс `--dark`, который ставит скрипт по
    настройке тёмной темы.
 
-   Вид и место: карточки под курсами (правила по умолчанию), колонка сбоку
-   (`--side` и классы `culms-exams-host--*` на контейнере страницы) и полоска
-   над курсами или под ними (`--compact`, над курсами ещё `--above`). */
+   Вид один — полоска под курсами (`--compact`). Общие правила ниже писались
+   для крупных карточек, которых больше нет; полоска их переопределяет. */
 
 .culms-exams-dashboard {
   --culms-ed-bg: #ffffff;
@@ -547,69 +546,7 @@
   border-radius: 8px;
 }
 
-/* --- Колонка сбоку от списка --- */
-
-/* Контейнер «Мои курсы» становится сеткой: список (66rem, как у LMS) и
-   колонка дэшборда. Третья строка `1fr` забирает лишнюю высоту дэшборда: тот
-   занимает все строки, и будь их две, при дэшборде выше шапки и списка вместе
-   сетка растянула бы их строки — между шапкой и курсами появился бы зазор.
-   Элемент, пересекающий гибкую строку, растит только её.
-
-   Селекторы длиннее родного `.content-container[_ngcontent-…]`, а `!important`
-   — у того, что задаёт сама LMS: порядок подключения стилей не гарантирован. */
-cu-course-learning-layout .content-container.culms-exams-host {
-  display: grid !important;
-  grid-template-rows: auto auto 1fr;
-  column-gap: 24px;
-  align-items: start;
-  max-width: calc(100% - 48px) !important;
-}
-
-/* Список — ровно 66rem: при нехватке места сжимается колонка дэшборда, а не
-   он (группа курсов всё равно не уже 66rem и вылезла бы за край шапки).
-   Нижняя граница колонки — SIDE_MIN_WIDTH минус SIDE_HYSTERESIS из скрипта. */
-cu-course-learning-layout .content-container.culms-exams-host--right {
-  grid-template-columns: 66rem minmax(240px, 340px);
-}
-
-cu-course-learning-layout .content-container.culms-exams-host--left {
-  grid-template-columns: minmax(240px, 340px) 66rem;
-}
-
-.culms-exams-host--right > :not(.culms-exams-dashboard) {
-  grid-column: 1;
-}
-
-.culms-exams-host--left > :not(.culms-exams-dashboard) {
-  grid-column: 2;
-}
-
-.culms-exams-host--right > .culms-exams-dashboard {
-  grid-column: 2;
-}
-
-.culms-exams-host--left > .culms-exams-dashboard {
-  grid-column: 1;
-}
-
-/* Начинается вровень с шапкой «Мои курсы» и прилипает при прокрутке списка.
-   Листает страницу не окно, а `main.main` под шапкой LMS (72px), поэтому
-   высота колонки — окно без шапки и отступов; не влезло — прокрутка внутри. */
-.culms-exams-dashboard--side {
-  grid-row: 1 / 4;
-  position: sticky;
-  top: 24px;
-  margin-top: 0;
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
-}
-
-/* --- Полоской над курсами или под ними --- */
-
-/* Над курсами полоска — первый ребёнок группы курсов, отступ у неё снизу. */
-.culms-exams-dashboard--above {
-  margin: 0 0 24px;
-}
+/* --- Полоска под курсами --- */
 
 /* Заголовок — узкой колонкой слева, недели — в строку через разделители,
    мероприятия и курс — одной строкой. При двух курсах в неделе полоска

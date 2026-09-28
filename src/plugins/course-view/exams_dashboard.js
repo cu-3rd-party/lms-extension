@@ -1,21 +1,20 @@
-// exams_dashboard.js — дэшборд ближайших контрольных на странице «Мои курсы».
+// exams_dashboard.js — дэшборд на странице «Мои курсы»: контрольные и дедлайны.
 //
-// На главной странице обучения (/learn/courses/view/actual/<вкладка>) рядом
-// со списком курсов показывает три недели — текущую, следующую и через одну:
-// номер учебной недели, её даты и контрольные мероприятия каждого курса.
-// Расписание то же, что в аккордеоне страницы курса (future_exams_api.js), так
-// что номера недель в обоих местах совпадают.
+// На главной странице обучения (/learn/courses/view/actual/<вкладка>) под
+// списком курсов — полоска из двух частей, каждая включается своей галочкой
+// в меню и применяется на лету, без перезагрузки:
 //
-// Включается тумблером в меню (`futureExamsDashboardToggle`) и применяется на
-// лету, без перезагрузки страницы. Место выбирается там же
-// (`futureExamsDashboardPlacement`): колонкой справа или слева от списка —
-// так дэшборд виден без прокрутки, — полоской над курсами или под ними или
-// карточками под курсами.
+// - контрольные (`futureExamsDashboardToggle`) — три недели, текущая,
+//   следующая и через одну: номер учебной недели, даты и контрольные
+//   мероприятия каждого курса. Расписание то же, что в аккордеоне страницы
+//   курса (future_exams_api.js), так что номера недель совпадают;
+// - дедлайны на две недели (`futureExamsDashboardDeadlines`) — 14 дней с
+//   сегодняшнего: у каждого «сдано/всего» и цвет по числу дедлайнов, а при
+//   наведении — сами задания этого дня.
 //
-// Над неделями — дедлайны заданий на две недели вперёд
-// (`futureExamsDashboardDeadlines`, по умолчанию включено): 14 дней с
-// сегодняшнего, у каждого число дедлайнов и цвет по их количеству, а при
-// наведении — сами задания этого дня.
+// Включена хотя бы одна часть — полоска есть. Место одно — под курсами:
+// колонки сбоку, полоска над курсами и крупные карточки были, но их убрали,
+// чтобы дэшборд не спорил со списком курсов за место.
 
 // Polyfill to handle browser namespace differences (Chrome uses 'chrome', Firefox uses 'browser')
 if (typeof browser === 'undefined') {
@@ -126,50 +125,26 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     next: [['path', { d: 'M6 3.5 10.5 8 6 12.5' }]],
   };
 
-  const PLACEMENT_KEY = 'futureExamsDashboardPlacement';
-  // right/left — колонка рядом со списком; above и compact — полоска в пару
-  // строк над курсами и под ними; below — карточки под курсами.
-  const PLACEMENTS = ['right', 'left', 'above', 'compact', 'below'];
-  const DEFAULT_PLACEMENT = 'compact';
-  // Список курсов на десктопной раскладке LMS — 66rem, и он не сжимается: у
-  // `cu-courses-group` такой min-width. Колонке остаётся свободное поле рядом,
-  // и уже этого она не нужна — названия курсов не прочитать.
-  const LIST_WIDTH_REM = 66;
-  const SIDE_MIN_WIDTH = 260;
-  const SIDE_GAP = 24;
-  const SIDE_MARGIN = 24;
-  // Уже стоящая сбоку колонка уходит вниз только когда станет уже на столько
-  // же: иначе на самой границе полоса прокрутки (~15 px), появляясь и пропадая
-  // от перестановки, перекидывала бы дэшборд туда-обратно без конца.
-  // Нижняя граница колонки в CSS — SIDE_MIN_WIDTH минус этот запас.
-  const SIDE_HYSTERESIS = 20;
-
   const ROOT_CLASS = 'culms-exams-dashboard';
   const DARK_CLASS = 'culms-exams-dashboard--dark';
-  const SIDE_CLASS = 'culms-exams-dashboard--side';
-  const ABOVE_CLASS = 'culms-exams-dashboard--above';
+  // Полоска — единственный вид; класс остался от времён, когда видов было
+  // несколько, и на нём держатся стили раскладки.
   const COMPACT_CLASS = 'culms-exams-dashboard--compact';
-  // Классы на `.content-container` страницы: с ними список и дэшборд встают
-  // двумя колонками (см. exams_dashboard.css).
-  const HOST_CLASS = 'culms-exams-host';
-  const HOST_SIDE_CLASSES = { right: 'culms-exams-host--right', left: 'culms-exams-host--left' };
   // Этот класс знает _shared/course_names.js: он подставляет в дэшборд свои
   // названия курсов так же, как в список.
   const COURSE_NAME_CLASS = 'culms-exams-dashboard__course-name';
 
   // --- СОСТОЯНИЕ ---
+  /** Показывать ли полоску вообще: включена хотя бы одна часть. */
   let enabled = false;
+  let showExams = false;
+  let showDeadlines = false;
   let isDark = false;
-  let placement = DEFAULT_PLACEMENT;
-  /** Где дэшборд стоит сейчас: выбранное место или запасное, если сбоку тесно. */
-  let mode = null;
   /**
    * На сколько недель пролистано от текущей. Живёт, пока открыта страница:
    * на смене вкладки фильтра сохраняется, при новом заходе — снова текущая.
    */
   let weekShift = 0;
-  let layoutObserver = null;
-  let observedLayout = null;
   let archivedKeys = new Set();
   /** { schedule, config } — последнее загруженное расписание. */
   let scheduleData = null;
@@ -180,7 +155,6 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   let coursesFetched = false;
   let coursesFailed = false;
   let coursesLoading = null;
-  let showDeadlines = true;
   /** [{ id, name, courseId, courseName, deadline: Date, done }] — задания с дедлайном. */
   let tasks = null;
   let tasksFetchedAt = 0;
@@ -206,10 +180,6 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
   function normalizeName(name) {
     return (name || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  }
-
-  function normalizePlacement(value) {
-    return PLACEMENTS.includes(value) ? value : DEFAULT_PLACEMENT;
   }
 
   /** Ключи архива — как в course_cards.js: id курса или `name:<название>`. */
@@ -442,10 +412,16 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     return count;
   }
 
-  function renderDays(days) {
+  /**
+   * Дни с дедлайнами. Без контрольных «Дедлайны на две недели» — заголовок
+   * всей полоски в её левой колонке, и здесь повторять его незачем.
+   */
+  function renderDays(days, withTitle) {
     const block = element('div', 'culms-deadlines');
     const head = element('div', 'culms-deadlines__head');
-    head.appendChild(element('span', 'culms-deadlines__title', 'Дедлайны на две недели'));
+    if (withTitle) {
+      head.appendChild(element('span', 'culms-deadlines__title', 'Дедлайны на две недели'));
+    }
     const legend = element('span', 'culms-deadlines__legend');
     legend.setAttribute('aria-hidden', 'true');
     LEGEND.forEach((text, index) => {
@@ -574,14 +550,39 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
   // --- ПРЕДСТАВЛЕНИЕ ---
 
-  /** Что показать сейчас; null — данных ещё нет, рисовать нечего. */
-  function buildView() {
+  /** Почему контрольные не показать — или null, если причин нет. */
+  function examsError() {
     if (scheduleFailed) {
-      return { error: 'Не удалось загрузить расписание контрольных.' };
+      return 'Не удалось загрузить расписание контрольных.';
     }
     if (coursesFailed) {
-      return { error: 'Не удалось получить список ваших курсов.' };
+      return 'Не удалось получить список ваших курсов.';
     }
+    return null;
+  }
+
+  /**
+   * Что показать сейчас; null — данных ещё нет, рисовать нечего. Части
+   * независимы: дедлайны рисуются, даже если расписание контрольных ещё
+   * грузится или не загрузилось.
+   */
+  function buildView() {
+    const view = { exams: null, examsError: null, days: null, daysNote: null };
+    if (showExams) {
+      view.examsError = examsError();
+      if (!view.examsError) view.exams = buildExams();
+    }
+    if (showDeadlines) {
+      view.days = buildDays();
+      // Не загрузились задания — контрольные показываем как обычно и пишем об этом.
+      if (tasksFailed) view.daysNote = 'Не удалось загрузить дедлайны заданий.';
+    }
+    const ready = view.exams || view.examsError || view.days || view.daysNote;
+    return ready ? view : null;
+  }
+
+  /** Недели с контрольными; null — расписание или курсы ещё не приехали. */
+  function buildExams() {
     if (!scheduleData || !courses) return null;
 
     const api = window.cuLmsFutureExams;
@@ -601,8 +602,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       model = api.upcomingWeeks({ ...options, start: weekShift });
     }
     // Не загрузились задания — контрольные показываем как обычно и пишем об этом.
-    const daysNote = showDeadlines && tasksFailed ? 'Не удалось загрузить дедлайны заданий.' : null;
-    return { model, shift: weekShift, limits, days: buildDays(), daysNote };
+    return { model, shift: weekShift, limits };
   }
 
   /**
@@ -624,26 +624,6 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   function weekTitle(week) {
     // До первой недели семестра номер вышел бы нулевым или отрицательным.
     return week.number >= 1 ? `Неделя ${week.number}` : 'До начала семестра';
-  }
-
-  /** «неделю», «недели», «недель» — к числу n. */
-  function weeksWord(n) {
-    const mod10 = n % 10;
-    const mod100 = n % 100;
-    if (mod10 === 1 && mod100 !== 11) return 'неделю';
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'недели';
-    return 'недель';
-  }
-
-  /** Метка недели по её сдвигу от текущей: при листании видно, как далеко ушли. */
-  function weekLabel(offset) {
-    if (offset === 0) return 'текущая';
-    if (offset === 1) return 'следующая';
-    if (offset === 2) return 'через одну';
-    if (offset === -1) return 'прошлая';
-    return offset > 0
-      ? `через ${offset} ${weeksWord(offset)}`
-      : `${-offset} ${weeksWord(-offset)} назад`;
   }
 
   function navIcon(kind) {
@@ -735,7 +715,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     nativeCard.click();
   }
 
-  function renderCourse(course, compact) {
+  function renderCourse(course) {
     const item = element('li', 'culms-exams-week__course');
 
     // Показываем настоящее название: своё подставит course_names.js, как и в
@@ -748,23 +728,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       entry.count > 1 ? `${entry.name} ×${entry.count}` : entry.name
     );
 
-    if (compact) {
-      // Полоской мероприятия и курс идут одной строкой, мероприятия — первыми:
-      // что не влезло, режется многоточием, и лучше обрезать длинное название
-      // курса, чем «Контрольна…». Полный текст — в подсказке (revealTruncated).
-      item.appendChild(element('span', 'culms-exams-week__summary', labels.join(', ')));
-      item.appendChild(link);
-      return item;
-    }
-
+    // Мероприятия и курс идут одной строкой, мероприятия — первыми: что не
+    // влезло, режется многоточием, и лучше обрезать длинное название курса,
+    // чем «Контрольна…». Полный текст — в подсказке (revealTruncated).
+    item.appendChild(element('span', 'culms-exams-week__summary', labels.join(', ')));
     item.appendChild(link);
-
-    // Плашки — `span`, а не `li`: тёмная тема гасит фон у любого `li:hover`,
-    // и плашка пропадала бы под курсором.
-    const events = element('div', 'culms-exams-week__events');
-    labels.forEach((text) => events.appendChild(element('span', 'culms-exams-week__event', text)));
-    item.appendChild(events);
-
     return item;
   }
 
@@ -780,32 +748,31 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     else node.removeAttribute('title');
   }
 
-  function renderWeek(week, compact) {
+  function renderWeek(week) {
     const card = element('article', 'culms-exams-week');
     card.classList.toggle('culms-exams-week--current', week.offset === 0);
     card.dataset.culmsWeek = String(week.number);
 
     const api = window.cuLmsFutureExams;
-    const dates = element(
-      'span',
-      'culms-exams-week__dates',
-      api.formatDayRange(week.first, week.last, { short: compact })
-    );
-
     const head = element('div', 'culms-exams-week__head');
     head.appendChild(element('h3', 'culms-exams-week__title', weekTitle(week)));
-    // Полоской даты стоят в строке заголовка, иначе — отдельной строкой под ним.
-    // Метку там оставляем только текущей неделе: место в строке нужнее датам.
-    if (compact) head.appendChild(dates);
-    if (!compact || week.offset === 0) {
-      head.appendChild(element('span', 'culms-exams-week__badge', weekLabel(week.offset)));
+    // Даты — в строке заголовка, сокращённо. Метку оставляем только текущей
+    // неделе: место в строке нужнее датам.
+    head.appendChild(
+      element(
+        'span',
+        'culms-exams-week__dates',
+        api.formatDayRange(week.first, week.last, { short: true })
+      )
+    );
+    if (week.offset === 0) {
+      head.appendChild(element('span', 'culms-exams-week__badge', 'текущая'));
     }
     card.appendChild(head);
-    if (!compact) card.appendChild(dates);
 
     if (week.courses.length) {
       const list = element('ul', 'culms-exams-week__courses');
-      week.courses.forEach((course) => list.appendChild(renderCourse(course, compact)));
+      week.courses.forEach((course) => list.appendChild(renderCourse(course)));
       card.appendChild(list);
     } else {
       card.appendChild(element('p', 'culms-exams-week__empty', 'Контрольных нет'));
@@ -814,31 +781,33 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     return card;
   }
 
-  function renderView(view, compact) {
+  function renderView(view) {
     const section = element('section', ROOT_CLASS);
     section.classList.toggle(DARK_CLASS, isDark);
-    section.classList.toggle(COMPACT_CLASS, compact);
-    if (compact) section.addEventListener('mouseover', revealTruncated);
+    section.classList.add(COMPACT_CLASS);
+    section.addEventListener('mouseover', revealTruncated);
     // Островок: custom_background.js не должен принять его за полотно страницы
     // и положить на него картинку фона, когда дэшборд вырастает в высоту.
     section.setAttribute('data-culms-island', '');
     section.setAttribute('aria-labelledby', 'culms-exams-dashboard-title');
 
+    // Заголовок полоски — в её левой колонке. Без контрольных полоска — это
+    // одни дедлайны, и заголовок говорит о них.
     const inner = element('div', 'culms-exams-dashboard__inner');
     const head = element('div', 'culms-exams-dashboard__head');
-    const title = element('h2', 'culms-exams-dashboard__title', 'Ближайшие контрольные');
+    const title = element(
+      'h2',
+      'culms-exams-dashboard__title',
+      showExams ? 'Ближайшие контрольные' : 'Дедлайны на две недели'
+    );
     title.id = 'culms-exams-dashboard-title';
     head.appendChild(title);
-    if (!view.error) head.appendChild(renderNav(view));
+    if (view.exams) head.appendChild(renderNav(view.exams));
     inner.appendChild(head);
 
-    if (view.error) {
-      inner.appendChild(element('p', 'culms-exams-dashboard__note', view.error));
-      section.appendChild(inner);
-      return section;
-    }
-
-    if (!view.model.matchedCourses) {
+    if (view.examsError) {
+      inner.appendChild(element('p', 'culms-exams-dashboard__note', view.examsError));
+    } else if (view.exams && !view.exams.model.matchedCourses) {
       inner.appendChild(
         element('p', 'culms-exams-dashboard__note', 'Ваших курсов нет в расписании контрольных.')
       );
@@ -847,26 +816,31 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     if (view.daysNote) {
       inner.appendChild(element('p', 'culms-exams-dashboard__note', view.daysNote));
     }
-    if (view.days) inner.appendChild(renderDays(view.days));
+    if (view.days) inner.appendChild(renderDays(view.days, showExams));
 
-    const weeks = element('div', 'culms-exams-dashboard__weeks');
-    view.model.weeks.forEach((week) => weeks.appendChild(renderWeek(week, compact)));
-    inner.appendChild(weeks);
+    if (view.exams) {
+      const weeks = element('div', 'culms-exams-dashboard__weeks');
+      view.exams.model.weeks.forEach((week) => weeks.appendChild(renderWeek(week)));
+      inner.appendChild(weeks);
+    }
 
     section.appendChild(inner);
     return section;
   }
 
-  function signatureOf(view, compact) {
-    const kind = compact ? 'compact' : 'full';
-    if (view.error) return `${kind}:error:${view.error}`;
-    const { weeks, matchedCourses } = view.model;
+  function signatureOf(view) {
+    const exams = view.exams;
     return JSON.stringify([
-      kind,
-      matchedCourses,
-      // Сдвиг и границы решают, какие кнопки листания погашены.
-      [view.shift, view.limits.min, view.limits.max],
-      weeks.map((week) => [week.number, week.first.getTime(), week.courses]),
+      showExams,
+      view.examsError,
+      exams
+        ? [
+            exams.model.matchedCourses,
+            // Сдвиг и границы решают, какие кнопки листания погашены.
+            [exams.shift, exams.limits.min, exams.limits.max],
+            exams.model.weeks.map((week) => [week.number, week.first.getTime(), week.courses]),
+          ]
+        : null,
       view.daysNote,
       view.days
         ? view.days.map((day) => [
@@ -879,95 +853,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
   // --- РАЗМЕЩЕНИЕ ---
 
-  /** Контейнер страницы «Мои курсы»: шапка с вкладками и группа курсов. */
-  function listContainer() {
-    return document.querySelector('cu-course-learning-layout .content-container');
-  }
-
-  const isSide = (value) => value === 'right' || value === 'left';
-
   /**
-   * Помещается ли колонка рядом со списком. На экране 1536 px при
-   * развёрнутом меню LMS свободного поля нет (около 145 px), при свёрнутом —
-   * около 385 px.
-   */
-  function sideFits() {
-    const container = listContainer();
-    const layout = container && container.parentElement;
-    if (!layout) return false;
-
-    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const needed = LIST_WIDTH_REM * rem + SIDE_GAP + SIDE_MIN_WIDTH + 2 * SIDE_MARGIN;
-    const slack = isSide(mode) ? SIDE_HYSTERESIS : 0;
-    return layout.clientWidth >= needed - slack;
-  }
-
-  /**
-   * Сбоку тесно — полоска над курсами. Не под ними: на экране 1536 × 737 две
-   * строки обложек занимают всё окно, и полоска снизу уходила бы за край, а
-   * колонку сбоку выбирают как раз чтобы видеть дэшборд без прокрутки.
-   */
-  function effectivePlacement() {
-    if (isSide(placement)) return sideFits() ? placement : 'above';
-    return placement;
-  }
-
-  /**
-   * Место сбоку появляется и пропадает без перезагрузки — меню LMS
-   * сворачивают, окно тянут. Следим за шириной раскладки и переставляем
-   * дэшборд, когда меняется ответ «помещается ли колонка».
-   */
-  function watchLayout() {
-    const container = listContainer();
-    const layout = container ? container.parentElement : null;
-    if (layout === observedLayout) return;
-
-    unwatchLayout();
-    if (!layout || typeof ResizeObserver === 'undefined') return;
-    observedLayout = layout;
-    layoutObserver = new ResizeObserver(() => {
-      if (effectivePlacement() !== mode) update();
-    });
-    layoutObserver.observe(layout);
-  }
-
-  function unwatchLayout() {
-    if (layoutObserver) layoutObserver.disconnect();
-    layoutObserver = null;
-    observedLayout = null;
-  }
-
-  /**
-   * Классы раскладки на контейнере страницы. Снимаются со всех остальных:
-   * контейнер переживает смену вкладок, но не уход со списка курсов.
-   */
-  function setHostSide(container, side) {
-    const sideClasses = Object.values(HOST_SIDE_CLASSES);
-    document.querySelectorAll('.' + HOST_CLASS).forEach((node) => {
-      if (node !== container || !side) node.classList.remove(HOST_CLASS, ...sideClasses);
-    });
-    if (!container || !side) return;
-
-    const wanted = HOST_SIDE_CLASSES[side];
-    // Классы ставим только если их нет: лишняя запись атрибута — лишняя
-    // мутация для всех наблюдателей страницы.
-    sideClasses.forEach((cls) => {
-      if (cls !== wanted && container.classList.contains(cls)) container.classList.remove(cls);
-    });
-    [HOST_CLASS, wanted].forEach((cls) => {
-      if (!container.classList.contains(cls)) container.classList.add(cls);
-    });
-  }
-
-  /**
-   * Под курсами дэшборд живёт последним ребёнком `cu-courses-group`: так он
-   * повторяет ширину и отступы списка на любой раскладке LMS. Angular
-   * пересоздаёт этот элемент на каждой смене вкладки фильтра, поэтому
-   * наблюдатель переносит собранный дэшборд в новый — синхронно, до отрисовки
-   * кадра.
-   *
-   * Сбоку он — ребёнок `.content-container`, который на смене вкладок не
-   * пересоздаётся: контейнер становится сеткой из двух колонок.
+   * Дэшборд живёт последним ребёнком `cu-courses-group`: так он повторяет
+   * ширину и отступы списка на любой раскладке LMS. Angular пересоздаёт этот
+   * элемент на каждой смене вкладки фильтра, поэтому наблюдатель переносит
+   * собранный дэшборд в новый — синхронно, до отрисовки кадра.
    */
   function place() {
     if (!root) return;
@@ -976,34 +866,13 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       return;
     }
 
-    if (isSide(placement)) watchLayout();
-    else unwatchLayout();
-
-    const side = isSide(mode);
-    const above = mode === 'above';
-    const container = listContainer();
-    setHostSide(container, side ? mode : null);
-    if (root.classList.contains(SIDE_CLASS) !== side) root.classList.toggle(SIDE_CLASS, side);
-    if (root.classList.contains(ABOVE_CLASS) !== above) root.classList.toggle(ABOVE_CLASS, above);
-
-    if (side) {
-      if (container && root.parentNode !== container) container.appendChild(root);
-      return;
-    }
-
-    // Над курсами — первым ребёнком группы, под ними — последним. Позицию
-    // сверяем, а не только родителя: при смене места на лету дэшборд уже
-    // лежит в группе, но не с того края.
     const group = document.querySelector('cu-courses-group');
-    if (!group) return;
-    if (above && group.firstElementChild !== root) group.prepend(root);
-    if (!above && group.lastElementChild !== root) group.appendChild(root);
+    if (group && group.lastElementChild !== root) group.appendChild(root);
   }
 
   function detach() {
     hidePopover();
     if (root && root.parentNode) root.remove();
-    setHostSide(null, null);
   }
 
   function update() {
@@ -1012,17 +881,15 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       return;
     }
 
-    mode = effectivePlacement();
-    const compact = mode === 'compact' || mode === 'above';
     const view = buildView();
     if (view) {
-      const next = signatureOf(view, compact);
+      const next = signatureOf(view);
       // Пересобираем только когда поменялось содержимое: иначе каждый проход
       // наблюдателя сбрасывал бы подставленные course_names.js названия.
       if (next !== signature) {
         // Всплывашка держится за день старого дэшборда.
         hidePopover();
-        const fresh = renderView(view, compact);
+        const fresh = renderView(view);
         if (root && root.parentNode) root.replaceWith(fresh);
         root = fresh;
         signature = next;
@@ -1041,9 +908,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     // Сначала — с тем, что уже есть: на смене вкладки дэшборд не должен
     // пропадать до ответа хранилища. Заодно пересчитывается текущая неделя.
     update();
-    void loadSchedule();
-    void loadCourses();
-    void loadTasks();
+    if (showExams) {
+      void loadSchedule();
+      void loadCourses();
+    }
+    if (showDeadlines) void loadTasks();
   }
 
   // --- НАБЛЮДЕНИЕ ЗА СТРАНИЦЕЙ ---
@@ -1081,33 +950,35 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  function setEnabled(value) {
-    enabled = value;
+  /**
+   * Включает и выключает части по галочкам. Полоска есть, пока включена хотя
+   * бы одна; выключили обе — наблюдатель страницы тоже не нужен.
+   */
+  function applySettings() {
+    enabled = showExams || showDeadlines;
     if (enabled) {
       startObserver();
       refresh();
     } else {
       stopObserver();
-      unwatchLayout();
       detach();
     }
   }
 
   async function init() {
     const [syncData, localData] = await Promise.all([
-      browser.storage.sync.get([SETTING_KEY, THEME_KEY, PLACEMENT_KEY, DEADLINES_KEY]),
+      browser.storage.sync.get([SETTING_KEY, THEME_KEY, DEADLINES_KEY]),
       browser.storage.local.get([ARCHIVE_KEY, META_CACHE_KEY]),
     ]);
 
     isDark = !!syncData[THEME_KEY];
-    placement = normalizePlacement(syncData[PLACEMENT_KEY]);
-    // Дедлайны показываются, пока их явно не выключили.
-    showDeadlines = syncData[DEADLINES_KEY] !== false;
+    showExams = !!syncData[SETTING_KEY];
+    showDeadlines = !!syncData[DEADLINES_KEY];
     archivedKeys = new Set(localData[ARCHIVE_KEY] || []);
     const cached = toCourses(localData[META_CACHE_KEY]);
     if (cached.length) courses = cached;
 
-    setEnabled(!!syncData[SETTING_KEY]);
+    applySettings();
   }
 
   browser.storage.onChanged.addListener((changes, area) => {
@@ -1116,17 +987,10 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       if (root) root.classList.toggle(DARK_CLASS, isDark);
       hidePopover();
     }
-    if (area === 'sync' && DEADLINES_KEY in changes) {
-      showDeadlines = changes[DEADLINES_KEY].newValue !== false;
-      void loadTasks();
-      update();
-    }
-    if (area === 'sync' && PLACEMENT_KEY in changes) {
-      placement = normalizePlacement(changes[PLACEMENT_KEY].newValue);
-      update();
-    }
-    if (area === 'sync' && SETTING_KEY in changes) {
-      setEnabled(!!changes[SETTING_KEY].newValue);
+    if (area === 'sync' && (SETTING_KEY in changes || DEADLINES_KEY in changes)) {
+      if (SETTING_KEY in changes) showExams = !!changes[SETTING_KEY].newValue;
+      if (DEADLINES_KEY in changes) showDeadlines = !!changes[DEADLINES_KEY].newValue;
+      applySettings();
     }
     if (area === 'local' && ARCHIVE_KEY in changes) {
       archivedKeys = new Set(changes[ARCHIVE_KEY].newValue || []);

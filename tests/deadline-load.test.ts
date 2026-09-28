@@ -206,7 +206,8 @@ test.beforeAll(async () => {
 
   const now = Date.now();
   await writeStorage({
-    sync: { futureExamsDashboardToggle: true, futureExamsDashboardPlacement: 'below' },
+    // Обе части включаются своими галочками; по умолчанию дедлайны выключены.
+    sync: { futureExamsDashboardToggle: true, futureExamsDashboardDeadlines: true },
     local: {
       futureExamsScheduleCache: SCHEDULE,
       futureExamsScheduleCacheTimestamp: now,
@@ -358,23 +359,20 @@ test('с клавиатуры: фокус на дне показывает за�
   await expect(popover()).toHaveCount(0);
 });
 
-test('полоской и в узкой колонке: 14 дней, узко — две строки по семь', async () => {
+test('полоской под курсами: 14 дней в строку, узко — две строки по семь', async () => {
   const columns = () =>
     dashboard()
       .locator('.culms-deadlines__days')
       .evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length);
 
-  expect(await columns()).toBe(14);
-  await writeStorage({ sync: { futureExamsDashboardPlacement: 'compact' } });
+  await expect(page.locator('cu-courses-group > .culms-exams-dashboard:last-child')).toHaveCount(1);
   await expect(dashboard()).toHaveClass(/culms-exams-dashboard--compact/);
-  await expect(days()).toHaveCount(14);
+  expect(await columns()).toBe(14);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(columns).toBe(7);
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect.poll(columns).toBe(14);
-  await writeStorage({ sync: { futureExamsDashboardPlacement: 'below' } });
-  await expect(dashboard()).not.toHaveClass(/culms-exams-dashboard--compact/);
 });
 
 test('тёмная тема красит и всплывашку', async () => {
@@ -398,4 +396,28 @@ test('выключенные дедлайны убираются на лету, 
   await expect(days()).toHaveCount(14);
   // Задания ещё свежие — повторно не запрашиваются.
   expect(tasksRequests).toBe(requestsBefore);
+});
+
+test('контрольные выключены — в полоске одни дедлайны', async () => {
+  await writeStorage({ sync: { futureExamsDashboardToggle: false } });
+  await expect(dashboard().locator('.culms-exams-week')).toHaveCount(0);
+  await expect(dashboard().locator('.culms-exams-dashboard__nav')).toHaveCount(0);
+  await expect(days()).toHaveCount(14);
+  // Заголовок полоски теперь про дедлайны, и у самих дней он не повторяется.
+  await expect(dashboard().locator('h2')).toHaveText('Дедлайны на две недели');
+  await expect(dashboard().locator('.culms-deadlines__title')).toHaveCount(0);
+  await expect(dashboard().locator('.culms-deadlines__legend-item')).toHaveCount(4);
+});
+
+test('выключены обе части — полоски нет', async () => {
+  await writeStorage({ sync: { futureExamsDashboardDeadlines: false } });
+  await expect(dashboard()).toHaveCount(0);
+
+  // Включили одни дедлайны — полоска вернулась без перезагрузки.
+  await page.evaluate(() => ((window as any).__reloadMarker = true));
+  await writeStorage({ sync: { futureExamsDashboardDeadlines: true } });
+  await expect(days()).toHaveCount(14);
+  expect(await page.evaluate(() => (window as any).__reloadMarker)).toBe(true);
+  await writeStorage({ sync: { futureExamsDashboardToggle: true } });
+  await expect(dashboard().locator('.culms-exams-week')).toHaveCount(3);
 });

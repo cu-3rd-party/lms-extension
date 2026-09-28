@@ -120,17 +120,12 @@ if (typeof window.cuLmsSettings === 'undefined') {
     bool('customCourseNamesToggle', 'features'),
     bool('futureExamsViewToggle', 'features'),
     choice('futureExamsDisplayFormat', 'features', ['date', 'week'], 'date'),
-    // Дэшборд ближайших контрольных на странице «Мои курсы» и его место.
+    // Дэшборд на странице «Мои курсы» — полоска под курсами из двух частей,
+    // каждая со своей галочкой: ближайшие контрольные и дедлайны на две
+    // недели. Места у полоски больше не выбирают (`futureExamsDashboardPlacement`
+    // убран): из чужого профиля этот ключ просто пропускается.
     bool('futureExamsDashboardToggle', 'features'),
-    choice(
-      'futureExamsDashboardPlacement',
-      'features',
-      ['right', 'left', 'above', 'compact', 'below'],
-      'compact'
-    ),
-    // Дедлайны заданий на две недели в том же дэшборде: показываются, пока их
-    // явно не выключили.
-    bool('futureExamsDashboardDeadlines', 'features', true),
+    bool('futureExamsDashboardDeadlines', 'features'),
     bool('courseOverviewTaskStatusToggle', 'features'),
     bool('courseOverviewAutoscrollToggle', 'features'),
     bool('courseExporterToggle', 'features'),
