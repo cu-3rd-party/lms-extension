@@ -87,6 +87,7 @@ const LIVE_SETTINGS = [
   'customThemeToggle',
   'futureExamsDashboardToggle',
   'futureExamsDashboardPlacement',
+  'futureExamsDashboardDeadlines',
 ];
 
 // --- БЛОК ДЛЯ УПРАВЛЕНИЯ ТЕМОЙ POPUP ---
@@ -129,6 +130,7 @@ const toggles = {
   customThemeToggle: document.getElementById('custom-theme-toggle'),
   futureExamsViewToggle: document.getElementById('future-exams-view-toggle'),
   futureExamsDashboardToggle: document.getElementById('future-exams-dashboard-toggle'),
+  futureExamsDashboardDeadlines: document.getElementById('future-exams-dashboard-deadlines-toggle'),
   courseOverviewAutoscrollToggle: document.getElementById('course-overview-autoscroll-toggle'),
   advancedStatementsEnabled: document.getElementById('advanced-statements-toggle'),
   endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'),
@@ -835,6 +837,7 @@ if (resetBtn) {
       futureExamsDisplayFormat: 'date',
       futureExamsDashboardToggle: false,
       futureExamsDashboardPlacement: 'compact',
+      futureExamsDashboardDeadlines: true,
       courseOverviewAutoscrollToggle: false,
       friendsEnabled: true,
       hideBonusButtonEnabled: false,

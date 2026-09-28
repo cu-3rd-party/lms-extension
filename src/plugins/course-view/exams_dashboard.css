@@ -20,6 +20,9 @@
   --culms-ed-chip-border: rgba(0, 16, 36, 0.1);
   --culms-ed-divider: rgba(0, 16, 36, 0.1);
   --culms-ed-accent: var(--accent, #477df9);
+  /* Тяжёлая неделя: оранжевый, а не красный — это предупреждение, не ошибка. */
+  --culms-ed-warn: #d9480f;
+  --culms-ed-warn-bg: rgba(247, 103, 7, 0.12);
 
   display: block;
   box-sizing: border-box;
@@ -44,6 +47,8 @@
   --culms-ed-chip-bg: var(--culms-dark-bg-hover, rgb(50, 51, 54));
   --culms-ed-chip-border: var(--culms-dark-border-secondary, rgb(70, 71, 74));
   --culms-ed-divider: var(--culms-dark-border-primary, rgb(55, 56, 60));
+  --culms-ed-warn: #ffa94d;
+  --culms-ed-warn-bg: rgba(255, 169, 77, 0.16);
 }
 
 /* В узкой раскладке LMS скругляет островки меньше. */
@@ -212,6 +217,208 @@
   color: var(--culms-ed-muted);
 }
 
+/* --- Нагрузка недели: дедлайны заданий --- */
+
+/* Текущую неделю по-прежнему выделяет акцент — предупреждение ей не нужно
+   поверх, плашка «Тяжёлая неделя» и так видна. */
+.culms-exams-week--heavy:not(.culms-exams-week--current) {
+  border-color: var(--culms-ed-warn);
+}
+
+.culms-exams-week__load {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--culms-ed-muted);
+}
+
+.culms-exams-week__load-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  list-style: none;
+}
+
+.culms-exams-week__load-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Раскрывающийся список — со стрелкой, как у аккордеонов LMS. */
+summary.culms-exams-week__load-summary {
+  cursor: pointer;
+}
+
+summary.culms-exams-week__load-summary::before {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin: 0 2px 0 1px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+details[open] > summary.culms-exams-week__load-summary::before {
+  transform: rotate(45deg);
+}
+
+.culms-exams-week__load-count {
+  font-weight: 500;
+  color: var(--culms-ed-text);
+}
+
+summary.culms-exams-week__load-summary:hover .culms-exams-week__load-count {
+  color: var(--culms-ed-accent);
+}
+
+.culms-exams-week__heavy {
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  color: var(--culms-ed-warn);
+  background: var(--culms-ed-warn-bg);
+  border-radius: 999px;
+}
+
+.culms-exams-week__deadlines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.culms-exams-week__deadline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.culms-exams-week__deadline-time {
+  white-space: nowrap;
+  color: var(--culms-ed-muted);
+}
+
+.culms-exams-week__deadline-name,
+.culms-exams-week__deadline-course {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.culms-exams-week__deadline-name {
+  color: var(--culms-ed-text);
+}
+
+.culms-exams-week__deadline-course {
+  grid-column: 2;
+  color: var(--culms-ed-muted);
+}
+
+/* Сданное — приглушённо и с галочкой: список остаётся полным, но видно,
+   сколько ещё впереди. */
+.culms-exams-week__deadline--done .culms-exams-week__deadline-name {
+  color: var(--culms-ed-muted);
+  text-decoration: line-through;
+}
+
+.culms-exams-week__deadline--done .culms-exams-week__deadline-time::before {
+  content: '✓ ';
+}
+
+/* --- Полоса нагрузки на семестр --- */
+
+.culms-exams-load {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px 12px;
+  margin-top: 12px;
+}
+
+.culms-exams-load__label {
+  flex: none;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--culms-ed-muted);
+}
+
+.culms-exams-load__bars {
+  display: flex;
+  flex: 1 1 160px;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  height: 28px;
+}
+
+.culms-exams-load__bar {
+  display: flex;
+  flex: 1 1 0;
+  align-items: flex-end;
+  box-sizing: border-box;
+  min-width: 3px;
+  max-width: 32px;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Показанные сейчас недели — подложкой, как окно на полосе. */
+.culms-exams-load__bar--shown {
+  background: var(--culms-ed-card-bg);
+}
+
+.culms-exams-dashboard--compact .culms-exams-load__bar--shown,
+.culms-exams-dashboard--side .culms-exams-load__bar--shown {
+  background: var(--culms-ed-divider);
+}
+
+.culms-exams-load__fill {
+  display: block;
+  width: 100%;
+  /* Пустая неделя — черта-основание: иначе полоса рвалась бы на дырки. */
+  min-height: 2px;
+  background: color-mix(in srgb, var(--culms-ed-muted) 40%, transparent);
+  border-radius: 3px 3px 1px 1px;
+}
+
+.culms-exams-load__bar--shown .culms-exams-load__fill {
+  background: color-mix(in srgb, var(--culms-ed-accent) 55%, transparent);
+}
+
+.culms-exams-load__bar--heavy .culms-exams-load__fill {
+  background: var(--culms-ed-warn);
+}
+
+.culms-exams-load__bar--current .culms-exams-load__fill {
+  background: var(--culms-ed-accent);
+}
+
+.culms-exams-load__bar:hover .culms-exams-load__fill {
+  opacity: 0.75;
+}
+
+.culms-exams-load__bar:focus-visible {
+  outline: 2px solid var(--culms-ed-accent);
+  outline-offset: 1px;
+}
+
 /* --- Курсы недели --- */
 
 .culms-exams-week__courses {
@@ -366,8 +573,26 @@ cu-course-learning-layout .content-container.culms-exams-host--left {
 }
 
 .culms-exams-dashboard--compact .culms-exams-dashboard__note,
+.culms-exams-dashboard--compact .culms-exams-load,
 .culms-exams-dashboard--compact .culms-exams-dashboard__weeks {
   grid-column: 2;
+}
+
+.culms-exams-dashboard--compact .culms-exams-load {
+  margin: 0 0 10px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-load__bars {
+  height: 20px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-week__load {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.culms-exams-dashboard--compact .culms-exams-week--heavy:not(.culms-exams-week--current) {
+  border-left-color: var(--culms-ed-warn);
 }
 
 .culms-exams-dashboard--compact .culms-exams-dashboard__note {
@@ -477,6 +702,7 @@ cu-course-learning-layout .content-container.culms-exams-host--left {
   }
 
   .culms-exams-dashboard--compact .culms-exams-dashboard__note,
+  .culms-exams-dashboard--compact .culms-exams-load,
   .culms-exams-dashboard--compact .culms-exams-dashboard__weeks {
     grid-column: 1;
   }
@@ -496,5 +722,9 @@ cu-course-learning-layout .content-container.culms-exams-host--left {
 
   .culms-exams-dashboard--compact .culms-exams-week--current {
     border-top-color: var(--culms-ed-accent);
+  }
+
+  .culms-exams-dashboard--compact .culms-exams-week--heavy:not(.culms-exams-week--current) {
+    border-top-color: var(--culms-ed-warn);
   }
 }

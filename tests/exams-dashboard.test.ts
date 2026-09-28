@@ -206,7 +206,13 @@ test.beforeAll(async () => {
   const now = Date.now();
   await writeStorage({
     // Первые сценарии — про дэшборд под курсами; места сбоку проверяются ниже.
-    sync: { futureExamsDashboardToggle: true, futureExamsDashboardPlacement: 'below' },
+    // Нагрузка (дедлайны заданий) проверяется отдельно, в deadline-load.test.ts:
+    // здесь — контрольные сами по себе, и размеры полоски без неё.
+    sync: {
+      futureExamsDashboardToggle: true,
+      futureExamsDashboardPlacement: 'below',
+      futureExamsDashboardDeadlines: false,
+    },
     local: {
       futureExamsScheduleCache: SCHEDULE,
       futureExamsScheduleCacheTimestamp: now,
