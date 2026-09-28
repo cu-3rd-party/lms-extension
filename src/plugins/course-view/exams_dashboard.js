@@ -438,11 +438,13 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     }
     const legend = element('span', 'culms-deadlines__legend');
     legend.setAttribute('aria-hidden', 'true');
+    // Пункт легенды — маленькая копия дня: та же заливка и цвет числа. Раньше
+    // там был квадратик цвета числа, а день красит заливка, — и цвета легенды
+    // с днями не совпадали.
     LEGEND.forEach((text, index) => {
-      const item = element('span', `culms-deadlines__legend-item culms-deadlines--l${index + 1}`);
-      item.appendChild(element('span', 'culms-deadlines__swatch'));
-      item.appendChild(document.createTextNode(text));
-      legend.appendChild(item);
+      legend.appendChild(
+        element('span', `culms-deadlines__legend-item culms-deadlines--l${index + 1}`, text)
+      );
     });
     head.appendChild(legend);
     block.appendChild(head);
@@ -455,6 +457,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       cell.classList.toggle('culms-deadlines__day--today', day.offset === 0);
       const weekday = day.date.getDay();
       cell.classList.toggle('culms-deadlines__day--weekend', weekday === 0 || weekday === 6);
+      // Понедельник (кроме первого дня) — начало новой недели: перед ним черта.
+      // Узко дни идут строками по семь с сегодняшнего, и если понедельник
+      // открывает строку, черта у края ни к чему — это помечает `--row-start`.
+      cell.classList.toggle('culms-deadlines__day--week-start', weekday === 1 && day.offset > 0);
+      cell.classList.toggle('culms-deadlines__day--row-start', day.offset % 7 === 0);
       // Всё сдано — день приглушён: делать там уже нечего, даже если дедлайнов десять.
       cell.classList.toggle(
         'culms-deadlines__day--closed',

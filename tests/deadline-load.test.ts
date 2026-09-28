@@ -449,6 +449,72 @@ test('с клавиатуры в список заданий: ↓ — к ссы�
   await expect(popover()).toHaveCount(0);
 });
 
+test('легенда окрашена ровно как дни того же уровня', async () => {
+  // Заливка и цвет текста пункта легенды — те же, что у дня с таким числом дедлайнов.
+  const colors = (locator: ReturnType<typeof days>) =>
+    locator.evaluate((node) => {
+      const style = getComputedStyle(node);
+      const count = node.querySelector('.culms-deadlines__count');
+      return [style.backgroundColor, getComputedStyle(count ?? node).color];
+    });
+  const legend = dashboard().locator('.culms-deadlines__legend-item');
+  // Уровни дней: через день — 1, через три — 2, через шесть — 3, через девять — 4.
+  for (const [index, offset] of [
+    [0, 1],
+    [1, 3],
+    [2, 6],
+    [3, 9],
+  ]) {
+    expect(await colors(legend.nth(index))).toEqual(await colors(dayCell(offset)));
+  }
+  for (const theme of [true, false]) {
+    await writeStorage({ sync: { themeEnabled: theme } });
+    await expect(dashboard()).toHaveClass(theme ? /--dark/ : /^(?!.*--dark)/);
+    expect(await colors(legend.nth(3))).toEqual(await colors(dayCell(9)));
+  }
+});
+
+test('между воскресеньем и понедельником — черта, недели читаются блоками', async () => {
+  const separators = () =>
+    days().evaluateAll((cells) =>
+      cells.map((cell) => getComputedStyle(cell, '::before').content !== 'none')
+    );
+  // Черта — перед каждым понедельником, кроме самого первого дня.
+  const mondays = Array.from(
+    { length: 14 },
+    (_, offset) => offset > 0 && addDays(today, offset).getDay() === 1
+  );
+  expect(await separators()).toEqual(mondays);
+  expect(mondays.filter(Boolean).length).toBeGreaterThanOrEqual(1);
+
+  // Черта — в зазоре между днями, а не поверх воскресенья: зазор шире
+  // обычного, и черта посередине.
+  const gap = await page.evaluate(() => {
+    const monday = document.querySelector('.culms-deadlines__day--week-start') as HTMLElement;
+    const sunday = monday.previousElementSibling as HTMLElement;
+    const box = monday.getBoundingClientRect();
+    const line = getComputedStyle(monday, '::before');
+    const from = box.left + monday.clientLeft + parseFloat(line.left);
+    return {
+      sundayRight: sunday.getBoundingClientRect().right,
+      mondayLeft: box.left,
+      from,
+      to: from + parseFloat(line.width),
+    };
+  });
+  expect(gap.mondayLeft - gap.sundayRight).toBeGreaterThanOrEqual(10);
+  expect(gap.from).toBeGreaterThan(gap.sundayRight + 2);
+  expect(gap.to).toBeLessThan(gap.mondayLeft - 2);
+
+  // Узко, строками по семь: понедельник в начале строки черты не получает.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(separators)
+    .toEqual(mondays.map((isMonday, offset) => isMonday && offset % 7 !== 0));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect.poll(separators).toEqual(mondays);
+});
+
 test('полоской под курсами: 14 дней в строку, узко — две строки по семь', async () => {
   const columns = () =>
     dashboard()

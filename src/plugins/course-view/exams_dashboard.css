@@ -213,23 +213,19 @@
 .culms-deadlines__legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 10px;
+  gap: 4px;
   font-size: 12px;
   line-height: 16px;
-  color: var(--culms-ed-muted);
 }
 
+/* Пункт легенды — маленькая копия дня: заливка дня и цвет его числа. */
 .culms-deadlines__legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.culms-deadlines__swatch {
-  width: 10px;
-  height: 10px;
-  background: var(--culms-dl-fg);
-  border-radius: 3px;
+  padding: 1px 7px;
+  font-weight: 600;
+  color: var(--culms-dl-fg);
+  background: var(--culms-dl-bg);
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Четырнадцать дней в строку; узко (колонка сбоку, телефон) — две недели
@@ -266,6 +262,40 @@
 .culms-deadlines__day:focus-visible {
   border-color: var(--culms-dl-fg, var(--culms-ed-chip-border));
   outline: none;
+}
+
+/* Граница недель: между воскресеньем и понедельником зазор шире и черта
+   посередине, чтобы две недели читались двумя блоками. */
+.culms-deadlines__day--week-start {
+  position: relative;
+  margin-left: 8px;
+}
+
+.culms-deadlines__day--week-start::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  /* Зазор — 12px (4px сетки и свои 8px). Отсчёт идёт от края внутри рамки
+     ячейки (1px), так что −8px ставит черту шириной 2px ровно посередине. */
+  left: -8px;
+  width: 2px;
+  background: var(--culms-ed-muted);
+  border-radius: 1px;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Узко дни идут строками по семь: понедельник в начале строки — черта у
+   края ни к чему. После правила выше, чтобы перебить его отступ. */
+@container (width < 640px) {
+  .culms-deadlines__day--week-start.culms-deadlines__day--row-start {
+    margin-left: 0;
+  }
+
+  .culms-deadlines__day--week-start.culms-deadlines__day--row-start::before {
+    content: none;
+  }
 }
 
 .culms-deadlines__day--today {
