@@ -240,7 +240,18 @@ test('14 дней с сегодняшнего: сдано/всего и цвет
     await days().evaluateAll((cells) => cells.map((cell) => (cell as HTMLElement).dataset.culmsDay))
   ).toEqual(Array.from({ length: 14 }, (_, offset) => dayKey(addDays(today, offset))));
   await expect(days().first()).toHaveClass(/culms-deadlines__day--today/);
-  await expect(days().first().locator('.culms-deadlines__weekday')).toHaveText('сегодня');
+  // «ср 30» — день недели и число одной строкой, у сегодняшнего тоже.
+  await expect(days().first().locator('.culms-deadlines__when')).toHaveText(
+    `${['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][today.getDay()]}${today.getDate()}`
+  );
+  const rows = await days()
+    .first()
+    .evaluate((cell) =>
+      ['.culms-deadlines__weekday', '.culms-deadlines__date'].map(
+        (selector) => cell.querySelector(selector)!.getBoundingClientRect().bottom
+      )
+    );
+  expect(Math.abs(rows[0] - rows[1])).toBeLessThan(3);
 
   const read = await days().evaluateAll((cells) =>
     cells.map((cell) => ({

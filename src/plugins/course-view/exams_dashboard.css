@@ -272,13 +272,20 @@
   box-shadow: inset 0 0 0 2px var(--culms-ed-accent);
 }
 
-.culms-deadlines__weekday {
+/* День недели и число — одной строкой: «ср 30». */
+.culms-deadlines__when {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
   max-width: 100%;
   overflow: hidden;
-  font-size: 11px;
-  line-height: 14px;
   white-space: nowrap;
-  text-overflow: ellipsis;
+}
+
+.culms-deadlines__weekday {
+  font-size: 11px;
+  line-height: 18px;
   color: var(--culms-ed-muted);
 }
 

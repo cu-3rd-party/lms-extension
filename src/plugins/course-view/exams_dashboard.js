@@ -447,14 +447,13 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
         day.tasks.length > 0 && day.done === day.tasks.length
       );
       cell.setAttribute('aria-label', dayLabel(day));
-      cell.appendChild(
-        element(
-          'span',
-          'culms-deadlines__weekday',
-          day.offset === 0 ? 'сегодня' : WEEKDAYS_SHORT[weekday]
-        )
-      );
-      cell.appendChild(element('span', 'culms-deadlines__date', String(day.date.getDate())));
+      // «ср 30» — одной строкой. У сегодняшнего дня тоже день недели, а не
+      // «сегодня»: рядом с числом оно не влезало в узкую ячейку, а текущий
+      // день и так обведён рамкой.
+      const when = element('span', 'culms-deadlines__when');
+      when.appendChild(element('span', 'culms-deadlines__weekday', WEEKDAYS_SHORT[weekday]));
+      when.appendChild(element('span', 'culms-deadlines__date', String(day.date.getDate())));
+      cell.appendChild(when);
       cell.appendChild(renderCount(day));
 
       // Наведение и фокус показывают задания дня. Касание на телефоне ставит
