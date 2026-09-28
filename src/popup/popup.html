@@ -3,152 +3,228 @@
   <head>
     <meta charset="UTF-8" />
     <title>extension control panel</title>
+    <script src="popup_frame.js"></script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+      /* --- РАСКЛАДКА МЕНЮ ---
+         Слева — список вкладок, справа — настройки выбранной вкладки; листается
+         только правая часть. Вкладки строит popup.js из .tab-panel.
+
+         Окно попапа у браузера не больше 800×600, поэтому там меню ровно такого
+         размера. В панели на странице меню лежит в iframe и занимает его
+         целиком: класс `in-frame` на <html> ставит popup_frame.js. */
+      html,
+      body {
+        height: 100%;
+      }
 
       body {
         font-family: 'Inter', sans-serif;
         font-weight: 400;
-        font-size: 16px;
-        /* Два столбца разделов: так меню помещается по высоте и его почти не
-           приходится листать. `max-width` — для меню на странице: в узком окне
-           iframe уже 720 px, и без него попап уезжал бы за край с
-           горизонтальной прокруткой. Столбцы там схлопываются в один —
-           см. медиазапрос у .sections ниже. */
-        width: 720px;
+        font-size: 15px;
+        width: 800px;
+        height: 600px;
         max-width: 100%;
-        /* Без этого остаются браузерные 8 px по краям: фон попапа не доходит
-           до края, а в узком окне они же дают горизонтальную прокрутку. */
         margin: 0;
-        padding: 10px;
-        background-color: #f0f0f0;
+        padding: 0;
+        color: #202124;
+        background-color: #f3f4f6;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+
+      html.in-frame body {
+        width: 100%;
+        height: 100vh;
+      }
+
+      .menu {
+        display: flex;
+        height: 100%;
+      }
+
+      .menu-nav {
+        display: flex;
+        flex: 0 0 196px;
+        flex-direction: column;
+        min-height: 0;
+        padding: 16px 10px 12px;
+        background-color: #fff;
+        border-right: 1px solid #e3e5e8;
         box-sizing: border-box;
       }
 
-      /* --- РАСКЛАДКА РАЗДЕЛОВ ---
-         Два независимых столбца, а не `columns`. Колоночный поток сам
-         перебалансируется: стоило раскрыть раздел, и нижние разделы
-         перепрыгивали из столбца в столбец — меню «ехало» под руками.
-         Здесь раздел закреплён за столбцом: раскрытие меняет только высоту
-         своего столбца. Раскладывает разделы popup.js. */
-      .sections {
+      .menu-brand {
+        padding: 0 10px 14px;
+      }
+
+      .menu-brand__name {
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .menu-brand__version {
+        margin-top: 2px;
+        font-size: 12px;
+        color: #80868b;
+      }
+
+      .menu-tabs {
         display: flex;
-        align-items: flex-start;
-        gap: 24px;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 2px;
+        min-height: 0;
+        overflow-y: auto;
       }
 
-      .sections-column {
-        flex: 1 1 0;
+      .menu-tab {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 9px 10px;
+        font: inherit;
+        font-size: 14px;
+        text-align: left;
+        color: #3c4043;
+        background: none;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      .menu-tab:hover {
+        background-color: #f1f3f4;
+      }
+
+      .menu-tab:focus-visible {
+        outline: 2px solid #2196f3;
+        outline-offset: -2px;
+      }
+
+      .menu-tab[aria-selected='true'] {
+        font-weight: 600;
+        color: #1565c0;
+        background-color: #e3f0fd;
+      }
+
+      .menu-tab__icon {
+        flex: 0 0 18px;
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .menu-content {
+        flex: 1 1 auto;
         min-width: 0;
+        overflow-y: auto;
+        padding: 20px 22px 24px;
+        box-sizing: border-box;
       }
 
-      .sections-column + .sections-column {
-        padding-left: 24px;
-        border-left: 1px solid #d5d8dc;
+      .tab-panel[hidden] {
+        display: none;
       }
 
-      .sections-column > .section {
+      .tab-title {
+        margin: 0 0 4px;
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .tab-lead {
+        margin: 0 0 16px;
+        font-size: 13px;
+        line-height: 1.45;
+        color: #5f6368;
+      }
+
+      /* Узкая панель на странице: вкладки уходят в полосу сверху и листаются
+         вбок, чтобы настройкам осталась вся ширина. */
+      @media (max-width: 560px) {
+        .menu {
+          flex-direction: column;
+        }
+
+        .menu-nav {
+          flex: 0 0 auto;
+          padding: 8px;
+          border-right: none;
+          border-bottom: 1px solid #e3e5e8;
+        }
+
+        .menu-brand {
+          display: none;
+        }
+
+        .menu-tabs {
+          flex-direction: row;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+
+        .menu-tab {
+          width: auto;
+          white-space: nowrap;
+        }
+
+        .menu-content {
+          padding: 16px;
+        }
+      }
+
+      .section {
         margin: 0 0 14px;
+        padding: 14px 16px;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
       }
 
-      /* Узкое окно — один столбец: разделы идут подряд, разделитель не нужен. */
-      @media (max-width: 700px) {
-        .sections {
-          display: block;
-        }
-
-        .sections-column + .sections-column {
-          padding-left: 0;
-          border-left: none;
-        }
+      h3 {
+        margin: 0 0 12px 0;
+        color: #333;
+        font-size: 15px;
+        font-weight: 600;
       }
 
       .toggle-container {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 8px;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .toggle-container:last-child {
+        margin-bottom: 0;
       }
 
       .toggle-label {
         flex: 1;
-        margin-right: 10px;
         line-height: 1.4;
       }
 
-      .section {
-        margin: 15px 0;
-        padding: 10px;
-        background-color: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      }
-
-      h3 {
-        margin: 0 0 10px 0;
-        color: #333;
-        font-size: 17px;
-      }
-
-      /* --- АККОРДЕОН ---
-         Раздел сворачивается целиком: заголовок работает кнопкой, а всё, что
-         под ним, popup.js заворачивает в .section-body. Разделов девять, и
-         открытыми они не помещаются ни в окно попапа, ни в панель на странице. */
-      .section_collapsible {
-        padding: 0;
-      }
-
-      .section_collapsible > h3 {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        margin: 0;
-        padding: 12px;
-        cursor: pointer;
-        user-select: none;
-        border-radius: 8px;
-      }
-
-      .section_collapsible > h3:hover {
-        background-color: #f1f3f4;
-      }
-
-      .section_collapsible > h3:focus-visible {
-        outline: 2px solid #2196f3;
-        outline-offset: -2px;
-      }
-
-      /* Стрелка: вниз у свёрнутого, вверх у раскрытого. */
-      .section_collapsible > h3::after {
-        content: '';
-        flex: 0 0 auto;
-        width: 8px;
-        height: 8px;
-        margin-right: 4px;
-        border-right: 2px solid #9aa0a6;
-        border-bottom: 2px solid #9aa0a6;
-        transform: rotate(45deg) translate(-2px, -2px);
-        transition: transform 0.2s;
-      }
-
-      .section_open > h3::after {
-        transform: rotate(-135deg) translate(-2px, -2px);
-      }
-
-      .section-body {
-        display: none;
-        padding: 0 12px 12px;
-      }
-
-      .section_open > .section-body {
+      /* Пояснение под названием тумблера. */
+      .toggle-hint {
         display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #80868b;
       }
 
       .switch {
         position: relative;
         display: inline-block;
-        width: 50px;
+        width: 44px;
         height: 24px;
         flex-shrink: 0;
       }
@@ -165,19 +241,19 @@
         right: 0;
         bottom: 0;
         background-color: #ccc;
-        transition: 0.4s;
+        transition: 0.3s;
         border-radius: 24px;
       }
 
       .slider:before {
         position: absolute;
         content: '';
-        height: 16px;
-        width: 16px;
-        left: 4px;
-        bottom: 4px;
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
         background-color: white;
-        transition: 0.4s;
+        transition: 0.3s;
         border-radius: 50%;
       }
 
@@ -189,25 +265,18 @@
         background-color: #e0e0e0;
       }
       input:checked + .slider:before {
-        transform: translateX(26px);
+        transform: translateX(20px);
       }
 
       .notice {
-        padding: 10px;
-        margin-top: 15px;
+        margin-top: 10px;
+        padding: 8px 10px;
         text-align: center;
-        background-color: #e9e9eb;
-        border-radius: 6px;
-        font-size: 13px;
-        color: #333;
-        transition:
-          background-color 0.3s,
-          color 0.3s;
-      }
-
-      body.dark-theme .notice {
-        background-color: #4a4a4f;
-        color: #e0e0e0;
+        background-color: #fff4d6;
+        border-radius: 8px;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #5c4400;
       }
 
       .disabled-label {
@@ -235,7 +304,7 @@
       }
 
       .course-list {
-        max-height: 150px;
+        max-height: 180px;
         overflow-y: auto;
         padding: 6px 8px;
         background-color: #f8f8f8;
@@ -260,14 +329,12 @@
 
       .course-hint {
         font-size: 13px;
-        line-height: 1.4;
-        color: #777;
+        line-height: 1.45;
+        color: #6b7075;
         margin: 0 0 10px 0;
         padding: 0;
       }
 
-      /* Подпись + контрол: до этого у обоих классов не было ни одного
-         правила, поэтому элементы в разделе слипались. */
       .setting-container {
         margin-bottom: 12px;
       }
@@ -282,7 +349,22 @@
       /* Группа настроек, раскрывающаяся под тумблером. */
       .setting-group {
         margin: 0 0 14px 0;
-        padding-left: 2px;
+        padding: 12px 0 0 12px;
+        border-left: 2px solid #e3f0fd;
+      }
+
+      /* Два выпадающих списка рядом — место в широком меню есть. */
+      .setting-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0 12px;
+      }
+
+      /* Кнопки действий в ряд, на узкой панели — друг под другом. */
+      .button-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 8px;
       }
 
       /* Предпросмотр логотипа: клетчатый фон, чтобы видеть прозрачность. */
@@ -344,6 +426,10 @@
         background-color: #f9e0e0;
       }
 
+      .button-row > .btn-reset {
+        margin-top: 0;
+      }
+
       /* Отбиваем блок действий от настроек над ним. */
       .section-actions {
         margin-top: 14px;
@@ -360,7 +446,7 @@
         width: 100%;
         padding: 8px 12px;
         font-family: 'Inter', sans-serif;
-        font-size: 15px;
+        font-size: 14px;
         color: #333;
         background-color: #f8f8f8;
         border: 1px solid #ddd;
@@ -372,6 +458,12 @@
         background-repeat: no-repeat;
         background-position: right 12px center;
         padding-right: 32px;
+      }
+
+      /* Выпадающий список в строке тумблера — не на всю ширину. */
+      .toggle-container > .dropdown-container {
+        width: 200px;
+        flex-shrink: 0;
       }
 
       .action-button {
@@ -400,7 +492,7 @@
         width: 100%;
         padding: 8px 12px;
         font-family: 'Inter', sans-serif;
-        font-size: 15px;
+        font-size: 14px;
         color: #333;
         background-color: #f8f8f8;
         border: 1px solid #ddd;
@@ -419,443 +511,604 @@
   </head>
 
   <body>
-    <div class="section">
-      <h3>Выбор темы</h3>
-      <div class="toggle-container">
-        <span class="toggle-label">Темная:</span>
-        <label class="switch">
-          <input type="checkbox" id="theme-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="toggle-container">
-        <span class="toggle-label">OLED:</span>
-        <label class="switch">
-          <input type="checkbox" id="oled-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="toggle-container">
-        <span class="toggle-label">Темная тема для PDF:</span>
-        <label class="switch">
-          <input type="checkbox" id="dark-pdf-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="toggle-container">
-        <span class="toggle-label">Своя тема (палитра):</span>
-        <label class="switch">
-          <input type="checkbox" id="custom-theme-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div id="custom-theme-container" class="setting-group" style="display: none">
-        <p class="course-hint">
-          Своя палитра поверх светлой или тёмной темы: цвета фона, текста, кнопок и статусов плюс
-          произвольный CSS. Правится в редакторе — там же пипетка, которая показывает, какая
-          переменная красит выбранный элемент.
-        </p>
-        <p class="course-hint" id="custom-theme-status"></p>
-        <button id="open-theme-editor-btn" class="action-button">Открыть редактор темы</button>
+    <div class="menu">
+      <nav class="menu-nav" aria-label="Разделы настроек">
+        <div class="menu-brand">
+          <div class="menu-brand__name">CU LMS Enhancer</div>
+          <div class="menu-brand__version" id="menu-version"></div>
+        </div>
+        <!-- Кнопки вкладок строит popup.js по .tab-panel ниже. -->
+        <div class="menu-tabs" role="tablist" aria-orientation="vertical"></div>
+        <div id="reload-notice" class="notice" style="display: none">
+          Изменения применятся после закрытия меню
+        </div>
+      </nav>
 
-        <div class="setting-container" style="margin-top: 10px">
-          <span class="setting-label">Название темы:</span>
-          <div class="dropdown-container">
-            <input type="text" id="theme-name-input" class="text-input" placeholder="Моя тема" />
+      <main class="menu-content">
+        <!-- ТЕМА -->
+        <section class="tab-panel" data-tab="theme" data-title="Тема">
+          <h2 class="tab-title">Тема</h2>
+          <p class="tab-lead">Цвета LMS: тёмная тема, OLED и своя палитра.</p>
+
+          <div class="section">
+            <h3>Тёмная тема</h3>
+            <div class="toggle-container">
+              <span class="toggle-label">Тёмная тема</span>
+              <label class="switch">
+                <input type="checkbox" id="theme-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >OLED <span class="toggle-hint">Чисто чёрный фон вместо тёмно-серого</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="oled-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Тёмные PDF
+                <span class="toggle-hint"
+                  >PDF-вложения открываются перекрашенными в тёмную палитру</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="dark-pdf-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
-        </div>
-        <button id="theme-export-btn" class="action-button">Сохранить тему в файл</button>
-        <button id="theme-import-btn" class="action-button" style="margin-top: 8px">
-          Загрузить тему из файла
-        </button>
-        <input type="file" id="theme-import-file" accept="application/json,.json" hidden />
-        <p class="status-text" id="theme-file-status"></p>
 
-        <button id="reset-theme-btn" class="btn-reset">Сбросить свою тему</button>
-      </div>
-    </div>
+          <div class="section">
+            <h3>Своя палитра</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Своя тема
+                <span class="toggle-hint">Свои цвета поверх светлой или тёмной темы</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="custom-theme-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div id="custom-theme-container" class="setting-group" style="display: none">
+              <p class="course-hint">
+                Цвета фона, текста, кнопок и статусов плюс произвольный CSS. Правится в редакторе —
+                там же пипетка, которая показывает, какая переменная красит выбранный элемент.
+              </p>
+              <p class="course-hint" id="custom-theme-status"></p>
+              <button id="open-theme-editor-btn" class="action-button">
+                Открыть редактор темы
+              </button>
 
-    <div class="section">
-      <h3>Полезные скрипты</h3>
-      <div class="toggle-container">
-        <span class="toggle-label">Авто переименование ДЗ:</span>
-        <label class="switch">
-          <input type="checkbox" id="auto-rename-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <!-- Контейнер для выбора шаблона, скрыт по умолчанию -->
-      <div class="setting-container" id="auto-rename-format-container" style="display: none">
-        <span class="setting-label">Формат имени:</span>
-        <div class="dropdown-container">
-          <select class="dropdown-select" id="rename-template-select">
-            <option value="dz_fi">ДЗ_Фамилия_Имя</option>
-            <option value="dz_if">ДЗ_Имя_Фамилия</option>
-            <option value="hw_fi">HW_Фамилия_Имя</option>
-            <option value="hw_if">HW_Имя_Фамилия</option>
-          </select>
-        </div>
-      </div>
-      <div class="toggle-container">
-        <span class="toggle-label">Интеграция с AKHCheck:</span>
-        <label class="switch">
-          <input type="checkbox" id="akh-integration-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="setting-container" id="akh-course-filter-container" style="display: none">
-        <span class="setting-label">Курсы для AKHCheck:</span>
-        <div class="course-list" id="akh-course-list"></div>
-      </div>
-      <div class="toggle-container">
-        <span class="toggle-label">Интеграция с Яндекс.Контестом:</span>
-        <label class="switch">
-          <input type="checkbox" id="contest-integration-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="integration-status" id="contest-auth-status" style="display: none"></div>
-      <div class="setting-container" id="contest-course-filter-container" style="display: none">
-        <span class="setting-label">Курсы для Яндекс.Контеста:</span>
-        <div class="course-list" id="contest-course-list"></div>
-      </div>
-      <div class="toggle-container">
-        <span class="toggle-label">Статус заданий в обзоре курса:</span>
-        <label class="switch">
-          <input type="checkbox" id="course-overview-task-status-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <!-- === ИЗМЕНЕННЫЙ БЛОК НАЧАЛО === -->
-      <!-- <div class="toggle-container">
-        <span class="toggle-label">Стандартизированная ведомость:</span>
-        <label class="switch">
-          <input type="checkbox" id="advanced-statements-toggle" checked />
-          <span class="slider"></span>
-        </label>
-      </div> -->
-      <!-- Просто используем тот же класс, что и у остальных -->
-      <!-- <div class="toggle-container">
-        <span class="toggle-label" id="end-of-course-calc-label">Расчёт на конец курса:</span>
-        <label class="switch">
-          <input type="checkbox" id="end-of-course-calc-toggle" checked />
-          <span class="slider"></span>
-        </label>
-      </div> -->
-      <!-- === ИЗМЕНЕННЫЙ БЛОК КОНЕЦ === -->
-    </div>
+              <div class="setting-container" style="margin-top: 14px">
+                <span class="setting-label">Название темы:</span>
+                <div class="dropdown-container">
+                  <input
+                    type="text"
+                    id="theme-name-input"
+                    class="text-input"
+                    placeholder="Моя тема"
+                  />
+                </div>
+              </div>
+              <div class="button-row">
+                <button id="theme-export-btn" class="action-button">Сохранить тему в файл</button>
+                <button id="theme-import-btn" class="action-button">Загрузить тему из файла</button>
+              </div>
+              <input type="file" id="theme-import-file" accept="application/json,.json" hidden />
+              <p class="status-text" id="theme-file-status"></p>
 
-    <div class="section">
-      <h3>Экспорт оценок</h3>
-      <button id="grades-export-btn" class="action-button">Скачать Excel с оценками</button>
-      <button id="grades-export-archived-btn" class="action-button" style="margin-top: 8px">
-        Скачать Excel по архивным курсам
-      </button>
-      <div id="grades-export-status" class="status-text">
-        Открой LMS (my.centraluniversity.ru или my.cu.ru) и нажми кнопку
-      </div>
-    </div>
-    <div class="section">
-      <h3>Социальное</h3>
-      <div class="toggle-container">
-        <span class="toggle-label">Система "Друзья" (Таб и Виджет):</span>
-        <label class="switch">
-          <input type="checkbox" id="friends-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-    </div>
-
-    <div class="section">
-      <h3>Визуальные улучшения</h3>
-      <div class="toggle-container">
-        <span class="toggle-label">Замена кружков на сердечки:</span>
-        <label class="switch">
-          <input type="checkbox" id="emoji-hearts-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="toggle-container">
-        <span class="toggle-label">Свой логотип ЦУ:</span>
-        <label class="switch">
-          <input type="checkbox" id="custom-logo-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div id="custom-logo-container" class="setting-group" style="display: none">
-        <p class="course-hint">
-          Заменяет логотип в левом верхнем углу на всех страницах LMS. Место под него — 180×32, то
-          есть широкая полоска: картинка обычных пропорций целиком (Contain) займёт только её левый
-          край, а Cover растянет на всю ширину и обрежет верх и низ. Масштаб больше 100 % выходит за
-          отведённое место — логотип может наехать на меню.
-        </p>
-        <p class="course-hint">
-          Если включены свои картинки курсов, свои названия курсов или картинка на фоне, вместо
-          логотипа ЦУ показывается надпись «НЕ ЯВЛЯЕТСЯ ОФИЦИАЛЬНОЙ LMS». Убрать её можно только
-          своей картинкой здесь.
-        </p>
-        <div class="logo-preview" id="custom-logo-preview"></div>
-        <p class="course-hint" id="custom-logo-status"></p>
-
-        <div class="setting-container">
-          <span class="setting-label">Как вставить:</span>
-          <div class="dropdown-container">
-            <select class="dropdown-select" id="logo-fit-select">
-              <option value="contain" selected>Целиком (Contain)</option>
-              <option value="cover">Заполнить и обрезать (Cover)</option>
-              <option value="fill">Растянуть (Fill)</option>
-              <option value="none">Как есть (без подгонки)</option>
-            </select>
+              <button id="reset-theme-btn" class="btn-reset">Сбросить свою тему</button>
+            </div>
           </div>
-        </div>
-        <div class="setting-container">
-          <span class="setting-label">Масштаб:</span>
-          <div class="dropdown-container">
-            <select class="dropdown-select" id="logo-scale-select">
-              <option value="50">50%</option>
-              <option value="75">75%</option>
-              <option value="100" selected>100%</option>
-              <option value="125">125%</option>
-              <option value="150">150%</option>
-              <option value="200">200%</option>
-              <option value="300">300%</option>
-            </select>
+        </section>
+
+        <!-- ОФОРМЛЕНИЕ -->
+        <section class="tab-panel" data-tab="look" data-title="Оформление" hidden>
+          <h2 class="tab-title">Оформление</h2>
+          <p class="tab-lead">Логотип, картинка на фоне и украшения.</p>
+
+          <div class="section">
+            <h3>Логотип</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Свой логотип ЦУ
+                <span class="toggle-hint">Вместо логотипа в левом верхнем углу</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="custom-logo-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div id="custom-logo-container" class="setting-group" style="display: none">
+              <p class="course-hint">
+                Место под логотип — 180×32, то есть широкая полоска: картинка обычных пропорций
+                целиком (Contain) займёт только её левый край, а Cover растянет на всю ширину и
+                обрежет верх и низ. Масштаб больше 100 % выходит за отведённое место — логотип может
+                наехать на меню.
+              </p>
+              <p class="course-hint">
+                Если включены свои картинки курсов, свои названия курсов или картинка на фоне,
+                вместо логотипа ЦУ показывается надпись «НЕ ЯВЛЯЕТСЯ ОФИЦИАЛЬНОЙ LMS». Убрать её
+                можно только своей картинкой здесь.
+              </p>
+              <div class="logo-preview" id="custom-logo-preview"></div>
+              <p class="course-hint" id="custom-logo-status"></p>
+
+              <div class="setting-row">
+                <div class="setting-container">
+                  <span class="setting-label">Как вставить:</span>
+                  <div class="dropdown-container">
+                    <select class="dropdown-select" id="logo-fit-select">
+                      <option value="contain" selected>Целиком (Contain)</option>
+                      <option value="cover">Заполнить и обрезать (Cover)</option>
+                      <option value="fill">Растянуть (Fill)</option>
+                      <option value="none">Как есть (без подгонки)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="setting-container">
+                  <span class="setting-label">Масштаб:</span>
+                  <div class="dropdown-container">
+                    <select class="dropdown-select" id="logo-scale-select">
+                      <option value="50">50%</option>
+                      <option value="75">75%</option>
+                      <option value="100" selected>100%</option>
+                      <option value="125">125%</option>
+                      <option value="150">150%</option>
+                      <option value="200">200%</option>
+                      <option value="300">300%</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="button-row">
+                <button id="pick-logo-btn" class="action-button">Выбрать картинку</button>
+                <button id="reset-logo-btn" class="btn-reset">Вернуть родной логотип</button>
+              </div>
+              <input type="file" id="custom-logo-file" accept="image/*" hidden />
+            </div>
           </div>
-        </div>
-        <button id="pick-logo-btn" class="action-button">Выбрать картинку</button>
-        <button id="reset-logo-btn" class="btn-reset">Вернуть родной логотип</button>
-        <input type="file" id="custom-logo-file" accept="image/*" hidden />
-      </div>
 
-      <div class="toggle-container">
-        <span class="toggle-label">Своя картинка на фоне:</span>
-        <label class="switch">
-          <input type="checkbox" id="custom-background-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div id="custom-background-container" class="setting-group" style="display: none">
-        <p class="course-hint">
-          Заменяет заливку под островками интерфейса на страницах LMS. Шапка, левое меню и карточки
-          остаются непрозрачными. Подложка — полупрозрачная заливка цветом темы поверх картинки: без
-          неё текст, который лежит прямо на фоне (например, таблица заданий), не читается. Меньше
-          подложки — ярче картинка.
-        </p>
-        <div class="logo-preview" id="custom-background-preview"></div>
-        <p class="course-hint" id="custom-background-status"></p>
+          <div class="section">
+            <h3>Фон</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Своя картинка на фоне
+                <span class="toggle-hint">Под островками интерфейса на всех страницах</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="custom-background-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div id="custom-background-container" class="setting-group" style="display: none">
+              <p class="course-hint">
+                Шапка, левое меню и карточки остаются непрозрачными. Подложка — полупрозрачная
+                заливка цветом темы поверх картинки: без неё текст, который лежит прямо на фоне
+                (например, таблица заданий), не читается. Меньше подложки — ярче картинка.
+              </p>
+              <div class="logo-preview" id="custom-background-preview"></div>
+              <p class="course-hint" id="custom-background-status"></p>
 
-        <div class="setting-container">
-          <span class="setting-label">Как вставить:</span>
-          <div class="dropdown-container">
-            <select class="dropdown-select" id="background-fit-select">
-              <option value="cover" selected>Заполнить экран (Cover)</option>
-              <option value="contain">Целиком (Contain)</option>
-              <option value="fill">Растянуть (Fill)</option>
-              <option value="tile">Плиткой</option>
-              <option value="none">Как есть, по центру</option>
-            </select>
+              <div class="setting-row">
+                <div class="setting-container">
+                  <span class="setting-label">Как вставить:</span>
+                  <div class="dropdown-container">
+                    <select class="dropdown-select" id="background-fit-select">
+                      <option value="cover" selected>Заполнить экран (Cover)</option>
+                      <option value="contain">Целиком (Contain)</option>
+                      <option value="fill">Растянуть (Fill)</option>
+                      <option value="tile">Плиткой</option>
+                      <option value="none">Как есть, по центру</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="setting-container">
+                  <span class="setting-label">Плотность подложки:</span>
+                  <div class="dropdown-container">
+                    <select class="dropdown-select" id="background-veil-select">
+                      <option value="0">Нет</option>
+                      <option value="20">20%</option>
+                      <option value="40">40%</option>
+                      <option value="60" selected>60%</option>
+                      <option value="75">75%</option>
+                      <option value="90">90%</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="button-row">
+                <button id="pick-background-btn" class="action-button">Выбрать картинку</button>
+                <button id="reset-background-btn" class="btn-reset">Вернуть обычный фон</button>
+              </div>
+              <input type="file" id="custom-background-file" accept="image/*" hidden />
+
+              <div class="bg-editor">
+                <span class="setting-label">Разный фон на разных страницах:</span>
+                <p class="course-hint">
+                  Откроет панель прямо на странице LMS. Переходите куда нужно — хоть на отдельный
+                  курс — и ставьте картинку для этой страницы, всего курса или раздела. Картинка
+                  выше — общая: она видна там, где своей нет.
+                </p>
+                <button id="open-background-editor-btn" class="action-button">Редактор фона</button>
+                <p class="course-hint" id="background-editor-status"></p>
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="setting-container">
-          <span class="setting-label">Плотность подложки:</span>
-          <div class="dropdown-container">
-            <select class="dropdown-select" id="background-veil-select">
-              <option value="0">Нет</option>
-              <option value="20">20%</option>
-              <option value="40">40%</option>
-              <option value="60" selected>60%</option>
-              <option value="75">75%</option>
-              <option value="90">90%</option>
-            </select>
+
+          <div class="section">
+            <h3>Украшения</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Сердечки вместо кружков
+                <span class="toggle-hint">🔵🔴⚫ в названиях задач становятся 💙❤️🖤</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="emoji-hearts-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label">Эффект снега</span>
+              <label class="switch">
+                <input type="checkbox" id="snow-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <button id="pick-background-btn" class="action-button">Выбрать картинку</button>
-        <button id="reset-background-btn" class="btn-reset">Вернуть обычный фон</button>
-        <input type="file" id="custom-background-file" accept="image/*" hidden />
+        <!-- КУРСЫ -->
+        <section class="tab-panel" data-tab="courses" data-title="Курсы" hidden>
+          <h2 class="tab-title">Курсы</h2>
+          <p class="tab-lead">Список «Мои курсы» и страница отдельного курса.</p>
 
-        <div class="bg-editor">
-          <span class="setting-label">Разный фон на разных страницах:</span>
-          <p class="course-hint">
-            Откроет панель прямо на странице LMS. Переходите куда нужно — хоть на отдельный курс — и
-            ставьте картинку для этой страницы, всего курса или раздела. Картинка выше — общая: она
-            видна там, где своей нет.
-          </p>
-          <button id="open-background-editor-btn" class="action-button">Редактор фона</button>
-          <p class="course-hint" id="background-editor-status"></p>
-        </div>
-      </div>
+          <div class="section">
+            <h3>Карточки на «Мои курсы»</h3>
 
-      <div class="toggle-container">
-        <span class="toggle-label">Эффект снега:</span>
-        <label class="switch">
-          <input type="checkbox" id="snow-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Старый дизайн карточек
+                <span class="toggle-hint">Обложки с подписью снизу</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="old-courses-design-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div id="old-courses-design-container" class="setting-group" style="display: none">
+              <div class="setting-row">
+                <div class="setting-container">
+                  <span class="setting-label">Заполнение картинки:</span>
+                  <div class="dropdown-container">
+                    <select class="dropdown-select" id="sticker-fit-select">
+                      <option value="cover" selected>Обрезать (Cover)</option>
+                      <option value="contain">Вместить (Contain)</option>
+                      <option value="fill">Растянуть (Fill)</option>
+                      <option value="scale-down">Не увеличивать (Scale-down)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="setting-container">
+                  <span class="setting-label">Масштаб картинки:</span>
+                  <div class="dropdown-container">
+                    <select class="dropdown-select" id="sticker-scale-select">
+                      <option value="50">50%</option>
+                      <option value="75">75%</option>
+                      <option value="100" selected>100%</option>
+                      <option value="125">125%</option>
+                      <option value="150">150%</option>
+                      <option value="200">200%</option>
+                      <option value="300">300%</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-      <div class="toggle-container">
-        <span class="toggle-label">Видеть предстоящие контрольные:</span>
-        <label class="switch">
-          <input type="checkbox" id="future-exams-view-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="toggle-container" id="future-exams-display-container" style="display: none">
-        <span class="toggle-label">Формат отображения:</span>
-        <div class="dropdown-container">
-          <select class="dropdown-select" id="future-exams-display-format">
-            <option value="date">Разброс дат</option>
-            <option value="week">Неделя</option>
-          </select>
-        </div>
-      </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Свои названия курсов
+                <span class="toggle-hint"
+                  >Список курсов, задания, крошки, заголовок курса</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="custom-course-names-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div id="custom-course-names-container" class="setting-group" style="display: none">
+              <p class="course-hint">
+                Расширение и сам сайт продолжают работать с настоящими названиями.
+              </p>
+            </div>
 
-      <div class="toggle-container">
-        <span class="toggle-label">«Мои курсы»: ближайшие контрольные:</span>
-        <label class="switch">
-          <input type="checkbox" id="future-exams-dashboard-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="toggle-container">
-        <span class="toggle-label">«Мои курсы»: дедлайны на две недели:</span>
-        <label class="switch">
-          <input type="checkbox" id="future-exams-dashboard-deadlines-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <p class="course-hint">
-        Полоской под списком курсов. Контрольные — текущая неделя семестра и две следующие по
-        каждому вашему курсу. Дедлайны — 14 дней с сегодняшнего: у каждого «сдано/всего» и цвет по
-        числу дедлайнов (1–2, 3–5, 6–9, 10+), при наведении — сами задания. Тесты на паре,
-        перезачёты и дорешивания не считаются. Можно включить обе части или любую одну.
-      </p>
-    </div>
+            <div class="section-actions">
+              <p class="course-hint">
+                Картинки, названия и архив меняются в редакторе — вне его карточка просто открывает
+                курс. Архив действует и без старого дизайна.
+              </p>
+              <button id="open-card-editor-btn" class="action-button">
+                Открыть редактор курсов
+              </button>
 
-    <div class="section">
-      <h3>Карточки курсов</h3>
-
-      <div class="toggle-container">
-        <span class="toggle-label">Старый дизайн карточек:</span>
-        <label class="switch">
-          <input type="checkbox" id="old-courses-design-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div id="old-courses-design-container" class="setting-group" style="display: none">
-        <p class="course-hint">Карточки становятся обложками с подписью снизу.</p>
-        <div class="setting-container">
-          <span class="setting-label">Заполнение картинки:</span>
-          <div class="dropdown-container">
-            <select class="dropdown-select" id="sticker-fit-select">
-              <option value="cover" selected>Обрезать (Cover)</option>
-              <option value="contain">Вместить (Contain)</option>
-              <option value="fill">Растянуть (Fill)</option>
-              <option value="scale-down">Не увеличивать (Scale-down)</option>
-            </select>
+              <button id="reset-course-names-btn" class="btn-reset">Сбросить свои названия</button>
+              <button id="reset-course-icons-btn" class="btn-reset">
+                Сбросить все иконки курсов
+              </button>
+              <button id="reset-archived-courses-btn" class="btn-reset">
+                Вернуть все курсы из архива
+              </button>
+            </div>
           </div>
-        </div>
-        <div class="setting-container">
-          <span class="setting-label">Масштаб картинки:</span>
-          <div class="dropdown-container">
-            <select class="dropdown-select" id="sticker-scale-select">
-              <option value="50">50%</option>
-              <option value="75">75%</option>
-              <option value="100" selected>100%</option>
-              <option value="125">125%</option>
-              <option value="150">150%</option>
-              <option value="200">200%</option>
-              <option value="300">300%</option>
-            </select>
+
+          <div class="section">
+            <h3>Страница курса</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Статус заданий в обзоре курса
+                <span class="toggle-hint"
+                  >Сдано, просрочено, скип, доработка — рядом с каждой темой</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="course-overview-task-status-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Автоскролл к текущей неделе
+                <span class="toggle-hint">Обзор курса сразу раскрыт на последней теме</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="course-overview-autoscroll-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div class="toggle-container">
-        <span class="toggle-label">Свои названия курсов:</span>
-        <label class="switch">
-          <input type="checkbox" id="custom-course-names-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div id="custom-course-names-container" class="setting-group" style="display: none">
-        <p class="course-hint">
-          Свои названия подставляются везде: список курсов, задания, крошки, заголовок курса.
-          Расширение и сам сайт продолжают работать с настоящими названиями.
-        </p>
-      </div>
+        <!-- СРОКИ -->
+        <section class="tab-panel" data-tab="deadlines" data-title="Сроки" hidden>
+          <h2 class="tab-title">Сроки</h2>
+          <p class="tab-lead">Предстоящие контрольные и дедлайны на ближайшие недели.</p>
 
-      <div class="section-actions">
-        <p class="course-hint">
-          Картинки, названия и архив меняются в редакторе — вне его карточка просто открывает курс.
-          Архив действует и без старого дизайна.
-        </p>
-        <button id="open-card-editor-btn" class="action-button">Открыть редактор курсов</button>
+          <div class="section">
+            <h3>Контрольные в курсе</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Видеть предстоящие контрольные
+                <span class="toggle-hint"
+                  >Даты в аккордеоне курса и столбец в сводной таблице ведомостей</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="future-exams-view-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container" id="future-exams-display-container" style="display: none">
+              <span class="toggle-label">Формат отображения</span>
+              <div class="dropdown-container">
+                <select class="dropdown-select" id="future-exams-display-format">
+                  <option value="date">Разброс дат</option>
+                  <option value="week">Неделя</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-        <button id="reset-course-names-btn" class="btn-reset">Сбросить свои названия</button>
-        <button id="reset-course-icons-btn" class="btn-reset">Сбросить все иконки курсов</button>
-        <button id="reset-archived-courses-btn" class="btn-reset">
-          Вернуть все курсы из архива
-        </button>
-      </div>
-    </div>
+          <div class="section">
+            <h3>Полоска на «Мои курсы»</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Ближайшие контрольные
+                <span class="toggle-hint">Текущая неделя семестра и две следующие</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="future-exams-dashboard-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Дедлайны на две недели
+                <span class="toggle-hint"
+                  >14 дней с сегодняшнего, у каждого «сдано/всего»</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="future-exams-dashboard-deadlines-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <p class="course-hint" style="margin: 12px 0 0">
+              Полоской под списком курсов. Цвет дня — по числу дедлайнов (1–2, 3–5, 6–9, 10+), при
+              наведении — сами задания. Тесты на паре, перезачёты и дорешивания не считаются. Можно
+              включить обе части или любую одну.
+            </p>
+          </div>
+        </section>
 
-    <div class="section">
-      <h3>Разные мелочи</h3>
+        <!-- ЗАДАНИЯ -->
+        <section class="tab-panel" data-tab="tasks" data-title="Задания" hidden>
+          <h2 class="tab-title">Задания</h2>
+          <p class="tab-lead">Сдача домашек и статусы из внешних систем проверки.</p>
 
-      <div class="toggle-container">
-        <span class="toggle-label">Убрать "Бонус за друга":</span>
-        <label class="switch">
-          <input type="checkbox" id="hide-bonus-button-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
+          <div class="section">
+            <h3>Сдача ДЗ</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Автопереименование файла
+                <span class="toggle-hint"
+                  >Загружаемый файл переименовывается по шаблону перед отправкой</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="auto-rename-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-container" id="auto-rename-format-container" style="display: none">
+              <span class="setting-label">Формат имени:</span>
+              <div class="dropdown-container">
+                <select class="dropdown-select" id="rename-template-select">
+                  <option value="dz_fi">ДЗ_Фамилия_Имя</option>
+                  <option value="dz_if">ДЗ_Имя_Фамилия</option>
+                  <option value="hw_fi">HW_Фамилия_Имя</option>
+                  <option value="hw_if">HW_Имя_Фамилия</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-      <div class="toggle-container">
-        <span class="toggle-label">Автоскролл до последней недели в обзоре курса:</span>
-        <label class="switch">
-          <input type="checkbox" id="course-overview-autoscroll-toggle" />
-          <span class="slider"></span>
-        </label>
-      </div>
-    </div>
+          <div class="section">
+            <h3>Интеграции</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >AKHCheck
+                <span class="toggle-hint">Бейдж статуса AKHCheck в списке задач</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="akh-integration-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-container" id="akh-course-filter-container" style="display: none">
+              <span class="setting-label">Курсы для AKHCheck:</span>
+              <div class="course-list" id="akh-course-list"></div>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Яндекс.Контест
+                <span class="toggle-hint"
+                  >Бейдж «решено/всего» у задач со ссылкой на контест</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="contest-integration-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="integration-status" id="contest-auth-status" style="display: none"></div>
+            <div
+              class="setting-container"
+              id="contest-course-filter-container"
+              style="display: none"
+            >
+              <span class="setting-label">Курсы для Яндекс.Контеста:</span>
+              <div class="course-list" id="contest-course-list"></div>
+            </div>
+          </div>
+        </section>
 
-    <div id="reload-notice" class="notice" style="display: none">
-      Изменения применятся после закрытия меню
-    </div>
+        <!-- ОЦЕНКИ -->
+        <section class="tab-panel" data-tab="grades" data-title="Оценки" hidden>
+          <h2 class="tab-title">Оценки</h2>
+          <p class="tab-lead">Ведомости и выгрузка оценок.</p>
 
-    <div class="section">
-      <h3>Настройки файлом</h3>
+          <div class="section">
+            <h3>Сводная таблица</h3>
+            <p class="course-hint" style="margin: 0">
+              Все курсы и все оценки на одной странице — вкладка «Сводная таблица» в ведомостях
+              успеваемости, актуальных и архивных. Включена всегда.
+            </p>
+          </div>
 
-      <p class="course-hint">
-        Выгружает настройки в .json и загружает обратно. Токены интеграций, кеши и служебные ключи в
-        файл не попадают. Тема входит в любой из наборов; отдельно ею делятся кнопками в разделе
-        «Выбор темы».
-      </p>
+          <div class="section">
+            <h3>Экспорт в Excel</h3>
+            <div class="button-row">
+              <button id="grades-export-btn" class="action-button">Скачать Excel с оценками</button>
+              <button id="grades-export-archived-btn" class="action-button">
+                Скачать Excel по архивным курсам
+              </button>
+            </div>
+            <div id="grades-export-status" class="status-text">
+              Открой LMS (my.centraluniversity.ru или my.cu.ru) и нажми кнопку
+            </div>
+          </div>
+        </section>
 
-      <div class="setting-container">
-        <span class="setting-label">Что выгрузить:</span>
-        <div class="dropdown-container">
-          <select class="dropdown-select" id="profile-kind-select">
-            <option value="settings" selected>Настройки (без картинок)</option>
-            <option value="visual">Визуальный пак (оформление и картинки)</option>
-            <option value="full">Всё, включая названия курсов и архив</option>
-          </select>
-        </div>
-      </div>
+        <!-- ДРУЗЬЯ -->
+        <section class="tab-panel" data-tab="friends" data-title="Друзья" hidden>
+          <h2 class="tab-title">Друзья</h2>
+          <p class="tab-lead">Одногруппники и общие с ними курсы.</p>
 
-      <button id="profile-export-btn" class="action-button">Сохранить в файл</button>
-      <button id="profile-import-btn" class="action-button" style="margin-top: 8px">
-        Загрузить из файла
-      </button>
-      <input type="file" id="profile-import-file" accept="application/json,.json" hidden />
-      <p class="status-text" id="profile-status"></p>
-    </div>
+          <div class="section">
+            <h3>Система «Друзья»</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Вкладка и виджет «Друзья»
+                <span class="toggle-hint"
+                  >Вкладка со списком одногруппников и виджет на странице курса</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="friends-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Убрать «Бонус за друга»
+                <span class="toggle-hint">Кнопка реферальной программы в шапке</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="hide-bonus-button-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </section>
 
-    <div class="section">
-      <h3>Не работает?</h3>
-      <button id="reset-all-settings-btn" class="btn-reset">Сбросить все настройки</button>
+        <!-- НАСТРОЙКИ -->
+        <section class="tab-panel" data-tab="settings" data-title="Настройки" hidden>
+          <h2 class="tab-title">Настройки</h2>
+          <p class="tab-lead">Перенос настроек между браузерами и сброс.</p>
+
+          <div class="section">
+            <h3>Настройки файлом</h3>
+
+            <p class="course-hint">
+              Выгружает настройки в .json и загружает обратно. Токены интеграций, кеши и служебные
+              ключи в файл не попадают. Тема входит в любой из наборов; отдельно ею делятся кнопками
+              на вкладке «Тема».
+            </p>
+
+            <div class="setting-container">
+              <span class="setting-label">Что выгрузить:</span>
+              <div class="dropdown-container">
+                <select class="dropdown-select" id="profile-kind-select">
+                  <option value="settings" selected>Настройки (без картинок)</option>
+                  <option value="visual">Визуальный пак (оформление и картинки)</option>
+                  <option value="full">Всё, включая названия курсов и архив</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="button-row">
+              <button id="profile-export-btn" class="action-button">Сохранить в файл</button>
+              <button id="profile-import-btn" class="action-button">Загрузить из файла</button>
+            </div>
+            <input type="file" id="profile-import-file" accept="application/json,.json" hidden />
+            <p class="status-text" id="profile-status"></p>
+          </div>
+
+          <div class="section">
+            <h3>Не работает?</h3>
+            <p class="course-hint">Вернёт все настройки расширения к значениям по умолчанию.</p>
+            <button id="reset-all-settings-btn" class="btn-reset">Сбросить все настройки</button>
+          </div>
+        </section>
+      </main>
     </div>
 
     <script src="../plugins/course-view/gif_reencode.js"></script>

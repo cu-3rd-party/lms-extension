@@ -51,9 +51,11 @@ bun install
 src/
 ├── background.ts          # Service worker: роутер навигации, авто-инжекция плагинов
 ├── grades-export.ts       # Сбор оценок для Excel: выполняется во вкладке LMS, без замыканий
-├── popup/                 # UI попапа расширения
-│   ├── popup.html
-│   ├── popup.js
+├── popup/                 # UI попапа расширения: вкладки слева, настройки справа
+│   ├── popup.html         # разметка вкладок (.tab-panel) и стили
+│   ├── popup.js           # логика настроек; кнопки вкладок строит из .tab-panel
+│   ├── popup_frame.js     # помечает меню в iframe панели на странице (html.in-frame)
+│   ├── popup_loader.js
 │   └── popup_dark.css
 ├── manifests/             # Манифесты расширения
 │   ├── manifest.json      # Chrome MV3

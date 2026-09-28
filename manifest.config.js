@@ -93,6 +93,7 @@ export default defineManifest({
         'icons/*.png',
         'popup/popup.html',
         'popup/popup.js',
+        'popup/popup_frame.js',
         'gist_dark.css',
         'popup/popup_dark.css',
         'styles.css',

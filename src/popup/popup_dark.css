@@ -15,11 +15,6 @@ body.dark-theme h3 {
   color: #e8eaed;
 }
 
-body.dark-theme .notice {
-  background-color: #4a4a4f;
-  color: #e0e0e0;
-}
-
 body.dark-theme .status-text {
   color: #c7c9cc;
 }
@@ -66,12 +61,37 @@ body.dark-theme .btn-reset:hover {
   background-color: #4a3636;
 }
 
-body.dark-theme .sections-column + .sections-column {
-  border-left-color: #3c4043;
+body.dark-theme .menu-nav {
+  background-color: #28292c;
+  border-color: #3c4043;
 }
 
-body.dark-theme .section_collapsible > h3:hover {
+body.dark-theme .menu-brand__version,
+body.dark-theme .tab-lead,
+body.dark-theme .toggle-hint {
+  color: #9aa0a6;
+}
+
+body.dark-theme .menu-tab {
+  color: #c7c9cc;
+}
+
+body.dark-theme .menu-tab:hover {
   background-color: #3c4043;
+}
+
+body.dark-theme .menu-tab[aria-selected='true'] {
+  color: #8ab4f8;
+  background-color: #2b3a4d;
+}
+
+body.dark-theme .setting-group {
+  border-left-color: #2b3a4d;
+}
+
+body.dark-theme .notice {
+  background-color: #4a3f1f;
+  color: #f5e2a8;
 }
 
 body.dark-theme .logo-preview {

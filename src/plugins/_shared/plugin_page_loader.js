@@ -100,19 +100,21 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
     if (document.getElementById(OVERLAY_ID)) return;
     const overlay = document.createElement('div');
     overlay.id = OVERLAY_ID;
-    overlay.style.cssText = `position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6); z-index: 10000; display: none; justify-content: center; align-items: center; padding: 40px; box-sizing: border-box;`;
+    // Сверху отступ больше: там висит кнопка «Что нового», и в узком окне
+    // она наезжала на полосу вкладок меню.
+    overlay.style.cssText = `position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6); z-index: 10000; display: none; justify-content: center; align-items: center; padding: 56px 40px 40px; box-sizing: border-box;`;
 
     // Меню — это сам попап. Раньше рядом на пол-экрана висела панель с
     // гитхабом: она открывалась всегда, занимала больше места, чем настройки,
     // и мешала в них ориентироваться. Теперь она за кнопкой в углу.
     const contentWrapper = document.createElement('div');
     contentWrapper.id = CONTENT_WRAPPER_ID;
-    contentWrapper.style.cssText = `display: flex; gap: 0; height: 100%; max-height: 820px; width: min(740px, calc(100vw - 80px)); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; transition: background-color 0.3s, width 0.2s;`;
+    contentWrapper.style.cssText = `display: flex; gap: 0; height: 100%; max-height: 820px; width: min(980px, calc(100vw - 80px)); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; transition: background-color 0.3s, width 0.2s;`;
 
     leftIframe = document.createElement('iframe');
     leftIframe.src = chrome.runtime.getURL('popup/popup.html');
-    // Меню раскладывает разделы в два столбца — при 740 px их видно оба.
-    // Если места меньше, попап сам схлопнет колонки в одну.
+    // Меню — вкладки слева и настройки справа, при 980 px просторно обоим.
+    // На узком экране попап сам переносит вкладки в полосу сверху.
     leftIframe.style.cssText = `flex: 1 1 auto; min-width: 320px; border: none;`;
 
     const rightPanel = document.createElement('div');
@@ -157,8 +159,8 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
     rightPanel.style.display = willOpen ? 'block' : 'none';
     if (wrapper) {
       wrapper.style.width = willOpen
-        ? 'min(1260px, calc(100vw - 80px))'
-        : 'min(740px, calc(100vw - 80px))';
+        ? 'min(1500px, calc(100vw - 80px))'
+        : 'min(980px, calc(100vw - 80px))';
     }
     if (newsButton) newsButton.textContent = willOpen ? 'Скрыть новости' : 'Что нового';
 

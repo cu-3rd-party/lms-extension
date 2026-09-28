@@ -74,6 +74,7 @@ tests/
 ├── custom-background-editor.test.ts # фон по страницам, курсам, разделам и редактор фона
 ├── grades-export.test.ts        # экспорт оценок в Excel из меню плагина: текущие и архивные курсы
 ├── settings-profile.test.ts     # выгрузка и загрузка настроек файлом
+├── popup-tabs.test.ts           # меню со вкладками: порядок, тумблеры по вкладкам, стрелки, размеры попапа и панели на странице
 ├── dark-theme.test.ts           # переключение тёмной темы
 ├── exams-dashboard.test.ts      # дэшборд на «Мои курсы»: контрольные полоской под курсами, листание недель, галочки в меню, аккордеон курса
 ├── deadline-load.test.ts        # дедлайны на две недели в том же дэшборде: сдано/всего, цвета, всплывашка со ссылками, части по отдельности
@@ -86,7 +87,7 @@ tests/
 ```
 
 Не всем браузерным тестам нужны логин и расширение: `pdf-viewer-firefox`,
-`tasks-hide-before-date`, `tasks-archive-hide`, `theme-editor-hex` и
+`tasks-hide-before-date`, `tasks-archive-hide`, `theme-editor-hex`, `popup-tabs` и
 `custom-background-editor` поднимают свою страницу и работают без куки. Последний отдаёт `theme-editor.html` с
 диска через `page.route` и подменяет `browser.storage` заглушкой. Первый раздаёт страницу расширения по http, два других
 собирают поддельную таблицу задач и выполняют на ней настоящий `tasks_fix.js`

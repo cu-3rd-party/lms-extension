@@ -626,7 +626,7 @@ test('в меню две галочки — контрольные и дедла
 
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
-  await popup.locator('h3', { hasText: 'Визуальные улучшения' }).click();
+  await popup.getByRole('tab', { name: 'Сроки' }).click();
 
   const exams = popup.locator('#future-exams-dashboard-toggle');
   const deadlines = popup.locator('#future-exams-dashboard-deadlines-toggle');
@@ -660,7 +660,7 @@ test('по умолчанию обе части выключены — и пол
     chrome.storage.sync.remove(['futureExamsDashboardToggle', 'futureExamsDashboardDeadlines'])
   );
   await popup.reload();
-  await popup.locator('h3', { hasText: 'Визуальные улучшения' }).click();
+  await popup.getByRole('tab', { name: 'Сроки' }).click();
   await expect(popup.locator('#future-exams-dashboard-toggle')).not.toBeChecked();
   await expect(popup.locator('#future-exams-dashboard-deadlines-toggle')).not.toBeChecked();
   await popup.close();

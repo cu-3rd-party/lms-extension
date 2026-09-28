@@ -269,116 +269,125 @@ function updateAutoRenameUI(isEnabled) {
   }
 }
 
-// --- АККОРДЕОН РАЗДЕЛОВ ---
+// --- ВКЛАДКИ МЕНЮ ---
 //
-// Разделов девять, и раскрытыми они не помещаются ни в окно попапа, ни в
-// панель на странице: чтобы дойти до нижних, приходилось листать. Поэтому
-// заголовок работает кнопкой, а содержимое сворачивается.
-//
-// Разметку не трогаем, а заворачиваем содержимое в .section-body здесь: так
-// новый раздел в popup.html становится сворачиваемым сам, без правки скрипта.
+// Слева список вкладок, справа — настройки выбранной. Раньше разделы шли
+// аккордеоном в два столбца: их было девять, и нужное приходилось искать по
+// заголовкам. Теперь функции разложены по вкладкам в popup.html, а кнопки
+// вкладок строятся здесь из .tab-panel — новая вкладка в разметке попадает в
+// список сама.
 
-const ACCORDION_KEY = 'culms.popup.openSections';
+const TAB_KEY = 'culms.popup.tab';
 
-function readOpenSections() {
+// Значки вкладок: контурные, 24×24, красятся цветом текста кнопки.
+const TAB_ICONS = {
+  theme: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  look: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+  courses:
+    '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
+  deadlines: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  tasks:
+    '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  grades: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
+  friends:
+    '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+  settings: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+};
+
+function readSavedTab() {
   try {
-    const saved = JSON.parse(localStorage.getItem(ACCORDION_KEY) || '[]');
-    return new Set(Array.isArray(saved) ? saved : []);
+    return localStorage.getItem(TAB_KEY);
   } catch (_error) {
-    return new Set();
+    return null;
   }
 }
 
-function saveOpenSections(open) {
+function saveTab(id) {
   try {
-    localStorage.setItem(ACCORDION_KEY, JSON.stringify([...open]));
+    localStorage.setItem(TAB_KEY, id);
   } catch (_error) {
     // Приватный режим или заблокированное хранилище — просто не запомним.
   }
 }
 
-/**
- * Складывает разделы в общую обёртку: по ней CSS раскладывает их в два
- * столбца. Делается из скрипта, чтобы новый раздел в popup.html попадал в
- * раскладку сам, без правки разметки.
- */
-function groupSections() {
-  const sections = [...document.querySelectorAll('.section')];
-  if (!sections.length || document.querySelector('.sections')) return;
+function initTabs() {
+  const list = document.querySelector('.menu-tabs');
+  const panels = [...document.querySelectorAll('.tab-panel')];
+  if (!list || !panels.length || list.childElementCount) return;
 
-  const wrapper = document.createElement('div');
-  wrapper.className = 'sections';
-  sections[0].parentNode.insertBefore(wrapper, sections[0]);
+  const buttons = panels.map((panel) => {
+    const id = panel.dataset.tab;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'menu-tab';
+    button.id = `menu-tab-${id}`;
+    button.dataset.tab = id;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-controls', `menu-panel-${id}`);
 
-  const left = document.createElement('div');
-  const right = document.createElement('div');
-  left.className = 'sections-column';
-  right.className = 'sections-column';
-  wrapper.append(left, right);
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('viewBox', '0 0 24 24');
+    icon.setAttribute('class', 'menu-tab__icon');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML = TAB_ICONS[id] || '<circle cx="12" cy="12" r="4"/>';
 
-  // Делим пополам по количеству и раз навсегда. Раньше раскладку делал сам
-  // CSS (`columns`), но колоночный поток перебалансируется: стоило раскрыть
-  // раздел, и нижние перепрыгивали в соседний столбец — меню ехало под
-  // руками. Теперь раздел закреплён за столбцом, и раскрытие меняет только
-  // его высоту.
-  const half = Math.ceil(sections.length / 2);
-  sections.forEach((section, index) => {
-    (index < half ? left : right).appendChild(section);
+    const label = document.createElement('span');
+    label.textContent = panel.dataset.title || id;
+    button.append(icon, label);
+
+    panel.id = `menu-panel-${id}`;
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', button.id);
+    list.appendChild(button);
+    return button;
   });
-}
 
-function initAccordion() {
-  const saved = localStorage.getItem(ACCORDION_KEY);
-  const open = readOpenSections();
-  // Первый заход: раскрываем верхний раздел, иначе меню выглядит пустым
-  // списком заголовков и непонятно, что с ним делать.
-  let firstRun = saved === null;
+  const content = document.querySelector('.menu-content');
+  const select = (id, { focus = false } = {}) => {
+    const index = Math.max(
+      0,
+      panels.findIndex((panel) => panel.dataset.tab === id)
+    );
+    panels.forEach((panel, i) => {
+      panel.hidden = i !== index;
+      buttons[i].setAttribute('aria-selected', String(i === index));
+      buttons[i].tabIndex = i === index ? 0 : -1;
+    });
+    if (focus) buttons[index].focus();
+    if (content) content.scrollTop = 0;
+    saveTab(panels[index].dataset.tab);
+  };
 
-  document.querySelectorAll('.section').forEach((section) => {
-    const title = section.querySelector('h3');
-    if (!title || section.classList.contains('section_collapsible')) return;
-
-    const body = document.createElement('div');
-    body.className = 'section-body';
-    while (title.nextSibling) body.appendChild(title.nextSibling);
-    section.appendChild(body);
-    section.classList.add('section_collapsible');
-
-    // Ключ — название раздела: пережимает добавление и перестановку разделов,
-    // в отличие от порядкового номера.
-    const id = title.textContent.trim();
-    const setOpen = (isOpen) => {
-      section.classList.toggle('section_open', isOpen);
-      title.setAttribute('aria-expanded', String(isOpen));
-    };
-
-    title.setAttribute('role', 'button');
-    title.setAttribute('tabindex', '0');
-    if (firstRun) {
-      open.add(id);
-      firstRun = false;
-    }
-    setOpen(open.has(id));
-
-    const toggle = () => {
-      const next = !section.classList.contains('section_open');
-      setOpen(next);
-      if (next) open.add(id);
-      else open.delete(id);
-      saveOpenSections(open);
-    };
-
-    title.addEventListener('click', toggle);
-    title.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
+  buttons.forEach((button, index) => {
+    button.addEventListener('click', () => select(button.dataset.tab));
+    // Стрелки ходят по вкладкам, как в обычном списке вкладок.
+    button.addEventListener('keydown', (event) => {
+      const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+      let next = null;
+      if (step) next = (index + step + buttons.length) % buttons.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = buttons.length - 1;
+      if (next === null) return;
       event.preventDefault();
-      toggle();
+      select(buttons[next].dataset.tab, { focus: true });
     });
   });
+
+  select(readSavedTab());
 }
 
-groupSections();
-initAccordion();
+function showMenuVersion() {
+  const target = document.getElementById('menu-version');
+  if (!target) return;
+  try {
+    target.textContent = `версия ${browser.runtime.getManifest().version}`;
+  } catch (_error) {
+    // Без версии меню работает так же.
+  }
+}
+
+initTabs();
+showMenuVersion();
 
 /** Значение тумблера по умолчанию — из реестра настроек. */
 function defaultToggleValue(key) {

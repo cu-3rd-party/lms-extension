@@ -120,8 +120,8 @@ test.beforeAll(async () => {
   }).toPass({ timeout: 30_000 });
   await pluginButton.click();
 
-  // Разделы меню свёрнуты в аккордеон — раскрываем нужный, как пользователь.
-  await menu().locator('h3', { hasText: 'Экспорт оценок' }).click();
+  // Меню разложено по вкладкам — открываем нужную, как пользователь.
+  await menu().getByRole('tab', { name: 'Оценки' }).click();
   await expect(menu().locator('#grades-export-archived-btn')).toBeVisible();
 });
 
