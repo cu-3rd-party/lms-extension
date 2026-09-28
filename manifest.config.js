@@ -141,6 +141,8 @@ export default defineManifest({
         'plugins/longreads/task_status_adaptation.js',
         'plugins/longreads/rename_hw.js',
         'plugins/statements/advanced_statements.js',
+        'plugins/statements/gradebook.js',
+        'plugins/statements/gradebook.css',
         'plugins/timetable/timetable_status.js',
         'plugins/timetable/swap_api.js',
         'plugins/timetable/swap_order_button.js',
