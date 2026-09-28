@@ -368,7 +368,7 @@
   border: 1px solid var(--culms-dp-border);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
-  pointer-events: none;
+  --culms-dp-accent: var(--accent, #477df9);
 }
 
 .culms-deadlines-popover--dark {
@@ -409,18 +409,40 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Название ведёт на задание, курс — на курс. Ссылки выглядят как текст и
+   подчёркиваются под курсором, как названия курсов в полоске. */
 .culms-deadlines-popover__name,
 .culms-deadlines-popover__course {
+  justify-self: start;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  text-decoration: none;
+  border-radius: 3px;
+}
+
+.culms-deadlines-popover__name {
+  color: var(--culms-dp-text);
 }
 
 .culms-deadlines-popover__course {
   grid-column: 2;
   font-size: 12px;
   color: var(--culms-dp-muted);
+}
+
+.culms-deadlines-popover__name:hover,
+.culms-deadlines-popover__course:hover {
+  color: var(--culms-dp-accent);
+  text-decoration: underline;
+}
+
+.culms-deadlines-popover__name:focus-visible,
+.culms-deadlines-popover__course:focus-visible {
+  outline: 2px solid var(--culms-dp-accent);
+  outline-offset: 1px;
 }
 
 /* Сданное — зачёркнуто и с галочкой: видно, сколько ещё впереди. */

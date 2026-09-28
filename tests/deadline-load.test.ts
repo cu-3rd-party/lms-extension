@@ -83,8 +83,12 @@ function task(
   deadline.setHours(options.hour ?? 22, options.minute ?? 0, 0, 0);
   const start = new Date(deadline.getTime() - (options.openHours ?? 24 * 7) * 3600_000);
   const course = options.course ?? { id: 1245, name: 'Машинное обучение', isArchived: false };
+  const id = nextId++;
   return {
-    id: nextId++,
+    id,
+    // Тема и лонгрид — из них складывается ссылка на страницу задания.
+    theme: { id: 300 + id, name: 'Неделя' },
+    longread: { id: 700 + id, name: 'Домашнее задание' },
     state: options.done ? 'evaluated' : 'inProgress',
     submitAt: options.done ? new Date(deadline.getTime() - 3600_000).toISOString() : null,
     deadline: deadline.toISOString(),
@@ -363,10 +367,85 @@ test('с клавиатуры: фокус на дне показывает за�
   await dayCell(0).focus();
   await expect(popover().locator('.culms-deadlines-popover__name')).toHaveText(['ДЗ на сегодня']);
   await expect(popover().locator('.culms-deadlines-popover__time')).toHaveText(['23:59']);
-  await expect(dayCell(0)).toHaveAttribute('aria-describedby', 'culms-deadlines-popover');
+  await expect(dayCell(0)).toHaveAttribute('aria-expanded', 'true');
+  await expect(dayCell(0)).toHaveAttribute('aria-controls', 'culms-deadlines-popover');
   await page.keyboard.press('Tab');
   await expect(popover().locator('.culms-deadlines-popover__name')).toHaveText(['ДЗ 1']);
+  await expect(dayCell(0)).not.toHaveAttribute('aria-expanded', 'true');
   await dayCell(1).evaluate((node) => (node as HTMLElement).blur());
+  await expect(popover()).toHaveCount(0);
+});
+
+/** Ссылка на страницу задания: курс, тема и лонгрид из ответа API. */
+function taskHref(name: string) {
+  const found = TASKS.find((item) => item.exercise.name === name)!;
+  return (
+    `/learn/courses/view/actual/${found.course.id}` +
+    `/themes/${found.theme.id}/longreads/${found.longread.id}`
+  );
+}
+
+test('во всплывашке — ссылки на задание и на курс, до них можно довести курсор', async () => {
+  await dayCell(3).hover();
+  const names = popover().locator('.culms-deadlines-popover__name');
+  await expect(names).toHaveCount(4);
+  await expect(names.nth(1)).toHaveAttribute('href', taskHref('ДЗ 3. Линейная регрессия'));
+  await expect(popover().locator('.culms-deadlines-popover__course').nth(1)).toHaveAttribute(
+    'href',
+    '/learn/courses/view/actual/1245'
+  );
+  await expect(popover().locator('.culms-deadlines-popover__course').nth(2)).toHaveAttribute(
+    'href',
+    '/learn/courses/view/actual/1418'
+  );
+
+  // Курсор уходит с дня во всплывашку через зазор — она не пропадает.
+  const cellBox = (await dayCell(3).boundingBox())!;
+  await page.mouse.move(cellBox.x + cellBox.width / 2, cellBox.y + cellBox.height + 4);
+  await names.nth(1).hover();
+  await page.waitForTimeout(500);
+  await expect(popover()).toBeVisible();
+
+  // Ушёл и со всплывашки — прячется.
+  await page.mouse.move(5, 5);
+  await expect(popover()).toHaveCount(0);
+});
+
+test('щелчок по заданию во всплывашке открывает его страницу', async () => {
+  await dayCell(3).hover();
+  await popover().locator('.culms-deadlines-popover__name').nth(1).click();
+  await expect(page).toHaveURL(`${LMS_URL}${taskHref('ДЗ 3. Линейная регрессия')}`);
+
+  await page.goto(LIST_URL);
+  await expect(days()).toHaveCount(14, { timeout: 30_000 });
+  await dayCell(3).hover();
+  await popover().locator('.culms-deadlines-popover__course').nth(2).click();
+  await expect(page).toHaveURL(`${LMS_URL}/learn/courses/view/actual/1418`);
+
+  await page.goto(LIST_URL);
+  await expect(days()).toHaveCount(14, { timeout: 30_000 });
+});
+
+test('с клавиатуры в список заданий: ↓ — к ссылкам, Esc — обратно к дню', async () => {
+  await dayCell(3).focus();
+  await page.keyboard.press('ArrowDown');
+  const names = popover().locator('.culms-deadlines-popover__name');
+  await expect(names.first()).toBeFocused();
+  // Tab идёт по ссылкам всплывашки, а не в конец страницы.
+  await page.keyboard.press('Tab');
+  await expect(popover().locator('.culms-deadlines-popover__course').first()).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dayCell(3)).toBeFocused();
+  await expect(popover()).toBeVisible();
+
+  // С последней ссылки Tab ведёт на следующий день.
+  await page.keyboard.press('Enter');
+  const last = popover().locator('a').last();
+  await last.focus();
+  await page.keyboard.press('Tab');
+  await expect(dayCell(4)).toBeFocused();
+  await expect(popover().locator('.culms-deadlines-popover__empty')).toHaveText('Дедлайнов нет');
+  await dayCell(4).evaluate((node) => (node as HTMLElement).blur());
   await expect(popover()).toHaveCount(0);
 });
 

@@ -104,6 +104,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   // Во всплывашке — не больше стольких заданий, остальное — «и ещё N».
   const POPOVER_LIMIT = 12;
   const POPOVER_ID = 'culms-deadlines-popover';
+  // Сколько всплывашка ждёт, прежде чем спрятаться: курсор едет от дня к ней.
+  const POPOVER_HIDE_DELAY_MS = 250;
 
   // Сколько недель видно разом. Листается окно по одной неделе.
   const WEEKS_SHOWN = 3;
@@ -294,12 +296,24 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       const start = exercise.startDate ? new Date(exercise.startDate) : null;
       if (start && deadline - start < SHORT_TASK_MS) return [];
 
+      // Страница задания — лонгрид в теме курса, как ссылки из «Моих заданий».
+      // Нет темы или лонгрида — ведём хотя бы на курс.
+      const courseUrl = COURSE_URL_PREFIX + course.id;
+      const themeId = task.theme && task.theme.id;
+      const longreadId = task.longread && task.longread.id;
+      const url =
+        themeId != null && longreadId != null
+          ? `${courseUrl}/themes/${themeId}/longreads/${longreadId}`
+          : courseUrl;
+
       return [
         {
           id: task.id,
           name: (exercise.name || '').trim() || 'Задание',
           courseId: course.id,
           courseName: course.name || '',
+          url,
+          courseUrl,
           deadline,
           // Сдано или проверено: у тестов и работ, сданных вне LMS, даты сдачи нет.
           done: !!task.submitAt || task.state === 'evaluated',
@@ -460,11 +474,23 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       // фокус — там всплывашка тоже открывается. Отдельного click нет: он
       // приходит после focus и закрыл бы только что открытое.
       cell.addEventListener('mouseenter', () => showPopover(cell, day));
+      // Ушли с дня — прячем не сразу: курсор может ехать во всплывашку, к
+      // ссылкам на задания.
       cell.addEventListener('mouseleave', () => {
-        if (document.activeElement !== cell) hidePopover();
+        if (document.activeElement !== cell) scheduleHide();
       });
       cell.addEventListener('focus', () => showPopover(cell, day));
-      cell.addEventListener('blur', hidePopover);
+      cell.addEventListener('blur', (event) => {
+        if (!isInPopover(event.relatedTarget)) hidePopover();
+      });
+      // С клавиатуры в список заданий — стрелкой вниз или Enter.
+      cell.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowDown' && event.key !== 'Enter') return;
+        const first = popoverLinks()[0];
+        if (!first) return;
+        event.preventDefault();
+        first.focus();
+      });
       grid.appendChild(cell);
     });
     block.appendChild(grid);
@@ -475,17 +501,60 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
+  /** День, чья всплывашка открыта, и таймер её отложенного скрытия. */
+  let popoverCell = null;
+  let hideTimer = null;
+
+  const currentPopover = () => document.getElementById(POPOVER_ID);
+  const isInPopover = (node) => {
+    const popover = currentPopover();
+    return !!(popover && node && popover.contains(node));
+  };
+  const popoverLinks = () => {
+    const popover = currentPopover();
+    return popover ? Array.from(popover.querySelectorAll('a')) : [];
+  };
+
+  function cancelHide() {
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+
   /**
-   * Всплывашка с заданиями дня. Живёт в `body` с `position: fixed`: колонка
-   * дэшборда сбоку прокручивается внутри себя и обрезала бы её по краю.
+   * Прячет с задержкой: между днём и всплывашкой зазор, и курсор, едущий к
+   * ссылке, на мгновение не над тем и не над другим.
+   */
+  function scheduleHide() {
+    cancelHide();
+    hideTimer = setTimeout(hidePopover, POPOVER_HIDE_DELAY_MS);
+  }
+
+  function link(className, text, href) {
+    const node = element('a', className, text);
+    node.href = href;
+    return node;
+  }
+
+  /**
+   * Всплывашка с заданиями дня. Живёт в `body` с `position: fixed`: у
+   * дэшборда `container-type`, а он для fixed-потомков — рамка, и всплывашку
+   * обрезало бы по краю полоски.
+   *
+   * В ней ссылки: название ведёт на задание, курс — на курс. Поэтому
+   * наведение на неё держит её открытой, а уход — прячет с той же задержкой.
    */
   function showPopover(cell, day) {
+    cancelHide();
+    // Тот же день — всплывашка уже на месте: вернулись к нему из неё.
+    if (popoverCell === cell && currentPopover()) return;
     hidePopover();
+    popoverCell = cell;
 
     const popover = element('div', 'culms-deadlines-popover');
     popover.id = POPOVER_ID;
     popover.classList.toggle('culms-deadlines-popover--dark', isDark);
-    popover.setAttribute('role', 'tooltip');
+    popover.setAttribute('role', 'group');
+    popover.setAttribute('aria-label', dayLabel(day));
     popover.appendChild(element('div', 'culms-deadlines-popover__title', dayTitle(day.date)));
 
     if (!day.tasks.length) {
@@ -499,9 +568,9 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
         item.appendChild(
           element('span', 'culms-deadlines-popover__time', formatTime(task.deadline))
         );
-        item.appendChild(element('span', 'culms-deadlines-popover__name', task.name));
+        item.appendChild(link('culms-deadlines-popover__name', task.name, task.url));
         // Своё название курса подставит course_names.js — этот класс он знает.
-        item.appendChild(element('span', 'culms-deadlines-popover__course', task.courseName));
+        item.appendChild(link('culms-deadlines-popover__course', task.courseName, task.courseUrl));
         list.appendChild(item);
       });
       popover.appendChild(list);
@@ -516,8 +585,18 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       }
     }
 
+    popover.addEventListener('mouseenter', cancelHide);
+    popover.addEventListener('mouseleave', () => {
+      if (!isInPopover(document.activeElement)) scheduleHide();
+    });
+    popover.addEventListener('focusout', (event) => {
+      if (!isInPopover(event.relatedTarget) && event.relatedTarget !== cell) hidePopover();
+    });
+    popover.addEventListener('keydown', (event) => onPopoverKeydown(event, cell));
+
     document.body.appendChild(popover);
-    cell.setAttribute('aria-describedby', POPOVER_ID);
+    cell.setAttribute('aria-expanded', 'true');
+    cell.setAttribute('aria-controls', POPOVER_ID);
     // Позиция посчитана один раз — при прокрутке она бы отстала от дня.
     document.addEventListener('scroll', hidePopover, { capture: true, once: true });
 
@@ -539,12 +618,37 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     popover.style.top = `${Math.round(top)}px`;
   }
 
+  /**
+   * Клавиатура внутри всплывашки. Сама она в конце `body`, так что обычный Tab
+   * из неё ушёл бы в конец страницы: Esc и Shift+Tab с первой ссылки
+   * возвращают на день, Tab с последней — на следующий день.
+   */
+  function onPopoverKeydown(event, cell) {
+    const links = popoverLinks();
+    const index = links.indexOf(document.activeElement);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cell.focus();
+    } else if (event.key === 'Tab' && event.shiftKey && index === 0) {
+      event.preventDefault();
+      cell.focus();
+    } else if (event.key === 'Tab' && !event.shiftKey && index === links.length - 1) {
+      const next = cell.nextElementSibling;
+      if (!next) return;
+      event.preventDefault();
+      next.focus();
+    }
+  }
+
   function hidePopover() {
-    const popover = document.getElementById(POPOVER_ID);
+    cancelHide();
+    const popover = currentPopover();
     if (popover) popover.remove();
-    document
-      .querySelectorAll('[aria-describedby="' + POPOVER_ID + '"]')
-      .forEach((node) => node.removeAttribute('aria-describedby'));
+    if (popoverCell) {
+      popoverCell.removeAttribute('aria-expanded');
+      popoverCell.removeAttribute('aria-controls');
+    }
+    popoverCell = null;
   }
 
   // --- ПРЕДСТАВЛЕНИЕ ---
