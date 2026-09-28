@@ -415,6 +415,26 @@ test('на смене вкладки фильтра дэшборд переез�
   ).toBe(1);
 });
 
+test('полоску прошлой версии расширения убирает — дэшборд один', async () => {
+  // Так выглядит страница после обновления расширения без перезагрузки
+  // вкладки: DOM старого скрипта остался, а сам он связь с фоном потерял.
+  await page.evaluate(() => {
+    const group = document.querySelector('cu-courses-group')!;
+    const stale = document.createElement('section');
+    stale.className = 'culms-exams-dashboard culms-exams-dashboard--compact';
+    stale.textContent = 'Не удалось загрузить расписание контрольных.';
+    group.prepend(stale);
+    const popover = document.createElement('div');
+    popover.id = 'culms-deadlines-popover';
+    document.body.appendChild(popover);
+  });
+
+  await expect(page.locator('.culms-exams-dashboard')).toHaveCount(1);
+  await expect(page.locator('#culms-deadlines-popover')).toHaveCount(0);
+  await expect(dashboard()).not.toContainText('Не удалось загрузить');
+  await expect(weeks()).toHaveCount(3);
+});
+
 test('тумблер выключает и включает дэшборд на лету', async () => {
   await writeStorage({ sync: { futureExamsDashboardToggle: false } });
   await expect(dashboard()).toHaveCount(0);

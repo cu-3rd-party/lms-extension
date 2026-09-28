@@ -969,8 +969,27 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       return;
     }
 
+    removeForeign();
     const group = document.querySelector('cu-courses-group');
     if (group && group.lastElementChild !== root) group.appendChild(root);
+  }
+
+  /**
+   * Полоски и всплывашки, которые нарисовал не этот экземпляр скрипта. Их
+   * оставляет прошлая версия расширения: после обновления в
+   * chrome://extensions без перезагрузки вкладки её скрипт теряет связь с
+   * фоном, но его DOM остаётся на странице — и дэшбордов становилось два,
+   * причём старый с «Не удалось загрузить расписание контрольных»: расписание
+   * идёт через фон. Проверка — по всему документу, и она дешёвая: элементов
+   * с этим классом один-два.
+   */
+  function removeForeign() {
+    document.querySelectorAll('.' + ROOT_CLASS).forEach((node) => {
+      if (node !== root) node.remove();
+    });
+    document.querySelectorAll('#' + POPOVER_ID).forEach((node) => {
+      if (!popoverCell || !root || !root.contains(popoverCell)) node.remove();
+    });
   }
 
   function detach() {
@@ -978,7 +997,31 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     if (root && root.parentNode) root.remove();
   }
 
+  /** Жив ли контекст расширения: после его перезагрузки `runtime.id` пропадает. */
+  function contextAlive() {
+    try {
+      return typeof browser === 'undefined' || !!(browser.runtime && browser.runtime.id);
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  /**
+   * Расширение перезагрузили, а этот экземпляр остался на странице без связи
+   * с ним: убираем за собой полоску и всплывашку. Новая версия нарисует свою.
+   */
+  function retire() {
+    stopObserver();
+    detach();
+    enabled = false;
+  }
+
   function update() {
+    if (!contextAlive()) {
+      retire();
+      return;
+    }
+
     if (!enabled || !isActualListPage()) {
       detach();
       return;
@@ -1030,14 +1073,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     if (observer) return;
 
     observer = new MutationObserver(() => {
-      // Расширение могло быть перезагружено — тогда браузер убивает контекст.
-      try {
-        if (typeof browser !== 'undefined' && !(browser.runtime && browser.runtime.id)) {
-          stopObserver();
-          return;
-        }
-      } catch (_e) {
-        stopObserver();
+      if (!contextAlive()) {
+        retire();
         return;
       }
 
