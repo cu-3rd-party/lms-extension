@@ -66,8 +66,8 @@ if (typeof window.__culmsCourseNamesInitialized === 'undefined') {
     // Дэшборд ближайших контрольных на странице «Мои курсы»
     // (course-view/exams_dashboard.js) — он пишет туда настоящее название.
     '.culms-exams-dashboard__course-name',
-    // Там же — курс под каждым дедлайном в списке недели.
-    '.culms-exams-week__deadline-course',
+    // Там же — курс под заданием во всплывашке дня с дедлайнами.
+    '.culms-deadlines-popover__course',
   ];
 
   let enabled = false;

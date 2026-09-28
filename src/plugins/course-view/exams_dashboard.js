@@ -12,10 +12,10 @@
 // так дэшборд виден без прокрутки, — полоской над курсами или под ними или
 // карточками под курсами.
 //
-// Нагрузка (`futureExamsDashboardDeadlines`, по умолчанию включена): у
-// каждой недели — сколько в ней дедлайнов заданий, а над неделями — полоса
-// нагрузки на весь семестр. Неделя, где дедлайнов и контрольных в полтора раза
-// больше обычного, помечается как тяжёлая.
+// Над неделями — дедлайны заданий на две недели вперёд
+// (`futureExamsDashboardDeadlines`, по умолчанию включено): 14 дней с
+// сегодняшнего, у каждого число дедлайнов и цвет по их количеству, а при
+// наведении — сами задания этого дня.
 
 // Polyfill to handle browser namespace differences (Chrome uses 'chrome', Firefox uses 'browser')
 if (typeof browser === 'undefined') {
@@ -41,42 +41,70 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   const COURSES_API = '/api/micro-lms/courses/student?limit=200&offset=0&state=published';
   const COURSE_URL_PREFIX = '/learn/courses/view/actual/';
 
-  // --- Нагрузка: дедлайны заданий по неделям ---
+  // --- Дедлайны на две недели ---
   const DEADLINES_KEY = 'futureExamsDashboardDeadlines';
-  // Все состояния, в том числе проверенные и несданные (`failed`): у прошлых
-  // недель семестра нагрузка тоже видна.
+  // Все состояния: сданное тоже показываем — с галочкой, чтобы было видно,
+  // сколько ещё впереди.
   const TASKS_API =
     '/api/micro-lms/tasks/student?state=backlog&state=inProgress&state=submitted' +
     '&state=review&state=reworking&state=evaluated&state=failed';
   // Задания меняются за день не раз, но не поминутно: список перезапрашиваем
   // при возвращении на вкладку, если он старше десяти минут.
   const TASKS_TTL_MS = 10 * 60 * 1000;
-  // Задание, открытое меньше суток, — тест или работа прямо на паре. К
-  // нагрузке недели оно не прибавляет, а курс с тестом на каждой паре иначе
-  // раздувал бы счёт вдвое.
-  const SHORT_TASK_MS = 24 * 60 * 60 * 1000;
-  // Задания, которые студенту сдавать не нужно, хотя дедлайн у них есть.
-  // На живой LMS в одной неделе их было 27 из 34: ознакомление с приказами
-  // (оценивается само), «Перезачёт» в каждом курсе, бонусы и работа на паре,
-  // которую ставит преподаватель. Сданное считается всегда: раз сдавали —
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const DAYS_AHEAD = 14;
+  // Задание, открытое меньше суток, — тест или работа прямо на паре: это не
+  // дедлайн, к которому готовятся, а курс с тестом на каждой паре иначе
+  // раскрашивал бы красным каждый день пар.
+  const SHORT_TASK_MS = DAY_MS;
+  // Задания, которые сдавать не нужно, хотя дедлайн у них есть: ознакомление
+  // с приказами (оценивается само), «Перезачёт» в каждом курсе, дорешивания,
+  // бонусы и работа на паре, которую ставит преподаватель. На живой LMS в
+  // одной неделе их было 27 из 34. Сданное считается всегда: раз сдавали —
   // значит, это была работа.
   const NOT_WORK_ACTIVITY = /ознакомлен|бонус/i;
-  const NOT_WORK_NAME = /перезач[её]т|пересдач|апелляц/i;
+  const NOT_WORK_NAME = /перезач[её]т|пересдач|апелляц|дорешив/i;
   // Корзины аудиторной работы и признаки ДЗ — как в courses/tasks_fix.js
   // (isSeminarTask): домашка в семинарской корзине остаётся домашкой.
   const SEMINAR_ACTIVITY = /аудиторн|семинар|активност/i;
   const HOMEWORK_MARKERS = ['дз', 'д/з', 'домашн', 'homework', 'hw'];
-  // Контрольная весит как два дедлайна: к ней готовятся дольше, чем к ДЗ.
-  const EXAM_WEIGHT = 2;
-  // Неделя тяжёлая, если нагрузка в полтора раза выше обычной (медианы по
-  // неделям семестра, где хоть что-то есть) и не ниже порога: иначе при
-  // двух дедлайнах в неделю тяжёлой считалась бы любая с тремя.
-  const HEAVY_FACTOR = 1.5;
-  const HEAVY_MIN = 6;
-  // Дальше этой недели семестр не тянется: задание с дедлайном в конце года
-  // или летом не должно растягивать полосу нагрузки на полгода.
-  const MAX_WEEK = 26;
+  // Цвет дня — по числу дедлайнов: 1–2, 3–5, 6–9 и 10+. Пороги абсолютные,
+  // а не от «обычного дня»: десять дедлайнов в воскресенье — это много, даже
+  // если так каждую неделю.
+  const LEVELS = [
+    { min: 10, level: 4 },
+    { min: 6, level: 3 },
+    { min: 3, level: 2 },
+    { min: 1, level: 1 },
+  ];
+  const LEGEND = ['1–2', '3–5', '6–9', '10+'];
   const WEEKDAYS_SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  const WEEKDAYS_FULL = [
+    'Воскресенье',
+    'Понедельник',
+    'Вторник',
+    'Среда',
+    'Четверг',
+    'Пятница',
+    'Суббота',
+  ];
+  const MONTHS_GENITIVE = [
+    'января',
+    'февраля',
+    'марта',
+    'апреля',
+    'мая',
+    'июня',
+    'июля',
+    'августа',
+    'сентября',
+    'октября',
+    'ноября',
+    'декабря',
+  ];
+  // Во всплывашке — не больше стольких заданий, остальное — «и ещё N».
+  const POPOVER_LIMIT = 12;
+  const POPOVER_ID = 'culms-deadlines-popover';
 
   // Сколько недель видно разом. Листается окно по одной неделе.
   const WEEKS_SHOWN = 3;
@@ -279,8 +307,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
   /**
    * Задания с дедлайном из курсов, которые LMS ещё не убрала в архив. Тесты
-   * на паре (открыты меньше суток) и то, что сдавать не нужно (isWork),
-   * отбрасываются сразу.
+   * на паре и то, что сдавать не нужно (isWork), отбрасываются сразу.
    */
   function toTasks(payload) {
     const items = Array.isArray(payload) ? payload : (payload && payload.items) || [];
@@ -290,7 +317,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       const course = task.course || {};
       if (course.isArchived || !isWork(task, exercise)) return [];
 
-      // Личный дедлайн: с лейт-днями и продлениями он позже общего.
+      // Личный дедлайн: с Latedays и продлениями он позже общего.
       const raw = task.deadline || exercise.deadline;
       const deadline = raw ? new Date(raw) : null;
       if (!deadline || Number.isNaN(deadline.getTime())) return [];
@@ -304,6 +331,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
           courseId: course.id,
           courseName: course.name || '',
           deadline,
+          // Сдано или проверено: у тестов и работ, сданных вне LMS, даты сдачи нет.
           done: !!task.submitAt || task.state === 'evaluated',
         },
       ];
@@ -339,7 +367,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     return tasksLoading;
   }
 
-  // --- НАГРУЗКА ---
+  // --- ДЕДЛАЙНЫ ПО ДНЯМ ---
 
   /** Форма слова к числу n: plural(5, ['дедлайн', 'дедлайна', 'дедлайнов']). */
   function plural(n, forms) {
@@ -351,83 +379,186 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   }
 
   const deadlinesText = (n) => `${n} ${plural(n, ['дедлайн', 'дедлайна', 'дедлайнов'])}`;
-  const examsText = (n) => `${n} ${plural(n, ['контрольная', 'контрольные', 'контрольных'])}`;
+  const pad = (n) => String(n).padStart(2, '0');
+  const dayKey = (date) =>
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
-  /** «8 дедлайнов и 2 контрольные», «3 дедлайна», «Ничего нет». */
-  function loadText(entry) {
-    const parts = [];
-    if (entry.deadlines.length) parts.push(deadlinesText(entry.deadlines.length));
-    if (entry.exams) parts.push(examsText(entry.exams));
-    return parts.length ? parts.join(' и ') : 'Ничего нет';
+  function levelOf(count) {
+    const found = LEVELS.find((entry) => count >= entry.min);
+    return found ? found.level : 0;
   }
 
-  const emptyWeek = (number) => ({ number, deadlines: [], exams: 0, load: 0, heavy: false });
-
   /**
-   * Нагрузка по всем неделям семестра — с первой до последней, где есть
-   * дедлайн или контрольная (и не раньше текущей). null — дедлайны выключены
-   * или ещё не загрузились.
-   *
-   * `model` — ответ upcomingWeeks для показанного окна: из него берутся
-   * текущая неделя и последняя неделя с контрольными.
+   * 14 дней с сегодняшнего и дедлайны каждого — по местной дате личного
+   * дедлайна. null — дедлайны выключены или ещё не загрузились.
    */
-  function buildLoad(api, options, model) {
+  function buildDays(today = new Date()) {
     if (!showDeadlines || !tasks) return null;
 
-    const semesterStart = api.semesterStartDay(options.config);
-    const deadlinesByWeek = new Map();
+    const days = [];
+    for (let offset = 0; offset < DAYS_AHEAD; offset++) {
+      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+      days.push({ key: dayKey(date), date, offset, tasks: [] });
+    }
+    const byKey = new Map(days.map((day) => [day.key, day]));
     tasks.forEach((task) => {
+      // Курс в своём архиве студента — его и в списке курсов не видно.
       if (isArchived({ id: task.courseId, name: task.courseName })) return;
-      const number = api.weekNumber(api.dayOf(task.deadline), semesterStart);
-      if (number < 1 || number > MAX_WEEK) return;
-      if (!deadlinesByWeek.has(number)) deadlinesByWeek.set(number, []);
-      deadlinesByWeek.get(number).push(task);
+      const day = byKey.get(dayKey(task.deadline));
+      if (day) day.tasks.push(task);
     });
+    days.forEach((day) => {
+      day.tasks.sort((a, b) => a.deadline - b.deadline || a.name.localeCompare(b.name, 'ru'));
+      day.level = levelOf(day.tasks.length);
+    });
+    return days;
+  }
 
-    const lastDeadlineWeek = deadlinesByWeek.size ? Math.max(...deadlinesByWeek.keys()) : null;
-    const lastWeek = Math.min(
-      MAX_WEEK,
-      Math.max(model.currentWeek, lastDeadlineWeek || 0, model.lastEventWeek || 0)
-    );
-    if (lastWeek < 1) return { list: [], byNumber: new Map(), lastDeadlineWeek, median: 0 };
+  /** «Среда, 30 сентября» */
+  const dayTitle = (date) =>
+    `${WEEKDAYS_FULL[date.getDay()]}, ${date.getDate()} ${MONTHS_GENITIVE[date.getMonth()]}`;
 
-    // Контрольные всех недель разом — тем же upcomingWeeks, окном с первой.
-    const all = api.upcomingWeeks({ ...options, start: 1 - model.currentWeek, count: lastWeek });
-    const list = all.weeks.map((week) => {
-      const exams = week.courses.reduce(
-        (sum, course) => sum + course.events.reduce((total, event) => total + event.count, 0),
-        0
+  function dayLabel(day) {
+    const left = day.tasks.filter((task) => !task.done).length;
+    if (!day.tasks.length) return `${dayTitle(day.date)}: дедлайнов нет`;
+    const tail = left < day.tasks.length ? `, осталось ${left}` : '';
+    return `${dayTitle(day.date)}: ${deadlinesText(day.tasks.length)}${tail}`;
+  }
+
+  function renderDays(days) {
+    const block = element('div', 'culms-deadlines');
+    const head = element('div', 'culms-deadlines__head');
+    head.appendChild(element('span', 'culms-deadlines__title', 'Дедлайны на две недели'));
+    const legend = element('span', 'culms-deadlines__legend');
+    legend.setAttribute('aria-hidden', 'true');
+    LEGEND.forEach((text, index) => {
+      const item = element('span', `culms-deadlines__legend-item culms-deadlines--l${index + 1}`);
+      item.appendChild(element('span', 'culms-deadlines__swatch'));
+      item.appendChild(document.createTextNode(text));
+      legend.appendChild(item);
+    });
+    head.appendChild(legend);
+    block.appendChild(head);
+
+    const grid = element('div', 'culms-deadlines__days');
+    days.forEach((day) => {
+      const cell = element('button', `culms-deadlines__day culms-deadlines--l${day.level}`);
+      cell.type = 'button';
+      cell.dataset.culmsDay = day.key;
+      cell.classList.toggle('culms-deadlines__day--today', day.offset === 0);
+      const weekday = day.date.getDay();
+      cell.classList.toggle('culms-deadlines__day--weekend', weekday === 0 || weekday === 6);
+      cell.setAttribute('aria-label', dayLabel(day));
+      cell.appendChild(
+        element(
+          'span',
+          'culms-deadlines__weekday',
+          day.offset === 0 ? 'сегодня' : WEEKDAYS_SHORT[weekday]
+        )
       );
-      const deadlines = (deadlinesByWeek.get(week.number) || [])
-        .slice()
-        .sort((a, b) => a.deadline - b.deadline || a.name.localeCompare(b.name, 'ru'));
-      return {
-        number: week.number,
-        deadlines,
-        exams,
-        load: deadlines.length + EXAM_WEIGHT * exams,
-        heavy: false,
-      };
-    });
+      cell.appendChild(element('span', 'culms-deadlines__date', String(day.date.getDate())));
+      cell.appendChild(
+        element('span', 'culms-deadlines__count', day.tasks.length ? String(day.tasks.length) : '')
+      );
 
-    // Обычная неделя — медиана по неделям, где хоть что-то есть: пустые
-    // будущие недели (задания там ещё не выложены) тянули бы её к нулю.
-    const busy = list
-      .map((week) => week.load)
-      .filter((load) => load > 0)
-      .sort((a, b) => a - b);
-    const median = busy.length ? busy[Math.floor((busy.length - 1) / 2)] : 0;
-    const threshold = Math.max(HEAVY_MIN, Math.ceil(median * HEAVY_FACTOR));
-    list.forEach((week) => {
-      week.heavy = week.load >= threshold;
+      // Наведение и фокус показывают задания дня. Касание на телефоне ставит
+      // фокус — там всплывашка тоже открывается. Отдельного click нет: он
+      // приходит после focus и закрыл бы только что открытое.
+      cell.addEventListener('mouseenter', () => showPopover(cell, day));
+      cell.addEventListener('mouseleave', () => {
+        if (document.activeElement !== cell) hidePopover();
+      });
+      cell.addEventListener('focus', () => showPopover(cell, day));
+      cell.addEventListener('blur', hidePopover);
+      grid.appendChild(cell);
     });
+    block.appendChild(grid);
+    return block;
+  }
 
-    return {
-      list,
-      byNumber: new Map(list.map((week) => [week.number, week])),
-      lastDeadlineWeek,
-      median,
-    };
+  function formatTime(date) {
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  /**
+   * Всплывашка с заданиями дня. Живёт в `body` с `position: fixed`: колонка
+   * дэшборда сбоку прокручивается внутри себя и обрезала бы её по краю.
+   */
+  function showPopover(cell, day) {
+    hidePopover();
+
+    const popover = element('div', 'culms-deadlines-popover');
+    popover.id = POPOVER_ID;
+    popover.classList.toggle('culms-deadlines-popover--dark', isDark);
+    popover.setAttribute('role', 'tooltip');
+    popover.appendChild(element('div', 'culms-deadlines-popover__title', dayTitle(day.date)));
+
+    if (!day.tasks.length) {
+      popover.appendChild(element('div', 'culms-deadlines-popover__empty', 'Дедлайнов нет'));
+    } else {
+      const left = day.tasks.filter((task) => !task.done).length;
+      popover.appendChild(
+        element(
+          'div',
+          'culms-deadlines-popover__summary',
+          left < day.tasks.length
+            ? `${deadlinesText(day.tasks.length)}, осталось ${left}`
+            : deadlinesText(day.tasks.length)
+        )
+      );
+      const list = element('ul', 'culms-deadlines-popover__list');
+      day.tasks.slice(0, POPOVER_LIMIT).forEach((task) => {
+        const item = element('li', 'culms-deadlines-popover__item');
+        item.classList.toggle('culms-deadlines-popover__item--done', task.done);
+        item.appendChild(
+          element('span', 'culms-deadlines-popover__time', formatTime(task.deadline))
+        );
+        item.appendChild(element('span', 'culms-deadlines-popover__name', task.name));
+        // Своё название курса подставит course_names.js — этот класс он знает.
+        item.appendChild(element('span', 'culms-deadlines-popover__course', task.courseName));
+        list.appendChild(item);
+      });
+      popover.appendChild(list);
+      if (day.tasks.length > POPOVER_LIMIT) {
+        popover.appendChild(
+          element(
+            'div',
+            'culms-deadlines-popover__more',
+            `и ещё ${day.tasks.length - POPOVER_LIMIT}`
+          )
+        );
+      }
+    }
+
+    document.body.appendChild(popover);
+    cell.setAttribute('aria-describedby', POPOVER_ID);
+    // Позиция посчитана один раз — при прокрутке она бы отстала от дня.
+    document.addEventListener('scroll', hidePopover, { capture: true, once: true });
+
+    // Под днём, по центру; не влезает снизу — над ним; по бокам — не за край окна.
+    const rect = cell.getBoundingClientRect();
+    const width = popover.offsetWidth;
+    const height = popover.offsetHeight;
+    const margin = 8;
+    const left = Math.min(
+      Math.max(margin, rect.left + rect.width / 2 - width / 2),
+      window.innerWidth - width - margin
+    );
+    const below = rect.bottom + margin;
+    const top =
+      below + height > window.innerHeight - margin && rect.top - height - margin > margin
+        ? rect.top - height - margin
+        : below;
+    popover.style.left = `${Math.round(left)}px`;
+    popover.style.top = `${Math.round(top)}px`;
+  }
+
+  function hidePopover() {
+    const popover = document.getElementById(POPOVER_ID);
+    if (popover) popover.remove();
+    document
+      .querySelectorAll('[aria-describedby="' + POPOVER_ID + '"]')
+      .forEach((node) => node.removeAttribute('aria-describedby'));
   }
 
   // --- ПРЕДСТАВЛЕНИЕ ---
@@ -450,35 +581,29 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       count: WEEKS_SHOWN,
     };
     let model = api.upcomingWeeks({ ...options, start: weekShift });
-    const load = buildLoad(api, options, model);
 
     // Границы могли сдвинуться: началась новая неделя, курс ушёл в архив.
-    const limits = shiftLimits(model, load);
+    const limits = shiftLimits(model);
     const clamped = Math.min(limits.max, Math.max(limits.min, weekShift));
     if (clamped !== weekShift) {
       weekShift = clamped;
       model = api.upcomingWeeks({ ...options, start: weekShift });
     }
-    // Не загрузились задания — дэшборд работает как раньше, но об этом пишет.
-    const loadNote = showDeadlines && tasksFailed ? 'Не удалось загрузить дедлайны заданий.' : null;
-    return { model, shift: weekShift, limits, load, loadNote };
+    // Не загрузились задания — контрольные показываем как обычно и пишем об этом.
+    const daysNote = showDeadlines && tasksFailed ? 'Не удалось загрузить дедлайны заданий.' : null;
+    return { model, shift: weekShift, limits, days: buildDays(), daysNote };
   }
 
   /**
    * Докуда листать. Назад — до первой недели семестра (или до первой
    * контрольной, если она ещё раньше); вперёд — пока последней колонкой не
-   * станет последняя неделя с контрольными или дедлайнами: дальше смотреть не
-   * на что. Текущее положение всегда в пределах, даже если семестр ещё не
-   * начался или контрольные уже кончились.
+   * станет последняя неделя с контрольными: дальше смотреть не на что.
+   * Текущее положение всегда в пределах, даже если семестр ещё не начался
+   * или контрольные уже кончились.
    */
-  function shiftLimits({ currentWeek, firstEventWeek, lastEventWeek }, load) {
+  function shiftLimits({ currentWeek, firstEventWeek, lastEventWeek }) {
     const firstWeek = Math.min(1, firstEventWeek === null ? 1 : firstEventWeek);
-    let lastWeek = lastEventWeek;
-    const lastDeadlineWeek = load ? load.lastDeadlineWeek : null;
-    if (lastDeadlineWeek !== null && (lastWeek === null || lastDeadlineWeek > lastWeek)) {
-      lastWeek = lastDeadlineWeek;
-    }
-    const lastStart = lastWeek === null ? currentWeek : lastWeek - (WEEKS_SHOWN - 1);
+    const lastStart = lastEventWeek === null ? currentWeek : lastEventWeek - (WEEKS_SHOWN - 1);
     return {
       min: Math.min(0, firstWeek - currentWeek),
       max: Math.max(0, lastStart - currentWeek),
@@ -491,7 +616,13 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   }
 
   /** «неделю», «недели», «недель» — к числу n. */
-  const weeksWord = (n) => plural(n, ['неделю', 'недели', 'недель']);
+  function weeksWord(n) {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return 'неделю';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'недели';
+    return 'недель';
+  }
 
   /** Метка недели по её сдвигу от текущей: при листании видно, как далеко ушли. */
   function weekLabel(offset) {
@@ -566,116 +697,6 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     if (target) target.focus({ preventScroll: true });
   }
 
-  /** Столбик полосы нагрузки: неделя встаёт в середину окна (или к его краю). */
-  function jumpToWeek(number, currentWeek) {
-    weekShift = number - currentWeek - Math.floor(WEEKS_SHOWN / 2);
-    update();
-  }
-
-  /**
-   * Полоса нагрузки на весь семестр: столбик на неделю, высота — дедлайны и
-   * контрольные. Показанные недели выделены, тяжёлые — цветом предупреждения.
-   * Щелчок по столбику листает дэшборд к этой неделе.
-   */
-  function renderLoadStrip(view) {
-    const { load, model } = view;
-    const strip = element('div', 'culms-exams-load');
-    strip.setAttribute('role', 'group');
-    strip.setAttribute('aria-label', 'Нагрузка по неделям семестра');
-    strip.appendChild(element('span', 'culms-exams-load__label', 'Нагрузка по неделям'));
-
-    const bars = element('div', 'culms-exams-load__bars');
-    const max = Math.max(1, ...load.list.map((week) => week.load));
-    const firstShown = model.weeks[0].number;
-    const lastShown = model.weeks[model.weeks.length - 1].number;
-
-    load.list.forEach((week) => {
-      const bar = element('button', 'culms-exams-load__bar');
-      bar.type = 'button';
-      bar.dataset.culmsLoadWeek = String(week.number);
-      bar.classList.toggle(
-        'culms-exams-load__bar--shown',
-        week.number >= firstShown && week.number <= lastShown
-      );
-      bar.classList.toggle('culms-exams-load__bar--current', week.number === model.currentWeek);
-      bar.classList.toggle('culms-exams-load__bar--heavy', week.heavy);
-      const text =
-        `Неделя ${week.number}: ${loadText(week).toLowerCase()}` +
-        (week.heavy ? ' — тяжёлая неделя' : '');
-      bar.title = text;
-      bar.setAttribute('aria-label', text);
-
-      const fill = element('span', 'culms-exams-load__fill');
-      // Неделя хоть с одним дедлайном видна всегда, даже рядом с самой тяжёлой.
-      const height = week.load ? Math.max(12, Math.round((week.load / max) * 100)) : 0;
-      fill.style.height = `${height}%`;
-      bar.appendChild(fill);
-      bar.addEventListener('click', () => jumpToWeek(week.number, model.currentWeek));
-      bars.appendChild(bar);
-    });
-    strip.appendChild(bars);
-    return strip;
-  }
-
-  /** «ср 30.09, 22:00» */
-  function formatDeadline(date) {
-    const pad = (n) => String(n).padStart(2, '0');
-    return (
-      `${WEEKDAYS_SHORT[date.getDay()]} ${pad(date.getDate())}.${pad(date.getMonth() + 1)}, ` +
-      `${pad(date.getHours())}:${pad(date.getMinutes())}`
-    );
-  }
-
-  /**
-   * Дедлайны недели: сводка «8 дедлайнов» и под ней, по щелчку, сам список.
-   * Сданные отмечены галочкой. Тяжёлая неделя получает плашку.
-   */
-  function renderWeekLoad(entry) {
-    if (!entry.deadlines.length && !entry.heavy) {
-      return element('p', 'culms-exams-week__load culms-exams-week__load--empty', 'Дедлайнов нет');
-    }
-
-    // Раскрывать есть что, только когда есть дедлайны: тяжёлой неделю могут
-    // сделать и одни контрольные.
-    const expandable = entry.deadlines.length > 0;
-    const box = element(expandable ? 'details' : 'div', 'culms-exams-week__load');
-    const summary = element(expandable ? 'summary' : 'div', 'culms-exams-week__load-summary');
-    const count = entry.deadlines.length ? deadlinesText(entry.deadlines.length) : 'Дедлайнов нет';
-    summary.appendChild(element('span', 'culms-exams-week__load-count', count));
-    const left = entry.deadlines.filter((task) => !task.done).length;
-    if (entry.deadlines.length && left < entry.deadlines.length) {
-      summary.appendChild(
-        element('span', 'culms-exams-week__load-left', left ? `осталось ${left}` : 'всё сдано')
-      );
-    }
-    if (entry.heavy) {
-      const heavy = element('span', 'culms-exams-week__heavy', 'Тяжёлая неделя');
-      heavy.title = `${loadText(entry)} — в полтора раза больше обычной недели семестра`;
-      summary.appendChild(heavy);
-    }
-    box.appendChild(summary);
-
-    if (entry.deadlines.length) {
-      const list = element('ul', 'culms-exams-week__deadlines');
-      entry.deadlines.forEach((task) => {
-        const item = element('li', 'culms-exams-week__deadline');
-        item.classList.toggle('culms-exams-week__deadline--done', task.done);
-        item.appendChild(
-          element('span', 'culms-exams-week__deadline-time', formatDeadline(task.deadline))
-        );
-        const name = element('span', 'culms-exams-week__deadline-name', task.name);
-        name.title = task.name;
-        item.appendChild(name);
-        // Своё название курса подставит course_names.js — этот класс он знает.
-        const course = element('span', 'culms-exams-week__deadline-course', task.courseName);
-        item.appendChild(course);
-        list.appendChild(item);
-      });
-      box.appendChild(list);
-    }
-    return box;
-  }
-
   /**
    * Клик по курсу ведёт на его страницу. Если курс виден в списке выше —
    * кликаем по его родной карточке: тогда переход идёт внутри SPA и страница
@@ -748,14 +769,10 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     else node.removeAttribute('title');
   }
 
-  function renderWeek(week, compact, load) {
+  function renderWeek(week, compact) {
     const card = element('article', 'culms-exams-week');
     card.classList.toggle('culms-exams-week--current', week.offset === 0);
     card.dataset.culmsWeek = String(week.number);
-    // До начала семестра недель в полосе нагрузки нет — и считать там нечего.
-    const entry =
-      load && week.number >= 1 ? load.byNumber.get(week.number) || emptyWeek(week.number) : null;
-    if (entry && entry.heavy) card.classList.add('culms-exams-week--heavy');
 
     const api = window.cuLmsFutureExams;
     const dates = element(
@@ -774,7 +791,6 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     }
     card.appendChild(head);
     if (!compact) card.appendChild(dates);
-    if (entry) card.appendChild(renderWeekLoad(entry));
 
     if (week.courses.length) {
       const list = element('ul', 'culms-exams-week__courses');
@@ -817,13 +833,13 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       );
     }
 
-    if (view.loadNote) {
-      inner.appendChild(element('p', 'culms-exams-dashboard__note', view.loadNote));
+    if (view.daysNote) {
+      inner.appendChild(element('p', 'culms-exams-dashboard__note', view.daysNote));
     }
-    if (view.load && view.load.list.length > 1) inner.appendChild(renderLoadStrip(view));
+    if (view.days) inner.appendChild(renderDays(view.days));
 
     const weeks = element('div', 'culms-exams-dashboard__weeks');
-    view.model.weeks.forEach((week) => weeks.appendChild(renderWeek(week, compact, view.load)));
+    view.model.weeks.forEach((week) => weeks.appendChild(renderWeek(week, compact)));
     inner.appendChild(weeks);
 
     section.appendChild(inner);
@@ -840,13 +856,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       // Сдвиг и границы решают, какие кнопки листания погашены.
       [view.shift, view.limits.min, view.limits.max],
       weeks.map((week) => [week.number, week.first.getTime(), week.courses]),
-      view.loadNote,
-      view.load
-        ? view.load.list.map((week) => [
-            week.number,
-            week.exams,
-            week.heavy,
-            week.deadlines.map((task) => [task.id, task.name, task.deadline.getTime(), task.done]),
+      view.daysNote,
+      view.days
+        ? view.days.map((day) => [
+            day.key,
+            day.tasks.map((task) => [task.id, task.name, task.deadline.getTime(), task.done]),
           ])
         : null,
     ]);
@@ -976,6 +990,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   }
 
   function detach() {
+    hidePopover();
     if (root && root.parentNode) root.remove();
     setHostSide(null, null);
   }
@@ -994,6 +1009,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       // Пересобираем только когда поменялось содержимое: иначе каждый проход
       // наблюдателя сбрасывал бы подставленные course_names.js названия.
       if (next !== signature) {
+        // Всплывашка держится за день старого дэшборда.
+        hidePopover();
         const fresh = renderView(view, compact);
         if (root && root.parentNode) root.replaceWith(fresh);
         root = fresh;
@@ -1073,7 +1090,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
     isDark = !!syncData[THEME_KEY];
     placement = normalizePlacement(syncData[PLACEMENT_KEY]);
-    // Нагрузка показывается, пока её явно не выключили.
+    // Дедлайны показываются, пока их явно не выключили.
     showDeadlines = syncData[DEADLINES_KEY] !== false;
     archivedKeys = new Set(localData[ARCHIVE_KEY] || []);
     const cached = toCourses(localData[META_CACHE_KEY]);
@@ -1086,14 +1103,15 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     if (area === 'sync' && THEME_KEY in changes) {
       isDark = !!changes[THEME_KEY].newValue;
       if (root) root.classList.toggle(DARK_CLASS, isDark);
-    }
-    if (area === 'sync' && PLACEMENT_KEY in changes) {
-      placement = normalizePlacement(changes[PLACEMENT_KEY].newValue);
-      update();
+      hidePopover();
     }
     if (area === 'sync' && DEADLINES_KEY in changes) {
       showDeadlines = changes[DEADLINES_KEY].newValue !== false;
       void loadTasks();
+      update();
+    }
+    if (area === 'sync' && PLACEMENT_KEY in changes) {
+      placement = normalizePlacement(changes[PLACEMENT_KEY].newValue);
       update();
     }
     if (area === 'sync' && SETTING_KEY in changes) {

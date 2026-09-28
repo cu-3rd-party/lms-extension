@@ -1,10 +1,9 @@
 /**
- * Нагрузка в дэшборде контрольных: дедлайны заданий по неделям, тяжёлые
- * недели и полоса нагрузки на семестр — на подставной LMS.
+ * Дедлайны на две недели в дэшборде контрольных — на подставной LMS.
  *
  * Как и в exams-dashboard.test.ts, логин не нужен: страницу и API отдаёт
  * `context.route`, расписание контрольных лежит в кэше расширения, а даты
- * считаются от сегодняшнего дня (часы контент-скрипту не подменить).
+ * заданий считаются от сегодняшнего дня (часы контент-скрипту не подменить).
  *
  * Запуск:
  *   bun run build:chrome
@@ -21,19 +20,42 @@ const LIST_URL = `${LMS_URL}/learn/courses/view/actual/all`;
 const addDays = (date: Date, days: number) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 const mondayOf = (date: Date) => addDays(date, -((date.getDay() + 6) % 7));
-const ddmm = (date: Date) =>
-  `${String(date.getDate()).padStart(2, '0')} ${String(date.getMonth() + 1).padStart(2, '0')}`;
+const pad = (n: number) => String(n).padStart(2, '0');
+const ddmm = (date: Date) => `${pad(date.getDate())} ${pad(date.getMonth() + 1)}`;
+const dayKey = (date: Date) =>
+  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
-// Семестр начался три недели назад: текущая неделя — четвёртая.
-const thisMonday = mondayOf(new Date());
-const weekMonday = (week: number) => addDays(thisMonday, (week - 4) * 7);
-const CONFIG = { semesterStart: ddmm(weekMonday(1)) };
+const WEEKDAYS_FULL = [
+  'Воскресенье',
+  'Понедельник',
+  'Вторник',
+  'Среда',
+  'Четверг',
+  'Пятница',
+  'Суббота',
+];
+const MONTHS = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
+];
+const dayTitle = (date: Date) =>
+  `${WEEKDAYS_FULL[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+
+const today = addDays(new Date(), 0);
+const thisMonday = mondayOf(today);
+const CONFIG = { semesterStart: ddmm(addDays(thisMonday, -21)) };
 const SCHEDULE = {
-  'Теория вероятностей. Основной уровень': [
-    { name: 'Контрольная работа', date: ddmm(weekMonday(4)) },
-    { name: 'Тест', date: ddmm(weekMonday(5)) },
-    { name: 'Тест', date: ddmm(addDays(weekMonday(5), 2)) },
-  ],
+  'Теория вероятностей. Основной уровень': [{ name: 'Контрольная работа', date: ddmm(thisMonday) }],
 };
 
 const COURSES = [
@@ -43,21 +65,22 @@ const COURSES = [
 ].map((course) => ({ ...course, state: 'published' }));
 
 let nextId = 1;
-/** Задание с дедлайном в `day`-й день (0 — понедельник) недели `week`, в 22:00. */
+/** Задание с дедлайном через `offset` дней от сегодня, в `hour`:`minute`. */
 function task(
-  week: number,
-  day: number,
+  offset: number,
   name: string,
   options: {
     course?: { id: number; name: string; isArchived?: boolean };
     done?: boolean;
+    hour?: number;
+    minute?: number;
     openHours?: number;
     /** Корзина оценки — по ней видно ознакомления, бонусы и работу на паре. */
     activity?: string;
   } = {}
 ) {
-  const deadline = addDays(weekMonday(week), day);
-  deadline.setHours(22, 0, 0, 0);
+  const deadline = addDays(today, offset);
+  deadline.setHours(options.hour ?? 22, options.minute ?? 0, 0, 0);
   const start = new Date(deadline.getTime() - (options.openHours ?? 24 * 7) * 3600_000);
   const course = options.course ?? { id: 1245, name: 'Машинное обучение', isArchived: false };
   return {
@@ -79,37 +102,40 @@ function task(
 }
 
 const TASKS = [
-  task(3, 2, 'ДЗ 2', { done: true }),
-  task(3, 4, 'ДЗ 2_2', { done: true }),
-  // Работа на паре, которую сдавали сами, — тоже работа.
-  task(3, 4, 'Аудиторная активность. Неделя 3', { done: true, activity: 'Активность на занятии' }),
-  // Сдавать нечего: ставит преподаватель на паре, ознакомление, перезачёт, бонус.
-  task(4, 2, 'Seminar 1. Week 4', { activity: 'Аудиторная активность' }),
-  task(4, 2, 'Ознакомление с Кодексом этики', {
+  // Вчера и через две недели — за краями окна.
+  task(-1, 'Вчерашнее ДЗ'),
+  task(14, 'ДЗ через две недели'),
+  // Сегодня — один, почти в полночь.
+  task(0, 'ДЗ на сегодня', { hour: 23, minute: 59 }),
+  // Завтра — один настоящий дедлайн и весь шум, который считать не надо.
+  task(1, 'ДЗ 1'),
+  task(1, 'Seminar 1. Week 4', { activity: 'Аудиторная активность' }),
+  task(1, 'Ознакомление с Кодексом этики', {
     course: { id: 1577, name: 'Ознакомление с локально-нормативными актами' },
     activity: 'Ознакомление',
   }),
-  task(4, 3, 'Перезачет', { activity: 'Активность без веса' }),
-  task(4, 3, 'Бонусная активность. Неделя 4', { activity: 'Бонусная активность' }),
-  // Четвёртая неделя: три дедлайна, один уже сдан.
-  task(4, 3, 'ДЗ 3. Линейная регрессия'),
-  task(4, 1, 'ДЗ 3. Условная вероятность', { done: true }),
-  task(4, 6, 'Тетрадь рефлексии'),
-  // Тест на паре — открыт два часа, в нагрузку не идёт.
-  task(4, 4, 'Тест (пятница)', { openHours: 2 }),
-  // Курс, который LMS уже убрала в архив, и курс в своём архиве студента.
-  task(4, 2, 'Задание из архивного курса', {
+  task(1, 'Перезачет', { activity: 'Активность без веса' }),
+  task(1, 'ДЗ_2. Дорешивание', { activity: 'Активность без веса' }),
+  task(1, 'Бонусная активность. Неделя 4', { activity: 'Бонусная активность' }),
+  task(1, 'Тест (пятница)', { openHours: 2 }),
+  task(1, 'Задание из архивного курса', {
     course: { id: 900, name: 'Старый курс', isArchived: true },
   }),
-  task(4, 2, 'HW. Week 4', { course: { id: 1370, name: 'Английский язык 204S3' } }),
-  // Прошлогоднее задание в неархивном курсе — вне семестра.
-  task(-48, 2, 'Ознакомление с приказами'),
-  // Пятая неделя: восемь дедлайнов и две контрольные — тяжёлая.
-  ...Array.from({ length: 8 }, (_, index) => task(5, index % 7, `ДЗ ${index + 4}`)),
-  // Восьмая неделя — дальше последней контрольной: до неё листается благодаря дедлайну.
-  task(8, 3, 'Проект'),
+  // Курс в своём архиве студента.
+  task(1, 'HW. Week 4', { course: { id: 1370, name: 'Английский язык 204S3' } }),
   // Домашка в семинарской корзине остаётся домашкой.
-  task(8, 4, 'ДЗ 3_1. Градиентный спуск', { activity: 'Активность без веса' }),
+  task(2, 'ДЗ 3_1. Градиентный спуск', { activity: 'Активность без веса' }),
+  // Через три дня — четыре дедлайна, один уже сдан; в списке — по времени.
+  task(3, 'Тетрадь рефлексии', { hour: 23 }),
+  task(3, 'ДЗ 3. Условная вероятность', { hour: 10, done: true }),
+  task(3, 'ДЗ 3. Линейная регрессия', { hour: 20 }),
+  task(3, 'HW. Week 3', {
+    hour: 21,
+    course: { id: 1418, name: '🔴 Теория вероятностей. Основной уровень' },
+  }),
+  // Через шесть — семь, через девять — тринадцать.
+  ...Array.from({ length: 7 }, (_, index) => task(6, `ДЗ ${index + 10}`)),
+  ...Array.from({ length: 13 }, (_, index) => task(9, `ДЗ ${index + 20}`, { minute: index })),
 ];
 
 // Минимальная страница «Мои курсы»: контейнер и группа курсов, куда
@@ -197,147 +223,163 @@ test.afterAll(async () => {
 });
 
 const dashboard = () => page.locator('.culms-exams-dashboard');
-const weeks = () => dashboard().locator('.culms-exams-week');
-const bars = () => dashboard().locator('.culms-exams-load__bar');
+const days = () => dashboard().locator('.culms-deadlines__day');
+const dayCell = (offset: number) =>
+  dashboard().locator(`[data-culms-day="${dayKey(addDays(today, offset))}"]`);
+const popover = () => page.locator('#culms-deadlines-popover');
 
-/** Нагрузка недель глазами пользователя. */
-const readLoad = () =>
-  weeks().evaluateAll((cards) =>
-    cards.map((card) => ({
-      title: card.querySelector('.culms-exams-week__title')?.textContent,
-      load: card.querySelector('.culms-exams-week__load-count, .culms-exams-week__load--empty')
-        ?.textContent,
-      left: card.querySelector('.culms-exams-week__load-left')?.textContent ?? null,
-      heavy: card.classList.contains('culms-exams-week--heavy'),
-      chip: card.querySelector('.culms-exams-week__heavy')?.textContent ?? null,
+test('14 дней с сегодняшнего: число дедлайнов и цвет по количеству', async () => {
+  await expect(days()).toHaveCount(14, { timeout: 30_000 });
+  await expect(dashboard().locator('.culms-deadlines__title')).toHaveText('Дедлайны на две недели');
+  // Дни идут подряд с сегодняшнего; вчера и через две недели в окно не попали.
+  expect(
+    await days().evaluateAll((cells) => cells.map((cell) => (cell as HTMLElement).dataset.culmsDay))
+  ).toEqual(Array.from({ length: 14 }, (_, offset) => dayKey(addDays(today, offset))));
+  await expect(days().first()).toHaveClass(/culms-deadlines__day--today/);
+  await expect(days().first().locator('.culms-deadlines__weekday')).toHaveText('сегодня');
+
+  const read = await days().evaluateAll((cells) =>
+    cells.map((cell) => ({
+      count: cell.querySelector('.culms-deadlines__count')?.textContent,
+      level: (cell.className.match(/culms-deadlines--l(\d)/) || [])[1],
     }))
   );
-
-test('у недели — число дедлайнов, тяжёлая неделя помечена', async () => {
-  await expect(weeks()).toHaveCount(3, { timeout: 30_000 });
-  await expect(dashboard().locator('.culms-exams-week__load')).toHaveCount(3);
-
-  expect(await readLoad()).toEqual([
-    // Тест на паре, архивный курс и курс в своём архиве не считаются.
-    { title: 'Неделя 4', load: '3 дедлайна', left: 'осталось 2', heavy: false, chip: null },
-    // 8 дедлайнов и две контрольные против обычных двух-пяти.
-    { title: 'Неделя 5', load: '8 дедлайнов', left: null, heavy: true, chip: 'Тяжёлая неделя' },
-    { title: 'Неделя 6', load: 'Дедлайнов нет', left: null, heavy: false, chip: null },
+  // Завтра шум (семинар, ознакомление, перезачёт, дорешивание, бонус, тест на
+  // паре, архивные курсы) не считается — только «ДЗ 1».
+  expect(read.map((day) => day.count)).toEqual([
+    '1',
+    '1',
+    '1',
+    '4',
+    '',
+    '',
+    '7',
+    '',
+    '',
+    '13',
+    '',
+    '',
+    '',
+    '',
   ]);
-  await expect(weeks().nth(1).locator('.culms-exams-week__heavy')).toHaveAttribute(
-    'title',
-    '8 дедлайнов и 2 контрольные — в полтора раза больше обычной недели семестра'
-  );
+  expect(read.map((day) => day.level)).toEqual([
+    '1',
+    '1',
+    '1',
+    '2',
+    '0',
+    '0',
+    '3',
+    '0',
+    '0',
+    '4',
+    '0',
+    '0',
+    '0',
+    '0',
+  ]);
+  await expect(dashboard().locator('.culms-deadlines__legend-item')).toHaveText([
+    '1–2',
+    '3–5',
+    '6–9',
+    '10+',
+  ]);
 });
 
-test('по щелчку раскрывается список дедлайнов недели, сданные отмечены', async () => {
-  const current = weeks().first();
-  const list = current.locator('.culms-exams-week__deadline');
-  await expect(list.first()).toBeHidden();
-
-  await current.locator('summary').click();
-  await expect(list).toHaveCount(3);
-  // По времени дедлайна: вторник, четверг, воскресенье.
-  await expect(current.locator('.culms-exams-week__deadline-name')).toHaveText([
+test('наведение на день показывает его задания, сданные — с галочкой', async () => {
+  await dayCell(3).hover();
+  await expect(popover()).toBeVisible();
+  await expect(popover().locator('.culms-deadlines-popover__title')).toHaveText(
+    dayTitle(addDays(today, 3))
+  );
+  await expect(popover().locator('.culms-deadlines-popover__summary')).toHaveText(
+    '4 дедлайна, осталось 3'
+  );
+  // По времени дедлайна.
+  await expect(popover().locator('.culms-deadlines-popover__name')).toHaveText([
     'ДЗ 3. Условная вероятность',
     'ДЗ 3. Линейная регрессия',
+    'HW. Week 3',
     'Тетрадь рефлексии',
   ]);
-  await expect(list.first()).toHaveClass(/culms-exams-week__deadline--done/);
-  await expect(list.nth(1)).not.toHaveClass(/--done/);
-  await expect(list.first().locator('.culms-exams-week__deadline-time')).toHaveText(
-    /^вт \d\d\.\d\d, 22:00$/
+  await expect(popover().locator('.culms-deadlines-popover__time')).toHaveText([
+    '10:00',
+    '20:00',
+    '21:00',
+    '23:00',
+  ]);
+  await expect(popover().locator('.culms-deadlines-popover__item').first()).toHaveClass(/--done/);
+  await expect(popover().locator('.culms-deadlines-popover__course').nth(2)).toHaveText(
+    '🔴 Теория вероятностей. Основной уровень'
   );
-  await expect(list.first().locator('.culms-exams-week__deadline-course')).toHaveText(
-    'Машинное обучение'
-  );
+  // Под днём и в пределах окна.
+  const cellBox = (await dayCell(3).boundingBox())!;
+  const popBox = (await popover().boundingBox())!;
+  expect(popBox.y).toBeGreaterThan(cellBox.y + cellBox.height - 1);
+
+  await page.mouse.move(5, 5);
+  await expect(popover()).toHaveCount(0);
 });
 
-test('полоса нагрузки — весь семестр, щелчок листает к неделе', async () => {
-  // С первой недели до восьмой, где последний дедлайн.
-  await expect(bars()).toHaveCount(8);
-  const classes = await bars().evaluateAll((nodes) =>
-    nodes.map((node) =>
-      ['shown', 'current', 'heavy'].filter((kind) =>
-        node.classList.contains(`culms-exams-load__bar--${kind}`)
-      )
-    )
-  );
-  expect(classes).toEqual([
-    [],
-    [],
-    [],
-    ['shown', 'current'],
-    ['shown', 'heavy'],
-    ['shown'],
-    [],
-    [],
-  ]);
-  await expect(bars().nth(4)).toHaveAttribute(
-    'title',
-    'Неделя 5: 8 дедлайнов и 2 контрольные — тяжёлая неделя'
-  );
-  // Пустая неделя — без столбика, самая тяжёлая — во всю высоту.
-  expect(
-    await bars()
-      .nth(5)
-      .locator('.culms-exams-load__fill')
-      .evaluate((n) => n.style.height)
-  ).toBe('0%');
-  expect(
-    await bars()
-      .nth(4)
-      .locator('.culms-exams-load__fill')
-      .evaluate((n) => n.style.height)
-  ).toBe('100%');
-
-  // Контрольные кончаются на пятой неделе, но листать можно до восьмой — там дедлайн.
-  await expect(dashboard().locator('[data-culms-nav="next"]')).toBeEnabled();
-  await bars().nth(7).click();
-  await expect(weeks().locator('.culms-exams-week__title')).toHaveText([
-    'Неделя 6',
-    'Неделя 7',
-    'Неделя 8',
-  ]);
-  await expect(dashboard().locator('[data-culms-nav="next"]')).toBeDisabled();
-  await expect(weeks().nth(2).locator('.culms-exams-week__load-count')).toHaveText('2 дедлайна');
-
-  // К первой неделе — она встаёт в первую колонку: раньше листать некуда.
-  await bars().first().click();
-  await expect(weeks().locator('.culms-exams-week__title')).toHaveText([
-    'Неделя 1',
-    'Неделя 2',
-    'Неделя 3',
-  ]);
-  await expect(weeks().nth(2).locator('.culms-exams-week__load-left')).toHaveText('всё сдано');
-
-  await dashboard().locator('[data-culms-nav="today"]').click();
-  await expect(weeks().first().locator('.culms-exams-week__title')).toHaveText('Неделя 4');
+test('длинный день обрезается, пустой — «Дедлайнов нет»', async () => {
+  await dayCell(9).hover();
+  await expect(popover().locator('.culms-deadlines-popover__item')).toHaveCount(12);
+  await expect(popover().locator('.culms-deadlines-popover__more')).toHaveText('и ещё 1');
+  await dayCell(4).hover();
+  await expect(popover().locator('.culms-deadlines-popover__empty')).toHaveText('Дедлайнов нет');
+  await page.mouse.move(5, 5);
+  await expect(popover()).toHaveCount(0);
 });
 
-test('полоской нагрузка тоже видна', async () => {
+test('с клавиатуры: фокус на дне показывает задания, уход фокуса прячет', async () => {
+  await dayCell(0).focus();
+  await expect(popover().locator('.culms-deadlines-popover__name')).toHaveText(['ДЗ на сегодня']);
+  await expect(popover().locator('.culms-deadlines-popover__time')).toHaveText(['23:59']);
+  await expect(dayCell(0)).toHaveAttribute('aria-describedby', 'culms-deadlines-popover');
+  await page.keyboard.press('Tab');
+  await expect(popover().locator('.culms-deadlines-popover__name')).toHaveText(['ДЗ 1']);
+  await dayCell(1).evaluate((node) => (node as HTMLElement).blur());
+  await expect(popover()).toHaveCount(0);
+});
+
+test('полоской и в узкой колонке: 14 дней, узко — две строки по семь', async () => {
+  const columns = () =>
+    dashboard()
+      .locator('.culms-deadlines__days')
+      .evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length);
+
+  expect(await columns()).toBe(14);
   await writeStorage({ sync: { futureExamsDashboardPlacement: 'compact' } });
   await expect(dashboard()).toHaveClass(/culms-exams-dashboard--compact/);
-  await expect(bars()).toHaveCount(8);
-  await expect(dashboard().locator('.culms-exams-week__load')).toHaveCount(3);
-  await expect(weeks().nth(1)).toHaveClass(/culms-exams-week--heavy/);
+  await expect(days()).toHaveCount(14);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(columns).toBe(7);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect.poll(columns).toBe(14);
   await writeStorage({ sync: { futureExamsDashboardPlacement: 'below' } });
   await expect(dashboard()).not.toHaveClass(/culms-exams-dashboard--compact/);
 });
 
-test('выключенная нагрузка убирается на лету, дэшборд — как раньше', async () => {
+test('тёмная тема красит и всплывашку', async () => {
+  await writeStorage({ sync: { themeEnabled: true } });
+  await expect(dashboard()).toHaveClass(/culms-exams-dashboard--dark/);
+  await dayCell(3).hover();
+  await expect(popover()).toHaveClass(/culms-deadlines-popover--dark/);
+  await page.mouse.move(5, 5);
+  await writeStorage({ sync: { themeEnabled: false } });
+});
+
+test('выключенные дедлайны убираются на лету, дэшборд — как раньше', async () => {
   const requestsBefore = tasksRequests;
   await writeStorage({ sync: { futureExamsDashboardDeadlines: false } });
-
-  await expect(dashboard().locator('.culms-exams-week__load')).toHaveCount(0);
-  await expect(bars()).toHaveCount(0);
-  await expect(dashboard().locator('.culms-exams-week--heavy')).toHaveCount(0);
-  // Без дедлайнов листать вперёд можно только до последней контрольной.
-  await expect(dashboard().locator('[data-culms-nav="next"]')).toBeDisabled();
-  await expect(weeks().first()).toContainText('Контрольная работа');
+  await expect(dashboard().locator('.culms-deadlines')).toHaveCount(0);
+  await expect(dashboard().locator('.culms-exams-week').first()).toContainText(
+    'Контрольная работа'
+  );
 
   await writeStorage({ sync: { futureExamsDashboardDeadlines: true } });
-  await expect(dashboard().locator('.culms-exams-week__load')).toHaveCount(3);
+  await expect(days()).toHaveCount(14);
   // Задания ещё свежие — повторно не запрашиваются.
   expect(tasksRequests).toBe(requestsBefore);
 });

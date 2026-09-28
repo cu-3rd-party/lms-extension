@@ -20,9 +20,6 @@
   --culms-ed-chip-border: rgba(0, 16, 36, 0.1);
   --culms-ed-divider: rgba(0, 16, 36, 0.1);
   --culms-ed-accent: var(--accent, #477df9);
-  /* Тяжёлая неделя: оранжевый, а не красный — это предупреждение, не ошибка. */
-  --culms-ed-warn: #d9480f;
-  --culms-ed-warn-bg: rgba(247, 103, 7, 0.12);
 
   display: block;
   box-sizing: border-box;
@@ -47,8 +44,6 @@
   --culms-ed-chip-bg: var(--culms-dark-bg-hover, rgb(50, 51, 54));
   --culms-ed-chip-border: var(--culms-dark-border-secondary, rgb(70, 71, 74));
   --culms-ed-divider: var(--culms-dark-border-primary, rgb(55, 56, 60));
-  --culms-ed-warn: #ffa94d;
-  --culms-ed-warn-bg: rgba(255, 169, 77, 0.16);
 }
 
 /* В узкой раскладке LMS скругляет островки меньше. */
@@ -151,6 +146,260 @@
   }
 }
 
+/* --- Дедлайны на две недели --- */
+
+/* Цвета уровней: 1–2, 3–5, 6–9, 10+ дедлайнов. Заливка — светлая, число —
+   насыщенным того же тона; на тёмной теме наоборот. Переменные заданы на
+   классах уровней, чтобы ими красились и дни, и квадратики легенды. */
+.culms-deadlines--l1 {
+  --culms-dl-bg: #d3f9d8;
+  --culms-dl-fg: #2b8a3e;
+}
+
+.culms-deadlines--l2 {
+  --culms-dl-bg: #fff3bf;
+  --culms-dl-fg: #946200;
+}
+
+.culms-deadlines--l3 {
+  --culms-dl-bg: #ffe8cc;
+  --culms-dl-fg: #d9480f;
+}
+
+.culms-deadlines--l4 {
+  --culms-dl-bg: #ffe3e3;
+  --culms-dl-fg: #c92a2a;
+}
+
+.culms-exams-dashboard--dark .culms-deadlines--l1 {
+  --culms-dl-bg: rgba(64, 192, 87, 0.22);
+  --culms-dl-fg: #8ce99a;
+}
+
+.culms-exams-dashboard--dark .culms-deadlines--l2 {
+  --culms-dl-bg: rgba(250, 176, 5, 0.22);
+  --culms-dl-fg: #ffe066;
+}
+
+.culms-exams-dashboard--dark .culms-deadlines--l3 {
+  --culms-dl-bg: rgba(253, 126, 20, 0.26);
+  --culms-dl-fg: #ffc078;
+}
+
+.culms-exams-dashboard--dark .culms-deadlines--l4 {
+  --culms-dl-bg: rgba(250, 82, 82, 0.28);
+  --culms-dl-fg: #ffa8a8;
+}
+
+.culms-deadlines {
+  margin-top: 16px;
+}
+
+.culms-deadlines__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+}
+
+.culms-deadlines__title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--culms-ed-text);
+}
+
+.culms-deadlines__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--culms-ed-muted);
+}
+
+.culms-deadlines__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.culms-deadlines__swatch {
+  width: 10px;
+  height: 10px;
+  background: var(--culms-dl-fg);
+  border-radius: 3px;
+}
+
+/* Четырнадцать дней в строку; узко (колонка сбоку, телефон) — две недели
+   двумя строками по семь. */
+.culms-deadlines__days {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 4px;
+}
+
+@container (width < 640px) {
+  .culms-deadlines__days {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+
+.culms-deadlines__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 2px 8px;
+  font: inherit;
+  color: var(--culms-ed-text);
+  background: var(--culms-dl-bg, var(--culms-ed-card-bg));
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: default;
+}
+
+.culms-deadlines__day:hover,
+.culms-deadlines__day:focus-visible {
+  border-color: var(--culms-dl-fg, var(--culms-ed-chip-border));
+  outline: none;
+}
+
+.culms-deadlines__day--today {
+  box-shadow: inset 0 0 0 2px var(--culms-ed-accent);
+}
+
+.culms-deadlines__weekday {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--culms-ed-muted);
+}
+
+.culms-deadlines__day--weekend .culms-deadlines__weekday {
+  font-weight: 600;
+}
+
+.culms-deadlines__date {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.culms-deadlines__count {
+  min-height: 24px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+  color: var(--culms-dl-fg, var(--culms-ed-muted));
+  font-variant-numeric: tabular-nums;
+}
+
+/* Всплывашка с заданиями дня — в `body`, со своими переменными: дэшборда
+   вокруг неё нет. */
+.culms-deadlines-popover {
+  --culms-dp-bg: #ffffff;
+  --culms-dp-text: #1c1c1e;
+  --culms-dp-muted: #5a5e62;
+  --culms-dp-border: rgba(0, 16, 36, 0.12);
+
+  position: fixed;
+  z-index: 10000;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: 10px 12px;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    Roboto,
+    'Segoe UI',
+    sans-serif;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--culms-dp-text);
+  background: var(--culms-dp-bg);
+  border: 1px solid var(--culms-dp-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+}
+
+.culms-deadlines-popover--dark {
+  --culms-dp-bg: var(--culms-dark-bg-secondary, rgb(40, 41, 44));
+  --culms-dp-text: var(--culms-dark-text-primary, #ffffff);
+  --culms-dp-muted: var(--culms-dark-text-tertiary, #bdc1c6);
+  --culms-dp-border: var(--culms-dark-border-secondary, rgb(70, 71, 74));
+}
+
+.culms-deadlines-popover__title {
+  font-weight: 600;
+}
+
+.culms-deadlines-popover__summary,
+.culms-deadlines-popover__empty,
+.culms-deadlines-popover__more {
+  color: var(--culms-dp-muted);
+}
+
+.culms-deadlines-popover__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.culms-deadlines-popover__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+  margin: 0;
+}
+
+.culms-deadlines-popover__time {
+  color: var(--culms-dp-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.culms-deadlines-popover__name,
+.culms-deadlines-popover__course {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.culms-deadlines-popover__course {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--culms-dp-muted);
+}
+
+/* Сданное — зачёркнуто и с галочкой: видно, сколько ещё впереди. */
+.culms-deadlines-popover__item--done .culms-deadlines-popover__name {
+  color: var(--culms-dp-muted);
+  text-decoration: line-through;
+}
+
+.culms-deadlines-popover__item--done .culms-deadlines-popover__time::before {
+  content: '✓ ';
+}
+
+.culms-deadlines-popover__more {
+  margin-top: 6px;
+}
+
 /* --- Неделя --- */
 
 .culms-exams-week {
@@ -215,208 +464,6 @@
   font-size: 13px;
   line-height: 18px;
   color: var(--culms-ed-muted);
-}
-
-/* --- Нагрузка недели: дедлайны заданий --- */
-
-/* Текущую неделю по-прежнему выделяет акцент — предупреждение ей не нужно
-   поверх, плашка «Тяжёлая неделя» и так видна. */
-.culms-exams-week--heavy:not(.culms-exams-week--current) {
-  border-color: var(--culms-ed-warn);
-}
-
-.culms-exams-week__load {
-  margin: 10px 0 0;
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--culms-ed-muted);
-}
-
-.culms-exams-week__load-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  list-style: none;
-}
-
-.culms-exams-week__load-summary::-webkit-details-marker {
-  display: none;
-}
-
-/* Раскрывающийся список — со стрелкой, как у аккордеонов LMS. */
-summary.culms-exams-week__load-summary {
-  cursor: pointer;
-}
-
-summary.culms-exams-week__load-summary::before {
-  content: '';
-  flex: none;
-  width: 5px;
-  height: 5px;
-  margin: 0 2px 0 1px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform 0.15s ease;
-}
-
-details[open] > summary.culms-exams-week__load-summary::before {
-  transform: rotate(45deg);
-}
-
-.culms-exams-week__load-count {
-  font-weight: 500;
-  color: var(--culms-ed-text);
-}
-
-summary.culms-exams-week__load-summary:hover .culms-exams-week__load-count {
-  color: var(--culms-ed-accent);
-}
-
-.culms-exams-week__heavy {
-  padding: 0 8px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 18px;
-  white-space: nowrap;
-  color: var(--culms-ed-warn);
-  background: var(--culms-ed-warn-bg);
-  border-radius: 999px;
-}
-
-.culms-exams-week__deadlines {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.culms-exams-week__deadline {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 8px;
-  margin: 0;
-  padding: 0;
-  font-size: 12px;
-  line-height: 16px;
-}
-
-.culms-exams-week__deadline-time {
-  white-space: nowrap;
-  color: var(--culms-ed-muted);
-}
-
-.culms-exams-week__deadline-name,
-.culms-exams-week__deadline-course {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.culms-exams-week__deadline-name {
-  color: var(--culms-ed-text);
-}
-
-.culms-exams-week__deadline-course {
-  grid-column: 2;
-  color: var(--culms-ed-muted);
-}
-
-/* Сданное — приглушённо и с галочкой: список остаётся полным, но видно,
-   сколько ещё впереди. */
-.culms-exams-week__deadline--done .culms-exams-week__deadline-name {
-  color: var(--culms-ed-muted);
-  text-decoration: line-through;
-}
-
-.culms-exams-week__deadline--done .culms-exams-week__deadline-time::before {
-  content: '✓ ';
-}
-
-/* --- Полоса нагрузки на семестр --- */
-
-.culms-exams-load {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 6px 12px;
-  margin-top: 12px;
-}
-
-.culms-exams-load__label {
-  flex: none;
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--culms-ed-muted);
-}
-
-.culms-exams-load__bars {
-  display: flex;
-  flex: 1 1 160px;
-  align-items: flex-end;
-  gap: 2px;
-  min-width: 0;
-  height: 28px;
-}
-
-.culms-exams-load__bar {
-  display: flex;
-  flex: 1 1 0;
-  align-items: flex-end;
-  box-sizing: border-box;
-  min-width: 3px;
-  max-width: 32px;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-/* Показанные сейчас недели — подложкой, как окно на полосе. */
-.culms-exams-load__bar--shown {
-  background: var(--culms-ed-card-bg);
-}
-
-.culms-exams-dashboard--compact .culms-exams-load__bar--shown,
-.culms-exams-dashboard--side .culms-exams-load__bar--shown {
-  background: var(--culms-ed-divider);
-}
-
-.culms-exams-load__fill {
-  display: block;
-  width: 100%;
-  /* Пустая неделя — черта-основание: иначе полоса рвалась бы на дырки. */
-  min-height: 2px;
-  background: color-mix(in srgb, var(--culms-ed-muted) 40%, transparent);
-  border-radius: 3px 3px 1px 1px;
-}
-
-.culms-exams-load__bar--shown .culms-exams-load__fill {
-  background: color-mix(in srgb, var(--culms-ed-accent) 55%, transparent);
-}
-
-.culms-exams-load__bar--heavy .culms-exams-load__fill {
-  background: var(--culms-ed-warn);
-}
-
-.culms-exams-load__bar--current .culms-exams-load__fill {
-  background: var(--culms-ed-accent);
-}
-
-.culms-exams-load__bar:hover .culms-exams-load__fill {
-  opacity: 0.75;
-}
-
-.culms-exams-load__bar:focus-visible {
-  outline: 2px solid var(--culms-ed-accent);
-  outline-offset: 1px;
 }
 
 /* --- Курсы недели --- */
@@ -573,26 +620,39 @@ cu-course-learning-layout .content-container.culms-exams-host--left {
 }
 
 .culms-exams-dashboard--compact .culms-exams-dashboard__note,
-.culms-exams-dashboard--compact .culms-exams-load,
+.culms-exams-dashboard--compact .culms-deadlines,
 .culms-exams-dashboard--compact .culms-exams-dashboard__weeks {
   grid-column: 2;
 }
 
-.culms-exams-dashboard--compact .culms-exams-load {
+/* Полоской дни ниже: число дедлайнов — главное, дата и день недели мельче. */
+.culms-exams-dashboard--compact .culms-deadlines {
   margin: 0 0 10px;
 }
 
-.culms-exams-dashboard--compact .culms-exams-load__bars {
-  height: 20px;
+.culms-exams-dashboard--compact .culms-deadlines__head {
+  margin-bottom: 4px;
 }
 
-.culms-exams-dashboard--compact .culms-exams-week__load {
-  margin: 4px 0 0;
+.culms-exams-dashboard--compact .culms-deadlines__title {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.culms-exams-dashboard--compact .culms-deadlines__day {
+  padding: 3px 2px 4px;
+  border-radius: 8px;
+}
+
+.culms-exams-dashboard--compact .culms-deadlines__date {
   font-size: 12px;
+  line-height: 16px;
 }
 
-.culms-exams-dashboard--compact .culms-exams-week--heavy:not(.culms-exams-week--current) {
-  border-left-color: var(--culms-ed-warn);
+.culms-exams-dashboard--compact .culms-deadlines__count {
+  min-height: 20px;
+  font-size: 15px;
+  line-height: 20px;
 }
 
 .culms-exams-dashboard--compact .culms-exams-dashboard__note {
@@ -702,7 +762,7 @@ cu-course-learning-layout .content-container.culms-exams-host--left {
   }
 
   .culms-exams-dashboard--compact .culms-exams-dashboard__note,
-  .culms-exams-dashboard--compact .culms-exams-load,
+  .culms-exams-dashboard--compact .culms-deadlines,
   .culms-exams-dashboard--compact .culms-exams-dashboard__weeks {
     grid-column: 1;
   }
@@ -722,9 +782,5 @@ cu-course-learning-layout .content-container.culms-exams-host--left {
 
   .culms-exams-dashboard--compact .culms-exams-week--current {
     border-top-color: var(--culms-ed-accent);
-  }
-
-  .culms-exams-dashboard--compact .culms-exams-week--heavy:not(.culms-exams-week--current) {
-    border-top-color: var(--culms-ed-warn);
   }
 }

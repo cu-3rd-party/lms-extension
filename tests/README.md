@@ -76,7 +76,7 @@ tests/
 ├── settings-profile.test.ts     # выгрузка и загрузка настроек файлом
 ├── dark-theme.test.ts           # переключение тёмной темы
 ├── exams-dashboard.test.ts      # дэшборд ближайших контрольных на «Мои курсы» (все места, листание недель) и аккордеон курса
-├── deadline-load.test.ts        # нагрузка в том же дэшборде: дедлайны недель, тяжёлые недели, полоса нагрузки
+├── deadline-load.test.ts        # дедлайны на две недели в том же дэшборде: дни, цвета, всплывашка с заданиями
 ├── future-exams.test.ts
 ├── tasks-fix.test.ts
 ├── tasks-hide-before-date.test.ts # скрытие архивных заданий раньше выбранной даты
@@ -111,9 +111,9 @@ Chrome с `dist/chrome` без логина, а страницу LMS и отве
 Playwright не может (`page.clock` действует только на мир страницы). Смену
 вкладки фильтра тест изображает сам — заменой `cu-courses-group` и `pushState`,
 как это делает Angular. Логику дат и недель без браузера проверяет
-`tests/source/future-exams-api.test.ts`. Нагрузку (дедлайны заданий) этот тест
-выключает — `futureExamsDashboardDeadlines: false`, иначе от неё менялись бы
-размеры полоски; её проверяет `deadline-load` на той же схеме, с заданиями из
+`tests/source/future-exams-api.test.ts`. Дедлайны заданий этот тест выключает —
+`futureExamsDashboardDeadlines: false`, иначе от них менялись бы размеры
+полоски; её проверяет `deadline-load` на той же схеме, с заданиями из
 `context.route`.
 
 Геометрия подставной страницы повторяет замеры живой LMS: шапка 72px, меню

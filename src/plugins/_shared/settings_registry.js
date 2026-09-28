@@ -128,8 +128,8 @@ if (typeof window.cuLmsSettings === 'undefined') {
       ['right', 'left', 'above', 'compact', 'below'],
       'compact'
     ),
-    // Дедлайны заданий и полоса нагрузки в том же дэшборде: показываются,
-    // пока их явно не выключили.
+    // Дедлайны заданий на две недели в том же дэшборде: показываются, пока их
+    // явно не выключили.
     bool('futureExamsDashboardDeadlines', 'features', true),
     bool('courseOverviewTaskStatusToggle', 'features'),
     bool('courseOverviewAutoscrollToggle', 'features'),
