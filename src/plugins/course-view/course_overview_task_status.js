@@ -145,24 +145,16 @@ async function activateCourseOverviewTaskStatus() {
     }
 
     const courseOverview = await waitForElement('cu-course-overview', 10000);
-    const expandContainers = courseOverview.querySelectorAll('tui-expand');
 
-    expandContainers.forEach(function (container) {
-      if (container.getAttribute('aria-expanded') === 'true') {
-        addStatusChips(container, longreadToTaskMap);
-      }
-      const observer = new MutationObserver(function (mutations) {
-        mutations.forEach(function (mutation) {
-          if (mutation.attributeName === 'aria-expanded') {
-            const isExpanded = container.getAttribute('aria-expanded') === 'true';
-            if (isExpanded) {
-              addStatusChips(container, longreadToTaskMap);
-            }
-          }
-        });
-      });
-      observer.observe(container, { attributes: true, attributeFilter: ['aria-expanded'] });
-    });
+    // Ссылки на лонгриды Taiga рисует, только пока тема раскрыта, а признак
+    // раскрытия в разных версиях висит на разных элементах (в 4 — `aria-expanded`
+    // у `tui-expand`, в 5 — у кнопки аккордеона). Поэтому следим не за ним,
+    // а за появлением самих ссылок: addStatusChips повторно ничего не дорисует.
+    addStatusChips(courseOverview, longreadToTaskMap);
+    window.cuCourseOverviewStatusObserver?.disconnect();
+    const observer = new MutationObserver(() => addStatusChips(courseOverview, longreadToTaskMap));
+    observer.observe(courseOverview, { childList: true, subtree: true });
+    window.cuCourseOverviewStatusObserver = observer;
   } catch (e) {
     console.log('Error:', e);
   }

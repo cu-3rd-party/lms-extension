@@ -82,13 +82,18 @@ if (typeof window.isFeedbackLoaderInitialized === 'undefined') {
     const observer = new MutationObserver(() => {
       const userActionsList = document.querySelector('ul.user-actions');
       if (userActionsList && !document.getElementById(FEEDBACK_BUTTON_ID)) {
-        const feedbackListItem = document.createElement('li');
-
         // Векторная иконка в base64 (сообщение), чтобы не создавать отдельный SVG файл
         const feedbackIcon =
           'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMSAxMS41YTguMzggOC4zOCAwIDAgMS0uOSAzLjggOC41IDguNSAwIDAgMS03LjYgNC43IDguMzggOC4zOCAwIDAgMS0zLjgtLjlMMyAyMWwxLjktNS43YTguMzggOC4zOCAwIDAgMS0uOS0zLjggOC41IDguNSAwIDAgMSA0LjctNy42IDguMzggOC4zOCAwIDAgMSAzLjgtLjloLjVhOC40OCA4LjQ4IDAgMCAxIDggOHYuNXoiPjwvcGF0aD48L3N2Zz4=';
 
-        feedbackListItem.innerHTML = `<button id="${FEEDBACK_BUTTON_ID}" tuiappearance="" tuiicons="" tuibutton="" type="button" size="m" class="user-actions__action-button" data-appearance="tertiary" data-icon-start="svg" data-size="m" style="--t-icon-start: url('${feedbackIcon}');"><div class="user-actions__action-title">Оставить фидбек</div></button>`;
+        // createUserActionItem объявлен в plugin_page_loader.js: клон нативного
+        // пункта сохраняет `data-tui-version` и `_ngcontent-*`.
+        const feedbackListItem = createUserActionItem(
+          userActionsList,
+          FEEDBACK_BUTTON_ID,
+          'Оставить фидбек',
+          feedbackIcon
+        );
 
         feedbackListItem
           .querySelector(`#${FEEDBACK_BUTTON_ID}`)

@@ -59,8 +59,10 @@ if (typeof window.__culmsCourseNamesInitialized === 'undefined') {
     'a.report-card h4',
     'cu-student-course-performance h1.title',
     // Фильтр «Курс» в списке заданий. Опции рисует и сама LMS, и
-    // courses/tasks_fix.js — селектор покрывает оба варианта.
-    'tui-multi-select-option span',
+    // courses/tasks_fix.js — селектор покрывает оба варианта. В Taiga 5
+    // название лежит текстовым узлом прямо в кнопке опции; совпадение
+    // точное, поэтому опции статусов не задеваются.
+    'tui-data-list button[tuioption]',
     // Свёрнутый чип того же фильтра с выбранным курсом.
     '.cu-filter-value__first',
     // Дэшборд ближайших контрольных на странице «Мои курсы»

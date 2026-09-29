@@ -1791,7 +1791,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     if (!optionButton) return;
     // Оригинал кладём в data-атрибут при генерации опции: на экране может быть
     // переименованный курс, а в фильтре должно лежать настоящее название.
-    const textSpan = optionButton.querySelector('tui-multi-select-option span');
+    const textSpan = optionButton.querySelector('.culms-option-label');
     const shown = textSpan ? textSpan.textContent.trim() : optionButton.textContent.trim();
     const courseName = optionButton.dataset.culmsCourse || originalCourseName(textSpan, shown);
 
@@ -1937,11 +1937,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     dataListWrapper.dataset.culmsRebuilt = 'true';
     const dataList = dataListWrapper.querySelector('tui-data-list');
     if (!dataList) return;
+    const template = dataList.querySelector('button[tuioption]');
     dataList.innerHTML = '';
 
     HARDCODED_STATUSES.forEach((text) => {
       const isSelected = selectedStatuses.has(text);
-      dataList.appendChild(createStatusOption(text, isSelected));
+      dataList.appendChild(createStatusOption(template, text, isSelected));
     });
     dataListWrapper.addEventListener('click', handleStatusFilterClick);
     updateStatusChip();
@@ -1963,69 +1964,87 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     const dataList = dataListWrapper.querySelector('tui-data-list');
     if (!dataList) return;
 
+    const template = dataList.querySelector('button[tuioption]');
     dataList.innerHTML = '';
 
     // Список берём из таблицы, а не от сервера: там только те курсы, по которым
     // реально есть задания, и в том же виде, в каком мы их фильтруем.
     [...masterCourseList].sort().forEach((text) => {
-      dataList.appendChild(createCourseOption(text, selectedCourses.has(text)));
+      dataList.appendChild(createCourseOption(template, text, selectedCourses.has(text)));
     });
 
     dataListWrapper.addEventListener('click', handleCourseFilterClick);
     updateCourseChip();
   }
 
-  function createStatusOption(text, isSelected) {
-    const button = document.createElement('button');
-    button.className = 'ng-star-inserted';
-    if (isSelected) button.classList.add('t-option_selected');
-    button.setAttribute('tuiicons', '');
-    button.setAttribute('type', 'button');
-    button.setAttribute('role', 'option');
-    button.setAttribute('automation-id', 'tui-data-list-wrapper__option');
-    button.setAttribute('tuielement', '');
-    button.setAttribute('tuioption', '');
-    button.setAttribute('aria-selected', isSelected.toString());
-    const finalStyle = `pointer-events: none; --t-checked-icon: url(assets/cu/icons/cuIconCheck.svg); --t-indeterminate-icon: url(assets/cu/icons/cuIconMinus.svg);`;
-    button.innerHTML = `<tui-multi-select-option><input tuiappearance tuicheckbox type="checkbox" class="_readonly" data-appearance="primary" data-size="s" style="${finalStyle}"><span class="t-content ng-star-inserted"> ${text} </span></tui-multi-select-option>`;
+  /**
+   * Опцию фильтра собираем клонированием нативной: Taiga 5 стилизует пункт и
+   * чекбокс по `data-tui-version`, `tuicell` и `_ngcontent-*`, и собранный
+   * строкой пункт выходил серой плашкой с квадратом вместо галочки. Шаблон
+   * берём из списка до того, как его очистить.
+   */
+  function createFilterOption(template, label, isSelected, appearance) {
+    const button = template ? template.cloneNode(true) : createFallbackOption();
     const checkbox = button.querySelector('input[tuicheckbox]');
-    if (checkbox) checkbox.checked = isSelected;
+    button.replaceChildren(...(checkbox ? [checkbox] : []));
+    button.setAttribute('aria-selected', String(isSelected));
+    if (checkbox) {
+      checkbox.setAttribute('data-appearance', appearance);
+      // Клик должен доходить до кнопки: по ней мы и узнаём выбранный пункт.
+      checkbox.style.pointerEvents = 'none';
+      checkbox.checked = isSelected;
+    }
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'culms-option-label';
+    labelSpan.textContent = label;
+    button.appendChild(labelSpan);
     return button;
   }
 
-  function createCourseOption(text, isSelected) {
-    // Оборачиваем в div, как в новом интерфейсе
-    const wrapper = document.createElement('div');
-
+  /** Запасная разметка Taiga 5 — если в списке не нашлось нативного пункта. */
+  function createFallbackOption() {
+    const version =
+      document.querySelector('[data-tui-version]')?.getAttribute('data-tui-version') || '';
     const button = document.createElement('button');
-    button.setAttribute('tuiicons', '');
-    button.setAttribute('type', 'button');
-    button.setAttribute('role', 'option');
-    button.setAttribute('tuioption', '');
+    button.innerHTML =
+      '<input tuiappearance tuiicons aria-hidden="true" tuicheckbox type="checkbox" disabled class="_readonly" data-size="s" data-icon-start="tui" data-icon-end="tui">';
+    for (const [name, value] of [
+      ['tuiicons', ''],
+      ['tuicell', ''],
+      ['tuioption', ''],
+      ['role', 'option'],
+      ['type', 'button'],
+      ['data-height', 'normal'],
+      ['data-size', 's'],
+    ]) {
+      button.setAttribute(name, value);
+    }
+    const checkbox = button.firstElementChild;
+    checkbox.style.setProperty('--t-icon-start', 'url(assets/cu/icons/cuIconCheck.svg)');
+    checkbox.style.setProperty('--t-icon-end', 'url(assets/cu/icons/cuIconMinus.svg)');
+    if (version) {
+      button.setAttribute('data-tui-version', version);
+      checkbox.setAttribute('data-tui-version', version);
+    }
+    return button;
+  }
 
-    // Стили чекбокса для курсов (outline-grayscale)
-    const finalStyle = `pointer-events: none; --t-checked-icon: url(assets/cu/icons/cuIconCheck.svg); --t-indeterminate-icon: url(assets/cu/icons/cuIconMinus.svg);`;
+  function createStatusOption(template, text, isSelected) {
+    return createFilterOption(template, text, isSelected, 'primary');
+  }
 
-    button.innerHTML = `
-        <tui-multi-select-option>
-            <input tuiappearance tuicheckbox type="checkbox" 
-                   data-appearance="outline-grayscale" disabled data-size="s" class="_readonly" 
-                   style="${finalStyle}">
-            <span></span>
-        </tui-multi-select-option>`;
-
+  function createCourseOption(template, text, isSelected) {
     // `text` — настоящее название; показываем вместо него переименованное,
-    // а оригинал храним в data-атрибуте. Подпись ставим через textContent:
-    // имя задаёт пользователь, и подставлять его в innerHTML не стоит.
+    // а оригинал храним в data-атрибуте.
+    const button = createFilterOption(
+      template,
+      displayCourseName(text),
+      isSelected,
+      'outline-grayscale'
+    );
     button.dataset.culmsCourse = text;
-    const label = button.querySelector('tui-multi-select-option span');
-    if (label) label.textContent = displayCourseName(text);
-
-    const checkbox = button.querySelector('input[tuicheckbox]');
-    if (checkbox) checkbox.checked = isSelected;
-
-    wrapper.appendChild(button);
-    return wrapper;
+    return button;
   }
 
   browser.storage.onChanged.addListener((changes) => {

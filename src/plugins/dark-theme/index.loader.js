@@ -91,7 +91,9 @@ if (typeof window.darkThemeInitialized === 'undefined') {
     const listItem = document.createElement('li');
     listItem.setAttribute('automation-id', 'header-action-theme-toggle');
     listItem.classList.add('theme-toggle-container');
-    listItem.style.cssText = 'display:flex;align-items:center';
+    // Круглая подсветка при наведении: у колокольчика радиус задаёт обёртка
+    // `tui-badged-content`, у нас её нет.
+    listItem.style.cssText = 'display:flex;align-items:center;--tui-radius:50%';
 
     const button = document.createElement('button');
     button.setAttribute('tuiappearance', '');
@@ -100,6 +102,13 @@ if (typeof window.darkThemeInitialized === 'undefined') {
     button.type = 'button';
     button.setAttribute('data-appearance', 'tertiary-no-padding');
     button.setAttribute('data-size', 'm');
+    // Taiga 5 стилизует кнопку и рисует иконку из `--t-icon-start` только при
+    // `data-tui-version` — без него на месте иконки пустая рамка.
+    const tuiVersion = document
+      .querySelector('ul.header__actions-list [data-tui-version], [data-tui-version]')
+      ?.getAttribute('data-tui-version');
+    if (tuiVersion) button.setAttribute('data-tui-version', tuiVersion);
+    button.setAttribute('data-icon-start', 'svg');
     button.classList.add('button-action');
 
     button.addEventListener('click', async () => {

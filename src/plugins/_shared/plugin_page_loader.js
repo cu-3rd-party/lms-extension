@@ -22,6 +22,27 @@ function cleanupPluginState() {
   }
 }
 
+/**
+ * Пункт меню профиля собираем клонированием нативного: Taiga 5 стилизует
+ * кнопку по `data-tui-version`, а меню — по `_ngcontent-*`, без них пункт
+ * выходит без отступов и иконки. Функция глобальная — ею пользуется и
+ * feedback_menu.js, который внедряется следом.
+ */
+function createUserActionItem(list, id, title, iconUrl) {
+  const native = list.querySelector('li');
+  const item = native ? native.cloneNode(true) : document.createElement('li');
+  if (!native) {
+    item.innerHTML = `<button tuiappearance="" tuiicons="" tuibutton="" type="button" size="m" class="user-actions__action-button" data-appearance="tertiary" data-size="m"><div class="user-actions__action-title"></div></button>`;
+  }
+  const button = item.querySelector('button');
+  button.id = id;
+  button.removeAttribute('custatistevent');
+  button.setAttribute('data-icon-start', 'svg');
+  button.style.setProperty('--t-icon-start', `url("${iconUrl}")`);
+  item.querySelector('.user-actions__action-title').textContent = title;
+  return item;
+}
+
 // --- БЛОК ОДНОРАЗОВОЙ ИНИЦИАЛИЗАЦИИ ---
 if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
   window.isPluginPageLoaderInitialized = true;
@@ -174,8 +195,12 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
     const observer = new MutationObserver(() => {
       const userActionsList = document.querySelector('ul.user-actions');
       if (userActionsList && !document.getElementById(PLUGIN_BUTTON_ID)) {
-        const pluginListItem = document.createElement('li');
-        pluginListItem.innerHTML = `<button id="${PLUGIN_BUTTON_ID}" tuiappearance="" tuiicons="" tuibutton="" type="button" size="m" class="user-actions__action-button" data-appearance="tertiary" data-icon-start="svg" data-size="m" style="--t-icon-start: url(${chrome.runtime.getURL('icons/plugin.svg')});"><div class="user-actions__action-title">Плагин</div></button>`;
+        const pluginListItem = createUserActionItem(
+          userActionsList,
+          PLUGIN_BUTTON_ID,
+          'Плагин',
+          chrome.runtime.getURL('icons/plugin.svg')
+        );
         pluginListItem
           .querySelector(`#${PLUGIN_BUTTON_ID}`)
           .addEventListener('click', handlePluginToggle);

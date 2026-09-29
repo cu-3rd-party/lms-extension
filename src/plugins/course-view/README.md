@@ -289,11 +289,18 @@
    - `/api/micro-lms/courses/{id}/student-performance` — успеваемость
    - `/api/micro-lms/tasks/student` — список задач с датами
 3. Строит карту `longreadId → статус последней задачи`.
-4. Для каждого `tui-accordion-item` в `cu-course-overview` ищет соответствующий лонгрид и вставляет иконку статуса (✅ сдано / ❌ просрочено / ⏩ скип / 🔄 доработка / ⏳ ожидает).
+4. Для каждой ссылки `a.longread` в `cu-course-overview` ищет соответствующий лонгрид и вставляет плашку статуса (`cu-task-state-badge.state-chip`).
+5. Ссылки на лонгриды Taiga рисует, только пока тема раскрыта. Раньше модуль
+   следил за `aria-expanded` у `tui-expand`, но в Taiga 5 этот атрибут переехал
+   на кнопку аккордеона, и статусы перестали появляться. Теперь один
+   `MutationObserver` (`childList`, `subtree`) на весь `cu-course-overview`
+   ловит появление самих ссылок; повторно плашка не рисуется — у неё
+   `data-longread-id` и `data-state`. Наблюдатель хранится в
+   `window.cuCourseOverviewStatusObserver` и пересоздаётся при переходах.
 
 **Взаимодействие со страницей:**
 
-- Читает DOM: `cu-course-overview`, `tui-accordion-item`
+- Читает DOM: `cu-course-overview`, `a.longread`
 - Вставляет: иконки/чипы статуса рядом с каждой темой аккордеона
 - Fetch: 3 API-запроса к LMS
 

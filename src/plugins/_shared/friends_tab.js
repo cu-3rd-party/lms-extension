@@ -124,11 +124,16 @@ async function init() {
   friendsLink.href = '#';
   friendsLink.innerText = 'Друзья';
 
-  // Копируем атрибуты с соседней ссылки именно в хедере
+  // Копируем атрибуты с соседней ссылки именно в хедере. Taiga 5 вешает
+  // стили вкладки на `data-tui-version` — без него ссылка подчёркнута.
   const neighbor = tabsContainer.querySelector('.header__tab-link');
   if (neighbor) {
     Array.from(neighbor.attributes).forEach((attr) => {
-      if (attr.name.startsWith('_ngcontent') || attr.name === 'tuiicons') {
+      if (
+        attr.name.startsWith('_ngcontent') ||
+        attr.name === 'tuiicons' ||
+        attr.name === 'data-tui-version'
+      ) {
         friendsLink.setAttribute(attr.name, attr.value);
       }
     });

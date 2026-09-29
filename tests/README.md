@@ -82,6 +82,7 @@ tests/
 ├── future-exams.test.ts
 ├── gradebook.test.ts            # вкладка «Сводная таблица» в ведомостях
 ├── tasks-fix.test.ts
+├── taiga5-markup.test.ts        # наши элементы в разметке Taiga 5: «Друзья», кнопка темы, пункты меню профиля, статусы в обзоре курса
 ├── tasks-hide-before-date.test.ts # скрытие архивных заданий раньше выбранной даты
 ├── tasks-archive-hide.test.ts   # ручное скрытие в архиве и список скрытых
 └── theme-editor-hex.test.ts     # ввод цвета hex-ом в редакторе темы

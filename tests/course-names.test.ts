@@ -164,18 +164,18 @@ test.describe('Свои названия курсов', () => {
     await input.focus();
     await input.press('ArrowDown');
 
-    const option = page.locator(`tui-multi-select-option span:text-is("${CUSTOM_NAME}")`).first();
+    const option = page
+      .locator('tui-data-list button[tuioption]')
+      .filter({ hasText: new RegExp(`^\\s*${CUSTOM_NAME}\\s*$`) })
+      .first();
     await expect(option).toBeVisible({ timeout: 10_000 });
 
     // Рядом с подменой всегда лежит оригинал — по нему фильтр и работает.
-    await expect(option).toHaveAttribute('data-culms-orig-name', course.name);
-
-    // Комментарии-якоря Angular внутри опции должны уцелеть: подмена пишет
-    // в текстовый узел, а не в textContent.
-    const anchors = await option.evaluate(
-      (el) => Array.from(el.childNodes).filter((n) => n.nodeType === Node.COMMENT_NODE).length
+    // Нативную опцию помечает course_names.js, пересобранную — tasks_fix.js.
+    const original = await option.evaluate(
+      (el) => el.getAttribute('data-culms-orig-name') ?? el.getAttribute('data-culms-course')
     );
-    expect(anchors).toBeGreaterThan(0);
+    expect(original).toBe(course.name);
 
     // Выбираем курс — свёрнутый чип фильтра тоже должен показать своё название,
     // но подпись «Курс:» рядом с ним обязана уцелеть: в чипе это отдельный
