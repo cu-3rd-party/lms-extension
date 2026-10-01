@@ -108,8 +108,14 @@ jobs:
 
   publish-safari:
     name: Publish Safari
+    if: github.event_name == 'workflow_dispatch' || (!github.event.release.prerelease && !github.event.release.draft)
     runs-on: macos-latest
     environment: publish-safari
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-safari-${{ github.event.release.tag_name || github.ref }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
@@ -127,10 +133,13 @@ jobs:
           bundler-cache: true
 
       - name: Install node-gyp for native modules
-        run: npm install -g node-gyp
+        run: bun add --global node-gyp
 
       - name: Install deps
         run: bun install --frozen-lockfile
+
+      - name: Check Safari release tooling
+        run: bundle exec ruby fastlane/tests/safari_release_test.rb
 
       - name: Import Developer ID certificate
         uses: apple-actions/import-codesign-certs@v7
@@ -144,10 +153,38 @@ jobs:
           FASTLANE_USER: ${{ secrets.APPLE_ID }}
           FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          SAFARI_RELEASE_TAG: ${{ github.event.release.tag_name }}
+
+      - name: Generate signed appcast
+        if: github.event_name == 'release'
+        run: bundle exec fastlane mac appcast
+        env:
+          SAFARI_RELEASE_TAG: ${{ github.event.release.tag_name }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+
+      - name: Publish DMG and appcast to GitHub Release
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" build/release/lms-extension-safari.dmg --clobber
+          gh release upload "$RELEASE_TAG" build/release/appcast.xml --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
           name: lms-extension-safari.dmg
           path: build/release/lms-extension-safari.dmg
+          if-no-files-found: error
+
+      - name: Upload appcast artifact
+        if: github.event_name == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: safari-appcast
+          path: build/release/appcast.xml
           if-no-files-found: error

@@ -7,7 +7,7 @@
 :root {
   color-scheme: light dark;
 
-  --spacing: 20px;
+  --spacing: 16px;
 }
 
 html {
@@ -23,6 +23,8 @@ body {
   gap: var(--spacing);
   margin: 0 calc(var(--spacing) * 2);
   height: 100%;
+  box-sizing: border-box;
+  padding: var(--spacing) 0;
 
   font: -apple-system-short-body;
   text-align: center;
@@ -42,4 +44,19 @@ body.state-off :is(.state-on, .state-unknown) {
 
 button {
   font-size: 1em;
+}
+
+p {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.app-version {
+  font-size: 0.85em;
+  color: GrayText;
 }

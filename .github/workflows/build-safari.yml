@@ -28,10 +28,13 @@ jobs:
           bundler-cache: true
 
       - name: Install node-gyp for native modules
-        run: npm install -g node-gyp
+        run: bun add --global node-gyp
 
       - name: Install deps
         run: bun install --frozen-lockfile
+
+      - name: Check Safari release tooling
+        run: bundle exec ruby fastlane/tests/safari_release_test.rb
 
       - name: Import Developer ID certificate
         uses: apple-actions/import-codesign-certs@v7

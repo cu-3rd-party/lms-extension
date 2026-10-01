@@ -10,7 +10,7 @@
     <script src="../Script.js" defer></script>
   </head>
   <body>
-    <img src="../Icon.png" width="128" height="128" alt="CU LMS Enhancer Icon" />
+    <img src="../Icon.png" width="96" height="96" alt="CU LMS Enhancer Icon" />
     <p class="state-unknown">
       You can turn on CU LMS Enhancer’s extension in Safari Extensions preferences.
     </p>
@@ -22,6 +22,10 @@
       CU LMS Enhancer’s extension is currently off. You can turn it on in Safari Extensions
       preferences.
     </p>
-    <button class="open-preferences">Quit and Open Safari Extensions Preferences…</button>
+    <div class="actions">
+      <button class="open-preferences">Quit and Open Safari Extensions Preferences…</button>
+      <button class="check-for-updates" disabled>Check for Updates…</button>
+    </div>
+    <p class="app-version" aria-live="polite"></p>
   </body>
 </html>

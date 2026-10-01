@@ -1,7 +1,20 @@
+require "json"
+require_relative "safari_release"
+
 default_platform(:mac)
 
 platform :mac do
   lane :release do
+    project_root = File.expand_path("..", __dir__)
+    package_path = File.join(project_root, "package.json")
+    package = JSON.parse(File.read(package_path))
+    tag = ENV["SAFARI_RELEASE_TAG"].to_s
+    version = SafariRelease.version(tag.empty? ? package.fetch("version") : tag)
+    if package["version"] != version
+      package["version"] = version
+      File.write(package_path, JSON.pretty_generate(package) + "\n")
+    end
+
     sh("bun run build:chrome")
 
     gym(
@@ -10,13 +23,16 @@ platform :mac do
       configuration: "Release",
       destination: "generic/platform=macOS",
       export_method: "developer-id",
+      cloned_source_packages_path: File.join(project_root, "build/SourcePackages"),
+      xcargs: "MARKETING_VERSION=#{version} CURRENT_PROJECT_VERSION=#{version}",
       output_directory: "build/release",
       output_name: "CU-LMS-Enhancer"
     )
 
     app_path = File.expand_path("../build/release/CU-LMS-Enhancer.app", __dir__)
     release_path = File.expand_path("../build/release", __dir__)
-    sh("bunx create-dmg --overwrite --no-version-in-filename --identity='Developer ID Application' --dmg-title='lms-extension-safari' '#{app_path}' '#{release_path}'")
+    sh("bunx", "create-dmg", "--overwrite", "--no-version-in-filename",
+       "--identity=Developer ID Application", "--dmg-title=lms-extension-safari", app_path, release_path)
 
     # create-dmg derives the filename from the app name, not --dmg-title.
     dmg_path = File.join(release_path, "lms-extension-safari.dmg")
@@ -28,5 +44,18 @@ platform :mac do
       asc_provider: ENV.fetch("APPLE_TEAM_ID"),
       print_log: true
     )
+  end
+
+  desc "Generate a signed Sparkle appcast for the notarized DMG"
+  lane :appcast do
+    project_root = File.expand_path("..", __dir__)
+    SafariRelease.generate_appcast(
+      release_dir: File.join(project_root, "build/release"),
+      packages_dir: File.join(project_root, "build/SourcePackages"),
+      repository: ENV.fetch("GITHUB_REPOSITORY", "cu-3rd-party/lms-extension"),
+      tag: ENV.fetch("SAFARI_RELEASE_TAG"),
+      private_key: ENV.fetch("SPARKLE_PRIVATE_KEY")
+    )
+    UI.success("Signed appcast generated: build/release/appcast.xml")
   end
 end
