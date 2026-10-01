@@ -10,7 +10,7 @@
 // скачивает их и превращает обратно в `data:`-URL — в том виде, в каком их
 // хранят плагины.
 //
-// Сервер: https://github.com/cu-3rd-party/lms-workshop-backend
+// Сервер: https://github.com/cu-3rd-party/lms-workshop
 
 // Polyfill to handle browser namespace differences (Chrome uses 'chrome', Firefox uses 'browser')
 if (typeof browser === 'undefined') {

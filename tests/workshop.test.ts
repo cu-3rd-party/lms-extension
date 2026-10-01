@@ -3,12 +3,12 @@
  * модерация в общей комнате.
  *
  * Тест сквозной: настоящее расширение из dist/chrome и настоящий сервер
- * мастерской (https://github.com/cu-3rd-party/lms-workshop-backend), поднятый
+ * мастерской (https://github.com/cu-3rd-party/lms-workshop), поднятый
  * локально. LMS подставная: `students/me` и страницы отдаёт `context.route`,
  * логин не нужен.
  *
  * Запуск:
- *   # в lms-workshop-backend
+ *   # в lms-workshop
  *   DATABASE_URL=sqlite:///./ws.db ADMIN_PASSWORD=secret alembic upgrade head
  *   DATABASE_URL=sqlite:///./ws.db ADMIN_PASSWORD=secret uvicorn app.main:app --port 8765
  *   # здесь

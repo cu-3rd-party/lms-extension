@@ -10,7 +10,7 @@
 //     LMS и страница мастерской шлют сюда одно и то же сообщение, поэтому
 //     возврат написан один раз.
 //
-// Сервер: https://github.com/cu-3rd-party/lms-workshop-backend
+// Сервер: https://github.com/cu-3rd-party/lms-workshop
 
 import browser from 'webextension-polyfill';
 import { LMS_HOSTS } from './plugins/lms-hosts';

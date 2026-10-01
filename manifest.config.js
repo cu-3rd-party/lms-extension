@@ -42,7 +42,7 @@ export default defineManifest({
     'https://lms.exams.cu3rd.ru/*',
     // https://github.com/cu-3rd-party/lms-swap-backend
     'https://lms.swap.cu3rd.ru/*',
-    // https://github.com/cu-3rd-party/lms-workshop-backend
+    // https://github.com/cu-3rd-party/lms-workshop
     'https://lms.workshop.cu3rd.ru/*',
   ],
   background:

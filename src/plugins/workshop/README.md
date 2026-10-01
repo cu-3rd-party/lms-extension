@@ -5,7 +5,7 @@ CSS, логотипом и фонами, обложками и названия�
 из попапа: «Тема» → «Мастерская тем» → «Открыть мастерскую».
 
 Сервер — отдельный репозиторий
-[lms-workshop-backend](https://github.com/cu-3rd-party/lms-workshop-backend):
+[lms-workshop](https://github.com/cu-3rd-party/lms-workshop):
 FastAPI, Postgres и админка модерации. Адрес зашит в трёх местах:
 `workshop_api.js`, `src/workshop-background.ts` и `host_permissions` в
 `manifest.config.js`.
