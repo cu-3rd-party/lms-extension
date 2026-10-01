@@ -301,10 +301,13 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
       if (shouldReload) location.reload();
     }
 
-    // Редактор тем открывается отдельной вкладкой (её создаёт background по
-    // запросу попапа) — здесь остаётся только убрать меню со страницы, чтобы
-    // она была видна: пипетка работает именно по ней.
-    if (event.data && event.data.action === 'openThemeEditor') {
+    // Редактор тем и мастерская открываются отдельной вкладкой (её создаёт
+    // background по запросу попапа) — здесь остаётся только убрать меню со
+    // страницы, чтобы она была видна: пипетка и примерка работают по ней.
+    if (
+      event.data &&
+      (event.data.action === 'openThemeEditor' || event.data.action === 'openWorkshop')
+    ) {
       closePluginMenu();
     }
   });

@@ -910,6 +910,19 @@ if (openThemeEditorBtn) {
   });
 }
 
+// Мастерская тем — тоже отдельная вкладка (plugins/workshop).
+const openWorkshopBtn = document.getElementById('open-workshop-btn');
+if (openWorkshopBtn) {
+  openWorkshopBtn.addEventListener('click', () => {
+    browser.runtime.sendMessage({ action: 'OPEN_WORKSHOP' });
+    if (isInsideIframe) {
+      window.parent.postMessage({ action: 'openWorkshop' }, '*');
+      return;
+    }
+    window.close();
+  });
+}
+
 function setThemeFileStatus(text, kind = 'info') {
   if (!themeFileStatus) return;
   themeFileStatus.textContent = text || '';

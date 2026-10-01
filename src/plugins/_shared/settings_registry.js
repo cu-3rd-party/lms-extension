@@ -203,6 +203,15 @@ if (typeof window.cuLmsSettings === 'undefined') {
     data('themeEditorTabId', 'private', 'number'),
     data('themeSourceRequest', 'private', 'number'),
     data('themeSourceDump', 'private', 'object'),
+    // Мастерская тем (plugins/workshop): ключ устройства — как у биржи, отдать
+    // его значит отдать вход от имени студента; остальное — состояние этого
+    // браузера: что примеряется сейчас и что уже установлено.
+    data('workshopDeviceKey', 'private', 'string'),
+    data('workshopStudentId', 'private', 'string'),
+    data('workshopBackendUrl', 'private', 'string'),
+    data('workshopTryOn', 'private', 'object'),
+    data('workshopInstalled', 'private', 'object'),
+    data('workshopTabId', 'private', 'number'),
   ];
 
   const BY_KEY = new Map(REGISTRY.filter((e) => !e.prefix).map((entry) => [entry.key, entry]));
@@ -219,10 +228,17 @@ if (typeof window.cuLmsSettings === 'undefined') {
 
   // Что входит в каждый вид профиля. `settings` — только поведение, его файл
   // весит килобайты; `visual` тянет картинки и может весить мегабайты.
+  // `keys` — отдельные ключи сверх групп: мастерской нужны названия курсов, но
+  // не остальная группа `personal` (архив курсов, скрытые задания).
   const KINDS = {
     settings: { groups: ['appearance', 'theme', 'features', 'integrations'], title: 'Настройки' },
     visual: { groups: ['appearance', 'theme', 'content'], title: 'Визуальный пак' },
     theme: { groups: ['theme'], title: 'Тема' },
+    workshop: {
+      groups: ['appearance', 'theme', 'content'],
+      keys: ['courseNames', 'customCourseNamesToggle'],
+      title: 'Тема из мастерской',
+    },
     full: {
       groups: ['appearance', 'theme', 'features', 'integrations', 'content', 'personal'],
       title: 'Всё',
@@ -232,8 +248,40 @@ if (typeof window.cuLmsSettings === 'undefined') {
   const entriesFor = (kind) => {
     const spec = KINDS[kind];
     if (!spec) throw new Error('Неизвестный вид профиля: ' + kind);
-    return REGISTRY.filter((entry) => spec.groups.includes(entry.group));
+    const keys = spec.keys || [];
+    return REGISTRY.filter(
+      (entry) => spec.groups.includes(entry.group) || keys.includes(entry.key)
+    );
   };
+
+  // --- СЛОИ ТЕМЫ ---
+  //
+  // Тему из мастерской ставят не обязательно целиком: можно взять палитру, а
+  // свои обложки курсов оставить. Слой — это то, что человек видит галочкой.
+  // Тот же список есть на сервере мастерской (app/payload.py) — там он только
+  // для показа, решает всё равно расширение.
+  const LAYERS = {
+    theme: 'Палитра и CSS',
+    appearance: 'Переключатели оформления',
+    images: 'Логотип и фоны',
+    covers: 'Обложки курсов',
+    names: 'Названия курсов',
+  };
+
+  function layerOf(key) {
+    if (key.startsWith('customTheme')) return 'theme';
+    if (key === 'courseNames' || key === 'customCourseNamesToggle') return 'names';
+    if (key === 'courseIcons') return 'covers';
+    if (key === 'customLogo' || key === 'customBackground' || key.startsWith('customBackground.')) {
+      return 'images';
+    }
+    return 'appearance';
+  }
+
+  // Словари «курс → значение». При установке чужой темы они дополняются, а не
+  // заменяются: в теме названия только тех курсов, что были у автора, и
+  // затирать ими свои было бы потерей.
+  const MERGED_OBJECTS = ['courseNames', 'courseIcons'];
 
   // --- ПРОВЕРКА ЗНАЧЕНИЙ ---
 
@@ -369,15 +417,32 @@ if (typeof window.cuLmsSettings === 'undefined') {
     return { ok: true, profile, accepted, rejected };
   }
 
-  /** Записывает то, что прошло проверку. Остальное не трогает. */
-  async function apply(raw) {
+  /**
+   * Записывает то, что прошло проверку. Остальное не трогает.
+   *
+   * `options.only(key)` отбирает ключи (мастерская ставит тему по слоям),
+   * `options.merge` — словари из MERGED_OBJECTS дописываются к своим, а не
+   * заменяют их.
+   */
+  async function apply(raw, options = {}) {
     const result = inspect(raw);
     if (!result.ok) return result;
 
+    const accepted = options.only
+      ? result.accepted.filter(({ key }) => options.only(key))
+      : result.accepted;
+    const mergeKeys = options.merge
+      ? accepted.map(({ key }) => key).filter((key) => MERGED_OBJECTS.includes(key))
+      : [];
+    const current = mergeKeys.length ? await browser.storage.local.get(mergeKeys) : {};
+
     const sync = {};
     const local = {};
-    result.accepted.forEach(({ entry, key, value }) => {
-      (entry.area === 'sync' ? sync : local)[key] = value;
+    accepted.forEach(({ entry, key, value }) => {
+      const own = current[key];
+      const merged =
+        mergeKeys.includes(key) && own && typeof own === 'object' ? { ...own, ...value } : value;
+      (entry.area === 'sync' ? sync : local)[key] = merged;
     });
 
     if (Object.keys(sync).length) await browser.storage.sync.set(sync);
@@ -385,11 +450,32 @@ if (typeof window.cuLmsSettings === 'undefined') {
 
     return {
       ok: true,
-      applied: result.accepted.map(({ key }) => key),
+      applied: accepted.map(({ key }) => key),
       rejected: result.rejected,
       kind: result.profile.kind,
       meta: result.profile.meta || {},
     };
+  }
+
+  /**
+   * Текущие значения ключей по областям хранилища — чтобы потом вернуть всё
+   * как было (примерка темы в мастерской). Ключа нет — в снимке `null`, и
+   * при возврате он удаляется, а не записывается пустым. Возвращает снимок
+   * background (`WORKSHOP_TRYON_END`): туда же шлёт плашка примерки с LMS.
+   */
+  async function snapshot(keys) {
+    const byArea = { sync: [], local: [] };
+    keys.forEach((key) => {
+      const entry = entryFor(key);
+      if (entry && entry.group !== 'private') byArea[entry.area].push(key);
+    });
+    const [sync, local] = await Promise.all([
+      byArea.sync.length ? browser.storage.sync.get(byArea.sync) : Promise.resolve({}),
+      byArea.local.length ? browser.storage.local.get(byArea.local) : Promise.resolve({}),
+    ]);
+    const pick = (keysInArea, data) =>
+      Object.fromEntries(keysInArea.map((key) => [key, key in data ? data[key] : null]));
+    return { sync: pick(byArea.sync, sync), local: pick(byArea.local, local) };
   }
 
   /** Значение настройки, когда её ещё ни разу не трогали. */
@@ -403,7 +489,10 @@ if (typeof window.cuLmsSettings === 'undefined') {
     FORMAT_VERSION,
     GROUPS,
     KINDS,
+    LAYERS,
     REGISTRY,
+    layerOf,
+    snapshot,
     defaultFor,
     entriesFor,
     entryFor,

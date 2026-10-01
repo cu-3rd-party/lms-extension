@@ -3,6 +3,7 @@ import browser from 'webextension-polyfill';
 import type { PluginManifest } from './plugins/types';
 import { DEFAULT_LMS_ORIGIN, isLmsUrl, lmsOriginOf } from './plugins/lms-hosts';
 import { fetchAllGradesForExport } from './grades-export';
+import { endTryOn, focusLmsTab, workshopIdentity } from './workshop-background';
 
 // У LMS два домена с раздельными сессиями, поэтому фоновые запросы идут на тот,
 // где пользователь сейчас работает: cookie другого домена нам недоступны и
@@ -93,6 +94,10 @@ type IncomingMessage =
   | { action: 'TABS_SEND_MESSAGE'; tabId: number; message: unknown }
   | { action: 'OPEN_PDF_VIEWER'; url: string; filename: string }
   | { action: 'OPEN_THEME_EDITOR' }
+  | { action: 'OPEN_WORKSHOP' }
+  | { action: 'WORKSHOP_IDENTITY' }
+  | { action: 'WORKSHOP_FOCUS_LMS' }
+  | { action: 'WORKSHOP_TRYON_END'; keep: boolean }
   | { action: 'GRADES_EXPORT_EXECUTE'; tabId?: number; archived?: boolean }
   | { action: 'SAFARI_NAVIGATION'; url: string }
   | { action: string; [key: string]: unknown };
@@ -1336,6 +1341,55 @@ browser.webNavigation.onCompleted.addListener((details) => {
   }
 }, navFilter);
 
+// --- СТРАНИЦЫ РАСШИРЕНИЯ ВО ВКЛАДКЕ ---
+
+/** Ответ `{ success, ...result }` или `{ success: false, error }` для промиса. */
+function respondWith(sendResponse: (response: unknown) => void, work: Promise<unknown>): void {
+  work
+    .then((result) =>
+      sendResponse({
+        success: true,
+        ...(result && typeof result === 'object' ? (result as object) : {}),
+      })
+    )
+    .catch((error) => sendResponse({ success: false, error: (error as Error).message }));
+}
+
+/**
+ * Открывает страницу расширения вкладкой или переключает на уже открытую.
+ *
+ * Вторая вкладка редактора тем не нужна и вредна: обе пишут одни и те же
+ * ключи и перетирали бы правки друг друга. Мастерской — просто незачем.
+ * Поэтому запоминаем id своей вкладки. Именно id, а не `tabs.query({url})`:
+ * фильтр по URL требует разрешения `tabs`, которого у расширения нет и ради
+ * одной кнопки заводить не стоит.
+ */
+async function openExtensionTab(path: string, storageKey: string): Promise<void> {
+  const pageUrl = browser.runtime.getURL(path);
+  const stored = await browser.storage.local.get(storageKey);
+  const knownId = stored[storageKey];
+
+  if (typeof knownId === 'number') {
+    try {
+      const tab = await browser.tabs.get(knownId);
+      // URL виден не всегда (то же разрешение `tabs`); если видно —
+      // проверяем, что вкладку не увели на другой сайт.
+      if (tab && (!tab.url || tab.url.startsWith(pageUrl))) {
+        await browser.tabs.update(knownId, { active: true });
+        if (tab.windowId != null) {
+          await browser.windows.update(tab.windowId, { focused: true });
+        }
+        return;
+      }
+    } catch (_error) {
+      // Вкладку закрыли — просто откроем новую.
+    }
+  }
+
+  const created = await browser.tabs.create({ url: pageUrl });
+  await browser.storage.local.set({ [storageKey]: created.id ?? null });
+}
+
 // --- ОБРАБОТЧИК СООБЩЕНИЙ (ЕДИНЫЙ ДЛЯ ВСЕГО) ---
 browser.runtime.onMessage.addListener(((
   rawRequest: unknown,
@@ -1619,42 +1673,35 @@ browser.runtime.onMessage.addListener(((
   // открывается так же: из content-скрипта `tabs.create` недоступен, а
   // `window.open` на `chrome-extension://` браузер не пустит.
   if (request.action === 'OPEN_THEME_EDITOR') {
-    const editorUrl = browser.runtime.getURL('plugins/theme-editor/theme-editor.html');
+    respondWith(
+      sendResponse,
+      openExtensionTab('plugins/theme-editor/theme-editor.html', 'themeEditorTabId')
+    );
+    return true;
+  }
 
-    // Вторая вкладка редактора не нужна и вредна: обе пишут одни и те же
-    // ключи и перетирали бы правки друг друга. Поэтому запоминаем свою.
-    // Именно id, а не `tabs.query({url})`: фильтр по URL требует разрешения
-    // `tabs`, которого у расширения нет и ради одной кнопки заводить не стоит.
-    void (async () => {
-      try {
-        const stored = await browser.storage.local.get('themeEditorTabId');
-        const knownId = stored.themeEditorTabId;
+  // --- МАСТЕРСКАЯ ТЕМ (см. workshop-background.ts) ---
+  if (request.action === 'OPEN_WORKSHOP') {
+    respondWith(sendResponse, openExtensionTab('plugins/workshop/workshop.html', 'workshopTabId'));
+    return true;
+  }
 
-        if (typeof knownId === 'number') {
-          try {
-            const tab = await browser.tabs.get(knownId);
-            // URL виден не всегда (то же разрешение `tabs`); если видно —
-            // проверяем, что вкладку не увели на другой сайт.
-            if (tab && (!tab.url || tab.url.startsWith(editorUrl))) {
-              await browser.tabs.update(knownId, { active: true });
-              if (tab.windowId != null) {
-                await browser.windows.update(tab.windowId, { focused: true });
-              }
-              sendResponse({ success: true });
-              return;
-            }
-          } catch (_error) {
-            // Вкладку закрыли — просто откроем новую.
-          }
-        }
+  if (request.action === 'WORKSHOP_IDENTITY') {
+    respondWith(
+      sendResponse,
+      workshopIdentity(lmsApi).then((studentId) => ({ studentId }))
+    );
+    return true;
+  }
 
-        const created = await browser.tabs.create({ url: editorUrl });
-        await browser.storage.local.set({ themeEditorTabId: created.id ?? null });
-        sendResponse({ success: true });
-      } catch (error) {
-        sendResponse({ success: false, error: (error as Error).message });
-      }
-    })();
+  if (request.action === 'WORKSHOP_FOCUS_LMS') {
+    respondWith(sendResponse, focusLmsTab(lmsOrigin));
+    return true;
+  }
+
+  if (request.action === 'WORKSHOP_TRYON_END') {
+    const keep = (request as { keep?: unknown }).keep === true;
+    respondWith(sendResponse, endTryOn(keep));
     return true;
   }
 

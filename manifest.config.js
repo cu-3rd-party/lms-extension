@@ -42,6 +42,8 @@ export default defineManifest({
     'https://lms.exams.cu3rd.ru/*',
     // https://github.com/cu-3rd-party/lms-swap-backend
     'https://lms.swap.cu3rd.ru/*',
+    // https://github.com/cu-3rd-party/lms-workshop-backend
+    'https://lms.workshop.cu3rd.ru/*',
   ],
   background:
     BROWSER === 'firefox'
@@ -119,6 +121,11 @@ export default defineManifest({
         'plugins/_shared/theme_editor_host.js',
         'plugins/theme-editor/theme-editor.html',
         'plugins/theme-editor/theme_editor.js',
+        'plugins/workshop/workshop.html',
+        'plugins/workshop/workshop.css',
+        'plugins/workshop/workshop_api.js',
+        'plugins/workshop/workshop.js',
+        'plugins/_shared/workshop_tryon.js',
         'plugins/_shared/version_check.js',
         'plugins/_shared/reset.js',
         'plugins/_shared/friends_tab.js',

@@ -32,6 +32,8 @@ const manifest = {
     'plugins/_shared/plugin_page_loader.js',
     'plugins/_shared/feedback_menu.js',
     'plugins/_shared/snow.js',
+    // Плашка примерки темы из мастерской — пока примерка идёт.
+    'plugins/_shared/workshop_tryon.js',
   ],
 } satisfies PluginManifest;
 
