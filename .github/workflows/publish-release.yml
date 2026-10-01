@@ -11,7 +11,7 @@ permissions:
 jobs:
   publish-chrome:
     name: Publish Chrome
-    if: github.event_name == 'release'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: publish-chrome
     steps:
@@ -59,7 +59,7 @@ jobs:
 
   publish-firefox:
     name: Publish Firefox
-    if: github.event_name == 'release'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: publish-firefox
     steps:
