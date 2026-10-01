@@ -135,7 +135,6 @@ const toggles = {
   endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'),
   friendsEnabled: document.getElementById('friends-toggle'),
   hideBonusButtonEnabled: document.getElementById('hide-bonus-button-toggle'),
-  mincifryFallbackEnabled: document.getElementById('mincifry-fallback-toggle'),
 };
 
 // Элементы UI для зависимых настроек
@@ -834,7 +833,6 @@ if (resetBtn) {
       courseOverviewAutoscrollToggle: false,
       friendsEnabled: true,
       hideBonusButtonEnabled: false,
-      mincifryFallbackEnabled: false,
       // Граница скрытия архива задаётся на самой странице архива, но
       // сброс «по умолчанию» обнуляет и её.
       hideTasksBeforeEnabled: false,

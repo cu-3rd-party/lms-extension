@@ -73,7 +73,6 @@ tests/
 ├── custom-background.test.ts    # своя картинка на фоне вместо заливки
 ├── custom-background-editor.test.ts # фон по страницам, курсам, разделам и редактор фона
 ├── grades-export.test.ts        # экспорт оценок в Excel из меню плагина: текущие и архивные курсы
-├── mincifry-fallback.test.ts    # LMS без сертификатов Минцифры: подмена упавших ответов Thermostat, флагов плеера и Statist
 ├── settings-profile.test.ts     # выгрузка и загрузка настроек файлом
 ├── popup-tabs.test.ts           # меню со вкладками: порядок, тумблеры по вкладкам, стрелки, размеры попапа и панели на странице
 ├── dark-theme.test.ts           # переключение тёмной темы

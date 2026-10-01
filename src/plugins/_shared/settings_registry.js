@@ -140,9 +140,6 @@ if (typeof window.cuLmsSettings === 'undefined') {
     // Пустая дата означает «не выбрана» — тогда не прячется ничего.
     bool('hideTasksBeforeEnabled', 'features'),
     text('hideTasksBeforeDate', 'features', /^(\d{4}-\d{2}-\d{2})?$/),
-    // Подменять упавший ответ Thermostat Т-Банка (сертификат Минцифры), см.
-    // mincifry_fallback.js.
-    bool('mincifryFallbackEnabled', 'features'),
 
     // --- интеграции ---
     bool('akhIntegrationEnabled', 'integrations'),

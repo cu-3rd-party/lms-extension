@@ -42,7 +42,6 @@ const TOGGLES: Record<string, string> = {
   'contest-integration-toggle': 'Задания',
   'friends-toggle': 'Друзья',
   'hide-bonus-button-toggle': 'Друзья',
-  'mincifry-fallback-toggle': 'Настройки',
 };
 
 const PAGE_HTML = `<!doctype html><html lang="ru"><head><meta charset="utf-8"></head>
