@@ -68,6 +68,22 @@ export default defineManifest({
       run_at: 'document_start',
     },
     {
+      // LMS без сертификатов Минцифры: подменяет упавшие ответы известных ручек
+      // Т-Банка, прежде всего Thermostat, без которого у LMS пустая шапка и
+      // сломан сайдбар. Скрипт страницы должен обернуть fetch и XHR до кода
+      // LMS, поэтому мир MAIN и document_start; галочку ему приносит
+      // изолированный mincifry_flag.js. См. _shared/README.md.
+      matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
+      js: ['plugins/_shared/mincifry_flag.js'],
+      run_at: 'document_start',
+    },
+    {
+      matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
+      js: ['plugins/_shared/mincifry_fallback.js'],
+      run_at: 'document_start',
+      world: 'MAIN',
+    },
+    {
       // Safari does not reliably expose SPA history changes through
       // webNavigation. The script is a no-op in Chrome and Firefox.
       matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
