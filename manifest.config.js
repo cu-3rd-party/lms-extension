@@ -42,6 +42,8 @@ export default defineManifest({
     'https://lms.exams.cu3rd.ru/*',
     // https://github.com/cu-3rd-party/lms-swap-backend
     'https://lms.swap.cu3rd.ru/*',
+    // https://github.com/cu-3rd-party/lms-workshop
+    'https://lms.workshop.cu3rd.ru/*',
   ],
   background:
     BROWSER === 'firefox'
@@ -119,6 +121,11 @@ export default defineManifest({
         'plugins/_shared/theme_editor_host.js',
         'plugins/theme-editor/theme-editor.html',
         'plugins/theme-editor/theme_editor.js',
+        'plugins/workshop/workshop.html',
+        'plugins/workshop/workshop.css',
+        'plugins/workshop/workshop_api.js',
+        'plugins/workshop/workshop.js',
+        'plugins/_shared/workshop_tryon.js',
         'plugins/_shared/version_check.js',
         'plugins/_shared/reset.js',
         'plugins/_shared/friends_tab.js',
@@ -150,6 +157,7 @@ export default defineManifest({
         'plugins/longreads/pdf_viewer.html',
         'plugins/longreads/pdf_viewer.js',
         'plugins/longreads/instant_doc_view_fix.js',
+        'plugins/longreads/file_download.js',
         'plugins/longreads/task_status_adaptation.js',
         'plugins/longreads/rename_hw.js',
         'plugins/statements/advanced_statements.js',
@@ -173,8 +181,12 @@ export default defineManifest({
     browser_specific_settings: {
       gecko: {
         id: 'cu-lms-enhancer@centraluniversity.ru',
+        // Анонимная статистика (src/metrics.ts). technicalAndInteraction
+        // бывает только необязательным: Firefox спрашивает его галочкой при
+        // установке, а снять можно в about:addons.
         data_collection_permissions: {
           required: ['none'],
+          optional: ['technicalAndInteraction'],
         },
       },
     },

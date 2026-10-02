@@ -3,6 +3,8 @@ import browser from 'webextension-polyfill';
 import type { PluginManifest } from './plugins/types';
 import { DEFAULT_LMS_ORIGIN, isLmsUrl, lmsOriginOf } from './plugins/lms-hosts';
 import { fetchAllGradesForExport } from './grades-export';
+import { endTryOn, focusLmsTab, workshopIdentity } from './workshop-background';
+import { isGoal, maybeSendDaily, trackGoal, trackInstall } from './metrics';
 
 // У LMS два домена с раздельными сессиями, поэтому фоновые запросы идут на тот,
 // где пользователь сейчас работает: cookie другого домена нам недоступны и
@@ -92,8 +94,21 @@ type IncomingMessage =
   | { action: 'TABS_RELOAD'; tabId: number; options: browser.Tabs.ReloadReloadPropertiesType }
   | { action: 'TABS_SEND_MESSAGE'; tabId: number; message: unknown }
   | { action: 'OPEN_PDF_VIEWER'; url: string; filename: string }
+  | { action: 'DOWNLOAD_URL'; url: string; filename: string }
+  | {
+      action: 'DOWNLOAD_FILE';
+      data: string | ArrayBuffer;
+      filename: string;
+      mime: string;
+      saveAs?: boolean;
+    }
   | { action: 'OPEN_THEME_EDITOR' }
+  | { action: 'OPEN_WORKSHOP' }
+  | { action: 'WORKSHOP_IDENTITY' }
+  | { action: 'WORKSHOP_FOCUS_LMS' }
+  | { action: 'WORKSHOP_TRYON_END'; keep: boolean }
   | { action: 'GRADES_EXPORT_EXECUTE'; tabId?: number; archived?: boolean }
+  | { action: 'METRICS_GOAL'; goal: string }
   | { action: 'SAFARI_NAVIGATION'; url: string }
   | { action: string; [key: string]: unknown };
 
@@ -1306,6 +1321,7 @@ async function injectPlugin(tabId: number, plugin: (typeof plugins)[number]): Pr
 function handleNavigation(tabId: number, url: string): void {
   if (!isLmsUrl(url)) return;
   rememberLmsOrigin(url);
+  maybeSendDaily();
 
   for (const plugin of plugins) {
     if (!plugin.matches(url)) continue;
@@ -1336,6 +1352,97 @@ browser.webNavigation.onCompleted.addListener((details) => {
   }
 }, navFilter);
 
+// --- СТАТИСТИКА (см. metrics.ts) ---
+browser.runtime.onInstalled.addListener((details) => {
+  trackInstall(details.reason, details.previousVersion);
+});
+
+// --- СТРАНИЦЫ РАСШИРЕНИЯ ВО ВКЛАДКЕ ---
+
+/** Ответ `{ success, ...result }` или `{ success: false, error }` для промиса. */
+function respondWith(sendResponse: (response: unknown) => void, work: Promise<unknown>): void {
+  work
+    .then((result) =>
+      sendResponse({
+        success: true,
+        ...(result && typeof result === 'object' ? (result as object) : {}),
+      })
+    )
+    .catch((error) => sendResponse({ success: false, error: (error as Error).message }));
+}
+
+/**
+ * Открывает страницу расширения вкладкой или переключает на уже открытую.
+ *
+ * Вторая вкладка редактора тем не нужна и вредна: обе пишут одни и те же
+ * ключи и перетирали бы правки друг друга. Мастерской — просто незачем.
+ * Поэтому запоминаем id своей вкладки. Именно id, а не `tabs.query({url})`:
+ * фильтр по URL требует разрешения `tabs`, которого у расширения нет и ради
+ * одной кнопки заводить не стоит.
+ */
+async function openExtensionTab(path: string, storageKey: string): Promise<void> {
+  const pageUrl = browser.runtime.getURL(path);
+  const stored = await browser.storage.local.get(storageKey);
+  const knownId = stored[storageKey];
+
+  if (typeof knownId === 'number') {
+    try {
+      const tab = await browser.tabs.get(knownId);
+      // URL виден не всегда (то же разрешение `tabs`); если видно —
+      // проверяем, что вкладку не увели на другой сайт.
+      if (tab && (!tab.url || tab.url.startsWith(pageUrl))) {
+        await browser.tabs.update(knownId, { active: true });
+        if (tab.windowId != null) {
+          await browser.windows.update(tab.windowId, { focused: true });
+        }
+        return;
+      }
+    } catch (_error) {
+      // Вкладку закрыли — просто откроем новую.
+    }
+  }
+
+  const created = await browser.tabs.create({ url: pageUrl });
+  await browser.storage.local.set({ [storageKey]: created.id ?? null });
+}
+
+// --- СКАЧИВАНИЕ ФАЙЛОВ ИЗ МЕНЮ (FIREFOX) ---
+//
+// Firefox: попап создаёт blob: и зовёт downloads.download, браузер открывает
+// «Сохранить как» (saveAs или настройка «всегда спрашивать»), попап теряет
+// фокус и закрывается — а вместе с ним и blob:, который браузер ещё не
+// прочитал. В загрузках остаётся «Failed». Background живёт дольше попапа,
+// поэтому в Firefox файл отдаёт он. В Chrome у service worker нет
+// URL.createObjectURL, да и попап там справляется сам (popup.js).
+
+/** Отпускает blob:, когда загрузка закончилась, — не раньше: диалог может висеть долго. */
+function revokeWhenDone(downloadId: number, url: string): void {
+  const listener = (delta: browser.Downloads.OnChangedDownloadDeltaType) => {
+    if (delta.id !== downloadId || !delta.state) return;
+    if (delta.state.current === 'complete' || delta.state.current === 'interrupted') {
+      browser.downloads.onChanged.removeListener(listener);
+      URL.revokeObjectURL(url);
+    }
+  };
+  browser.downloads.onChanged.addListener(listener);
+}
+
+async function downloadFile(
+  data: string | ArrayBuffer,
+  filename: string,
+  mime: string,
+  saveAs: boolean
+): Promise<void> {
+  const url = URL.createObjectURL(new Blob([data], { type: mime }));
+  try {
+    const id = await browser.downloads.download({ url, filename, saveAs });
+    revokeWhenDone(id, url);
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
+  }
+}
+
 // --- ОБРАБОТЧИК СООБЩЕНИЙ (ЕДИНЫЙ ДЛЯ ВСЕГО) ---
 browser.runtime.onMessage.addListener(((
   rawRequest: unknown,
@@ -1353,6 +1460,14 @@ browser.runtime.onMessage.addListener(((
       handleNavigation(messageSender.tab.id, navigationRequest.url);
       sendResponse({ success: true });
     }
+    return false;
+  }
+
+  // Цели статистики от контент-скриптов и попапа (см. metrics.ts). Имя цели
+  // проверяем по списку: страница не должна заводить в Метрике что попало.
+  if (request.action === 'METRICS_GOAL') {
+    const goal = (request as { goal?: unknown }).goal;
+    if (isGoal(goal)) trackGoal(goal);
     return false;
   }
 
@@ -1442,6 +1557,14 @@ browser.runtime.onMessage.addListener(((
           return;
         }
 
+        // Пути — из swap_api.js: createOrder и cancelOrder.
+        const path = new URL(swapRequest.url).pathname;
+        if (swapRequest.method === 'POST' && path === '/api/v1/orders') {
+          trackGoal('swap_order_create');
+        } else if (swapRequest.method === 'DELETE' && path.startsWith('/api/v1/orders/')) {
+          trackGoal('swap_order_cancel');
+        }
+
         sendResponse({ success: true, data, status: response.status });
       })
       .catch((error) => sendResponse({ success: false, error: error.message }));
@@ -1450,6 +1573,7 @@ browser.runtime.onMessage.addListener(((
 
   // 2. ЛОГИКА YANDEX MAIL (Поиск контактов по имени)
   if (request.action === 'SEARCH_CONTACTS') {
+    trackGoal('friends_search');
     YandexServices.Mail.searchContacts(
       (request as { action: 'SEARCH_CONTACTS'; query: string }).query
     )
@@ -1467,6 +1591,7 @@ browser.runtime.onMessage.addListener(((
   }
   if (request.action === 'GET_WEEKLY_SCHEDULE') {
     const r = request as { action: 'GET_WEEKLY_SCHEDULE'; email: string; date?: string };
+    trackGoal('friends_schedule');
     // Передаем request.date вторым аргументом
     YandexServices.Calendar.analyzeSchedule(r.email, r.date ?? null)
       .then((res) => sendResponse(res))
@@ -1585,6 +1710,37 @@ browser.runtime.onMessage.addListener(((
       .catch((err) => sendResponse(null));
     return true;
   }
+  // «Скачать» у файлов лонгрида (longreads/file_download.js): ссылку на
+  // хранилище страница уже получила, здесь только имя файла — его LMS в
+  // ссылке не передаёт, и Safari/Chrome назвали бы файл по пути в URL.
+  if (request.action === 'DOWNLOAD_URL') {
+    // Шлёт только «Скачать» у файлов лонгрида (longreads/file_download.js).
+    trackGoal('file_download');
+    // В Safari API загрузок нет — тогда страница скачает файл сама.
+    respondWith(
+      sendResponse,
+      Promise.resolve().then(() =>
+        browser.downloads.download({
+          url: request.url as string,
+          filename: request.filename as string,
+          conflictAction: 'uniquify',
+        })
+      )
+    );
+    return true;
+  }
+  if (request.action === 'DOWNLOAD_FILE') {
+    respondWith(
+      sendResponse,
+      downloadFile(
+        request.data as string | ArrayBuffer,
+        request.filename as string,
+        request.mime as string,
+        !!request.saveAs
+      )
+    );
+    return true;
+  }
   if (request.action === 'TABS_RELOAD') {
     browser.tabs
       .reload(request.tabId as number, request.options as browser.Tabs.ReloadReloadPropertiesType)
@@ -1604,6 +1760,7 @@ browser.runtime.onMessage.addListener(((
   // трогает блокировщик всплывающих окон, а страница расширения умеет то,
   // чего не может дорисованный руками about:blank (см. pdf_viewer.js).
   if (request.action === 'OPEN_PDF_VIEWER') {
+    trackGoal('pdf_viewer_open');
     const viewerUrl =
       browser.runtime.getURL('plugins/longreads/pdf_viewer.html') +
       `?src=${encodeURIComponent(request.url as string)}` +
@@ -1619,42 +1776,37 @@ browser.runtime.onMessage.addListener(((
   // открывается так же: из content-скрипта `tabs.create` недоступен, а
   // `window.open` на `chrome-extension://` браузер не пустит.
   if (request.action === 'OPEN_THEME_EDITOR') {
-    const editorUrl = browser.runtime.getURL('plugins/theme-editor/theme-editor.html');
+    trackGoal('theme_editor_open');
+    respondWith(
+      sendResponse,
+      openExtensionTab('plugins/theme-editor/theme-editor.html', 'themeEditorTabId')
+    );
+    return true;
+  }
 
-    // Вторая вкладка редактора не нужна и вредна: обе пишут одни и те же
-    // ключи и перетирали бы правки друг друга. Поэтому запоминаем свою.
-    // Именно id, а не `tabs.query({url})`: фильтр по URL требует разрешения
-    // `tabs`, которого у расширения нет и ради одной кнопки заводить не стоит.
-    void (async () => {
-      try {
-        const stored = await browser.storage.local.get('themeEditorTabId');
-        const knownId = stored.themeEditorTabId;
+  // --- МАСТЕРСКАЯ ТЕМ (см. workshop-background.ts) ---
+  if (request.action === 'OPEN_WORKSHOP') {
+    trackGoal('workshop_open');
+    respondWith(sendResponse, openExtensionTab('plugins/workshop/workshop.html', 'workshopTabId'));
+    return true;
+  }
 
-        if (typeof knownId === 'number') {
-          try {
-            const tab = await browser.tabs.get(knownId);
-            // URL виден не всегда (то же разрешение `tabs`); если видно —
-            // проверяем, что вкладку не увели на другой сайт.
-            if (tab && (!tab.url || tab.url.startsWith(editorUrl))) {
-              await browser.tabs.update(knownId, { active: true });
-              if (tab.windowId != null) {
-                await browser.windows.update(tab.windowId, { focused: true });
-              }
-              sendResponse({ success: true });
-              return;
-            }
-          } catch (_error) {
-            // Вкладку закрыли — просто откроем новую.
-          }
-        }
+  if (request.action === 'WORKSHOP_IDENTITY') {
+    respondWith(
+      sendResponse,
+      workshopIdentity(lmsApi).then((studentId) => ({ studentId }))
+    );
+    return true;
+  }
 
-        const created = await browser.tabs.create({ url: editorUrl });
-        await browser.storage.local.set({ themeEditorTabId: created.id ?? null });
-        sendResponse({ success: true });
-      } catch (error) {
-        sendResponse({ success: false, error: (error as Error).message });
-      }
-    })();
+  if (request.action === 'WORKSHOP_FOCUS_LMS') {
+    respondWith(sendResponse, focusLmsTab(lmsOrigin));
+    return true;
+  }
+
+  if (request.action === 'WORKSHOP_TRYON_END') {
+    const keep = (request as { keep?: unknown }).keep === true;
+    respondWith(sendResponse, endTryOn(keep));
     return true;
   }
 
@@ -1662,6 +1814,7 @@ browser.runtime.onMessage.addListener(((
   // завели ради меню-iframe в Firefox (см. browserApi в popup.js).
   if (request.action === 'GRADES_EXPORT_EXECUTE') {
     const exportRequest = request as { tabId?: number; archived?: boolean };
+    trackGoal(exportRequest.archived === true ? 'grades_export_archived' : 'grades_export');
     (async () => {
       try {
         // Вкладку LMS называет попап — он её уже проверил.
