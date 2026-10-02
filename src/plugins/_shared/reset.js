@@ -10,9 +10,11 @@ if (!window.__cu_reset_loaded) {
         'cu.lms.actual-student-tasks-filter',
         'cu.lms.skipped-tasks',
         'cu_friends_list',
+        // Вид сводной таблицы ведомостей: режим, колонки, фильтры (statements/gradebook.js).
+        'culms.gradebook.prefs',
       ];
       keysToRemove.forEach((key) => localStorage.removeItem(key));
-      console.log('[CU Extension] LMS LocalStorage очищен (Фильтры и Друзья).');
+      console.log('[CU Extension] LMS LocalStorage очищен (фильтры, друзья, таблица оценок).');
 
       // Опционально: перезагрузить страницу
       // window.location.reload();

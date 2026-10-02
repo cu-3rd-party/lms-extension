@@ -135,6 +135,18 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
   const tasksCache = {};
   const commentsCache = {};
 
+  // Перехватываем только то, что браузер умеет показать сам. Остальное
+  // (pptx, docx, zip…) он всё равно скачает, а со ссылкой `inline` Safari
+  // берёт имя файла не из заголовка, а из пути в ссылке — и сохраняет
+  // «%D0%A7…pptx». Такие файлы скачивает сама LMS, с правильным именем.
+  const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'];
+  const VIEWABLE_EXTS = [...IMAGE_EXTS, '.pdf'];
+
+  function isViewable(container) {
+    const ext = container.querySelector('.t-type')?.textContent.trim().toLowerCase() || '';
+    return VIEWABLE_EXTS.includes(ext);
+  }
+
   function fetchMaterials(longreadsId) {
     return window.__culmsLmsApi.fetchMaterials(longreadsId);
   }
@@ -269,6 +281,7 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
     // Если мы не в лонгриде, скрипт тоже не должен блокировать стандартное поведение,
     // если только вы не хотите превью везде.
     if (!match) return;
+    if (!isViewable(container)) return;
 
     event.preventDefault();
     event.stopPropagation();
@@ -293,9 +306,7 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
         );
       }
 
-      const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'];
-
-      if (imageExts.includes(result.extension)) {
+      if (IMAGE_EXTS.includes(result.extension)) {
         // Если картинка — открываем в модалке
         openModal(finalUrl);
       } else {
@@ -374,7 +385,9 @@ if (typeof window.__culmsInstantDocViewFixInitialized === 'undefined') {
         container.dataset.cuFixApplied = 'true';
         container.addEventListener('click', handleFileClick, { capture: true });
         container.style.cursor = 'pointer';
-        if (longreadsId) prefetchAndSetHref(container, longreadsId);
+        // href нужен только просматриваемым: у остальных левый клик идёт в
+        // LMS, и ссылка с target=_blank скачала бы файл второй раз.
+        if (longreadsId && isViewable(container)) prefetchAndSetHref(container, longreadsId);
         console.log(
           '[CU LMS Fix] Applied to:',
           isInsideMessage ? 'Comment' : isLongreadMaterial ? 'Longread' : 'Static Material'

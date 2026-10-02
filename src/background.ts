@@ -93,6 +93,13 @@ type IncomingMessage =
   | { action: 'TABS_RELOAD'; tabId: number; options: browser.Tabs.ReloadReloadPropertiesType }
   | { action: 'TABS_SEND_MESSAGE'; tabId: number; message: unknown }
   | { action: 'OPEN_PDF_VIEWER'; url: string; filename: string }
+  | {
+      action: 'DOWNLOAD_FILE';
+      data: string | ArrayBuffer;
+      filename: string;
+      mime: string;
+      saveAs?: boolean;
+    }
   | { action: 'OPEN_THEME_EDITOR' }
   | { action: 'OPEN_WORKSHOP' }
   | { action: 'WORKSHOP_IDENTITY' }
@@ -1390,6 +1397,43 @@ async function openExtensionTab(path: string, storageKey: string): Promise<void>
   await browser.storage.local.set({ [storageKey]: created.id ?? null });
 }
 
+// --- СКАЧИВАНИЕ ФАЙЛОВ ИЗ МЕНЮ (FIREFOX) ---
+//
+// Firefox: попап создаёт blob: и зовёт downloads.download, браузер открывает
+// «Сохранить как» (saveAs или настройка «всегда спрашивать»), попап теряет
+// фокус и закрывается — а вместе с ним и blob:, который браузер ещё не
+// прочитал. В загрузках остаётся «Failed». Background живёт дольше попапа,
+// поэтому в Firefox файл отдаёт он. В Chrome у service worker нет
+// URL.createObjectURL, да и попап там справляется сам (popup.js).
+
+/** Отпускает blob:, когда загрузка закончилась, — не раньше: диалог может висеть долго. */
+function revokeWhenDone(downloadId: number, url: string): void {
+  const listener = (delta: browser.Downloads.OnChangedDownloadDeltaType) => {
+    if (delta.id !== downloadId || !delta.state) return;
+    if (delta.state.current === 'complete' || delta.state.current === 'interrupted') {
+      browser.downloads.onChanged.removeListener(listener);
+      URL.revokeObjectURL(url);
+    }
+  };
+  browser.downloads.onChanged.addListener(listener);
+}
+
+async function downloadFile(
+  data: string | ArrayBuffer,
+  filename: string,
+  mime: string,
+  saveAs: boolean
+): Promise<void> {
+  const url = URL.createObjectURL(new Blob([data], { type: mime }));
+  try {
+    const id = await browser.downloads.download({ url, filename, saveAs });
+    revokeWhenDone(id, url);
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
+  }
+}
+
 // --- ОБРАБОТЧИК СООБЩЕНИЙ (ЕДИНЫЙ ДЛЯ ВСЕГО) ---
 browser.runtime.onMessage.addListener(((
   rawRequest: unknown,
@@ -1637,6 +1681,18 @@ browser.runtime.onMessage.addListener(((
       .update(request.tabId as number, request.options as browser.Tabs.UpdateUpdatePropertiesType)
       .then((tab) => sendResponse(tab))
       .catch((err) => sendResponse(null));
+    return true;
+  }
+  if (request.action === 'DOWNLOAD_FILE') {
+    respondWith(
+      sendResponse,
+      downloadFile(
+        request.data as string | ArrayBuffer,
+        request.filename as string,
+        request.mime as string,
+        !!request.saveAs
+      )
+    );
     return true;
   }
   if (request.action === 'TABS_RELOAD') {

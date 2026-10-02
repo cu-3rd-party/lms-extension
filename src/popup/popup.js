@@ -777,106 +777,70 @@ browser.storage.onChanged.addListener((changes, area) => {
 
 refreshToggleStates();
 
-// Логика сброса настроек
+// --- СБРОС ВСЕХ НАСТРОЕК ---
+//
+// Раньше сброс писал в storage.sync свой список «значений по умолчанию»: он
+// отставал от плагинов (не было, например, courseExporterToggle), а в меню на
+// странице и вовсе откладывался до закрытия меню. Теперь хранилища чистятся
+// целиком — плагины берут те же значения, что на свежей установке.
+//
+// Ключи устройства остаются: по ним сервер биржи пар и 3rd-theme workshop
+// узнают автора, и без них человек потерял бы свои темы и заявки. Это не
+// настройки.
+const RESET_KEEP_LOCAL = ['swapDeviceKey', 'workshopDeviceKey', 'workshopStudentId'];
+
+async function resetAllSettings() {
+  const kept = await browser.storage.local.get(RESET_KEEP_LOCAL);
+  await browser.storage.local.clear();
+  if (Object.keys(kept).length) await browser.storage.local.set(kept);
+  await browser.storage.sync.clear();
+  // Эти две попап и так ставит при каждом открытии (см. начало файла).
+  await browser.storage.sync.set({ advancedStatementsEnabled: true, endOfCourseCalcEnabled: true });
+  pendingChanges = {};
+}
+
 const resetBtn = document.getElementById('reset-all-settings-btn');
 if (resetBtn) {
-  resetBtn.addEventListener('click', () => {
+  resetBtn.addEventListener('click', async () => {
     const confirmed = confirm(
-      'Это действие сбросит все настройки:\n- Удалит скрытые курсы и друзей\n- Сбросит порядок курсов\n- Вернет стандартные настройки\n\nПродолжить?'
+      'Сбросить все настройки расширения?\n\n' +
+        '- Выключатся все функции и тёмная тема\n' +
+        '- Удалятся своя тема, логотип, фоны, обложки и названия курсов\n' +
+        '- Вернутся скрытые курсы и задания, удалятся друзья и фильтры задач\n' +
+        '- Придётся заново войти в интеграции\n\n' +
+        'Страница LMS перезагрузится.'
     );
     if (!confirmed) return;
 
-    browser.storage.local.clear();
+    resetBtn.disabled = true;
+    try {
+      await resetAllSettings();
+    } catch (error) {
+      resetBtn.disabled = false;
+      alert('Не получилось сбросить настройки: ' + (error.message || error));
+      return;
+    }
 
+    // localStorage самой LMS (фильтры задач, друзья, настройки таблицы оценок)
+    // чистит reset.js на странице, после чего страницу перезагружаем: часть
+    // плагинов читает настройки только при загрузке.
     if (isInsideIframe) {
       window.parent.postMessage({ action: 'RESET_LMS_LOCAL_STORAGE_IFRAME' }, '*');
-    } else {
-      browserApi.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
-        if (tabs.length > 0) {
-          browserApi.tabs
-            .sendMessage(tabs[0].id, { action: 'RESET_LMS_LOCAL_STORAGE_FROM_POPUP' })
-            .catch(() => {});
-        }
-      });
+      window.parent.postMessage(
+        { action: 'receivePendingChanges', payload: {}, shouldReload: true },
+        '*'
+      );
+      return;
     }
-
-    const defaultSettings = {
-      themeEnabled: false,
-      oledEnabled: false,
-      darkPdfEnabled: false,
-      autoRenameEnabled: false,
-      autoRenameTemplate: 'dz_fi',
-      akhIntegrationEnabled: false,
-      akhCourseFilter: [],
-      contestIntegrationEnabled: false,
-      contestCourseFilter: [],
-      courseOverviewTaskStatusToggle: false,
-      advancedStatementsEnabled: true,
-      endOfCourseCalcEnabled: true,
-      emojiHeartsEnabled: false,
-      snowEnabled: false,
-      oldCoursesDesignToggle: false,
-      customCourseNamesToggle: false,
-      stickerObjectFit: 'cover',
-      stickerScale: 100,
-      customLogoToggle: false,
-      logoObjectFit: 'contain',
-      logoScale: 100,
-      customBackgroundToggle: false,
-      customThemeToggle: false,
-      backgroundFit: 'cover',
-      backgroundVeil: 60,
-      futureExamsViewToggle: false,
-      futureExamsDisplayFormat: 'date',
-      futureExamsDashboardToggle: false,
-      futureExamsDashboardDeadlines: false,
-      courseOverviewAutoscrollToggle: false,
-      friendsEnabled: true,
-      hideBonusButtonEnabled: false,
-      // Граница скрытия архива задаётся на самой странице архива, но
-      // сброс «по умолчанию» обнуляет и её.
-      hideTasksBeforeEnabled: false,
-      hideTasksBeforeDate: '',
-    };
-
-    if (isInsideIframe) {
-      pendingChanges = { ...pendingChanges, ...defaultSettings };
-
-      // Сбрасываем тему сразу, чтобы было визуально понятно, что меню обнулилось
-      browser.storage.sync.set({
-        themeEnabled: false,
-        oledEnabled: false,
-      });
-
-      Object.keys(defaultSettings).forEach((key) => {
-        if (toggles[key]) {
-          toggles[key].checked = defaultSettings[key];
-          if (key === 'themeEnabled' && toggles.oledEnabled)
-            toggles.oledEnabled.disabled = !defaultSettings[key];
-          if (key === 'advancedStatementsEnabled' && toggles.endOfCourseCalcEnabled)
-            toggles.endOfCourseCalcEnabled.disabled = !defaultSettings[key];
-        }
-      });
-
-      if (renameTemplateSelect) renameTemplateSelect.value = defaultSettings.autoRenameTemplate;
-      if (futureExamsDisplayFormat)
-        futureExamsDisplayFormat.value = defaultSettings.futureExamsDisplayFormat;
-
-      if (autoRenameFormatContainer) autoRenameFormatContainer.style.display = 'none';
-      if (futureExamsDisplayContainer) futureExamsDisplayContainer.style.display = 'none';
-      if (oldCoursesDesignContainer) oldCoursesDesignContainer.style.display = 'none';
-      if (customCourseNamesContainer) customCourseNamesContainer.style.display = 'none';
-      if (stickerFitSelect) stickerFitSelect.value = defaultSettings.stickerObjectFit;
-      if (stickerScaleSelect) stickerScaleSelect.value = String(defaultSettings.stickerScale);
-      if (logoFitSelect) logoFitSelect.value = defaultSettings.logoObjectFit;
-      if (logoScaleSelect) logoScaleSelect.value = String(defaultSettings.logoScale);
-      if (backgroundFitSelect) backgroundFitSelect.value = defaultSettings.backgroundFit;
-      if (backgroundVeilSelect) backgroundVeilSelect.value = String(defaultSettings.backgroundVeil);
-
-      if (reloadNotice) reloadNotice.style.display = 'block';
-    } else {
-      browser.storage.sync.set(defaultSettings);
+    const [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
+    if (tab) {
+      const cleared = await browserApi.tabs
+        .sendMessage(tab.id, { action: 'RESET_LMS_LOCAL_STORAGE_FROM_POPUP' })
+        .catch(() => null);
+      // Ответил reset.js — значит, это вкладка LMS.
+      if (cleared && cleared.success) await browserApi.tabs.reload(tab.id);
     }
+    location.reload();
   });
 }
 
@@ -910,7 +874,7 @@ if (openThemeEditorBtn) {
   });
 }
 
-// Мастерская тем — тоже отдельная вкладка (plugins/workshop).
+// 3rd-theme workshop — тоже отдельная вкладка (plugins/workshop).
 const openWorkshopBtn = document.getElementById('open-workshop-btn');
 if (openWorkshopBtn) {
   openWorkshopBtn.addEventListener('click', () => {
@@ -1339,8 +1303,32 @@ function profileFileName(kind) {
   return `cu-lms-${kind}-${date}.json`;
 }
 
+/**
+ * Firefox: файл отдаёт background (DOWNLOAD_FILE в background.ts). Сам попап
+ * там закрывается, едва браузер откроет «Сохранить как», и его blob: умирает
+ * раньше, чем браузер его прочтёт, — в загрузках остаётся «Failed».
+ * `getBrowserInfo` есть только у Firefox. true — загрузка началась.
+ */
+async function downloadViaBackground(data, filename, mime, saveAs) {
+  if (typeof browser.runtime.getBrowserInfo !== 'function') return false;
+  const response = await browser.runtime.sendMessage({
+    action: 'DOWNLOAD_FILE',
+    data,
+    filename,
+    mime,
+    saveAs,
+  });
+  if (!response || !response.success) {
+    throw new Error((response && response.error) || 'Не получилось скачать файл');
+  }
+  return true;
+}
+
 async function saveProfileFile(profile) {
   const text = JSON.stringify(profile, null, 2);
+  if (await downloadViaBackground(text, profileFileName(profile.kind), 'application/json', true)) {
+    return text.length;
+  }
   const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
 
@@ -1542,9 +1530,9 @@ async function handleGradesExportClick(archived) {
  */
 async function downloadWorkbook(workbook, fileName) {
   const data = window.XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([data], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  });
+  const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  if (await downloadViaBackground(data, fileName, mime, false)) return;
+  const blob = new Blob([data], { type: mime });
   const url = URL.createObjectURL(blob);
   // Браузер читает файл не мгновенно — ссылку держим живой с запасом.
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
