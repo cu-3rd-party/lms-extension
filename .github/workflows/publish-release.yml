@@ -21,6 +21,16 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Log release trigger
+        run: |
+          bun -e 'console.log(JSON.stringify({event:process.env.EVENT_NAME,action:process.env.EVENT_ACTION,tag:process.env.RELEASE_TAG,prerelease:process.env.RELEASE_PRERELEASE,draft:process.env.RELEASE_DRAFT}))'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ toJSON(github.event.release.prerelease) }}
+          RELEASE_DRAFT: ${{ toJSON(github.event.release.draft) }}
+
       - name: Install deps
         run: bun install --frozen-lockfile
 
@@ -108,7 +118,7 @@ jobs:
 
   publish-safari:
     name: Publish Safari
-    if: github.event_name == 'workflow_dispatch' || (!github.event.release.prerelease && !github.event.release.draft)
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'release' && github.event.release.prerelease == false) }}
     runs-on: macos-latest
     environment: publish-safari
     permissions:
@@ -141,6 +151,20 @@ jobs:
       - name: Check Safari release tooling
         run: bundle exec ruby fastlane/tests/safari_release_test.rb
 
+      - name: Prepare Safari release directory
+        shell: bash
+        run: |
+          mkdir -p "$SAFARI_RELEASE_DIR"
+          printf 'SAFARI_RELEASE_DIR=%s\n' "$SAFARI_RELEASE_DIR" >> "$GITHUB_ENV"
+        env:
+          SAFARI_RELEASE_DIR: ${{ runner.temp }}/safari-release
+
+      - name: Check Sparkle signing key
+        if: github.event_name == 'release'
+        run: bundle exec fastlane mac check_signing_key
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+
       - name: Import Developer ID certificate
         uses: apple-actions/import-codesign-certs@v7
         with:
@@ -167,8 +191,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release upload "$RELEASE_TAG" build/release/lms-extension-safari.dmg --clobber
-          gh release upload "$RELEASE_TAG" build/release/appcast.xml --clobber
+          gh release upload "$RELEASE_TAG" "$SAFARI_RELEASE_DIR/lms-extension-safari.dmg" --clobber
+          gh release upload "$RELEASE_TAG" "$SAFARI_RELEASE_DIR/appcast.xml" --clobber
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -178,7 +202,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lms-extension-safari.dmg
-          path: build/release/lms-extension-safari.dmg
+          path: ${{ env.SAFARI_RELEASE_DIR }}/lms-extension-safari.dmg
           if-no-files-found: error
 
       - name: Upload appcast artifact
@@ -186,5 +210,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: safari-appcast
-          path: build/release/appcast.xml
+          path: ${{ env.SAFARI_RELEASE_DIR }}/appcast.xml
           if-no-files-found: error

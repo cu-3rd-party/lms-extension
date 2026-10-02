@@ -36,6 +36,14 @@ jobs:
       - name: Check Safari release tooling
         run: bundle exec ruby fastlane/tests/safari_release_test.rb
 
+      - name: Prepare Safari release directory
+        shell: bash
+        run: |
+          mkdir -p "$SAFARI_RELEASE_DIR"
+          printf 'SAFARI_RELEASE_DIR=%s\n' "$SAFARI_RELEASE_DIR" >> "$GITHUB_ENV"
+        env:
+          SAFARI_RELEASE_DIR: ${{ runner.temp }}/safari-release
+
       - name: Import Developer ID certificate
         uses: apple-actions/import-codesign-certs@v7
         with:
@@ -53,5 +61,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lms-extension-safari.dmg
-          path: build/release/lms-extension-safari.dmg
+          path: ${{ env.SAFARI_RELEASE_DIR }}/lms-extension-safari.dmg
           if-no-files-found: error
