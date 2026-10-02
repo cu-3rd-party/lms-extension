@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Тег релиза (vX.Y.Z): из него берётся версия Chrome/Firefox, к нему прикрепляются файлы'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -11,9 +16,11 @@ permissions:
 jobs:
   publish-chrome:
     name: Publish Chrome
-    if: github.event_name == 'release'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: publish-chrome
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -39,15 +46,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          RAW_NAME="${{ github.event.release.name }}"
-          RAW_TAG="${{ github.event.release.tag_name }}"
-          RAW="${RAW_NAME:-$RAW_TAG}"
+          TAG="${RELEASE_TAG:-$INPUT_TAG}"
+          RAW="${RELEASE_NAME:-$TAG}"
           VERSION="${RAW#v}"
           if [[ -z "$VERSION" ]]; then
-            echo "Release name/tag is empty" >&2
+            echo "Release name/tag is empty: при ручном запуске укажи tag" >&2
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        env:
+          RELEASE_NAME: ${{ github.event.release.name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
 
       - name: Set package version
         run: |
@@ -57,6 +68,16 @@ jobs:
 
       - name: Build & pack chrome
         run: bun run release:chrome
+
+      - name: Attach ZIP to GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" build/lms-extension-chrome.zip --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
 
       - name: Publish to Chrome Web Store
         uses: browser-actions/release-chrome-extension@v0
@@ -69,9 +90,11 @@ jobs:
 
   publish-firefox:
     name: Publish Firefox
-    if: github.event_name == 'release'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: publish-firefox
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -87,15 +110,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          RAW_NAME="${{ github.event.release.name }}"
-          RAW_TAG="${{ github.event.release.tag_name }}"
-          RAW="${RAW_NAME:-$RAW_TAG}"
+          TAG="${RELEASE_TAG:-$INPUT_TAG}"
+          RAW="${RELEASE_NAME:-$TAG}"
           VERSION="${RAW#v}"
           if [[ -z "$VERSION" ]]; then
-            echo "Release name/tag is empty" >&2
+            echo "Release name/tag is empty: при ручном запуске укажи tag" >&2
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        env:
+          RELEASE_NAME: ${{ github.event.release.name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
 
       - name: Set package version
         run: |
@@ -106,15 +133,23 @@ jobs:
       - name: Build & pack firefox
         run: bun run release:firefox
 
-      - name: Publish to Firefox Add-ons
-        uses: kewisch/action-web-ext@v1
-        with:
-          cmd: sign
-          source: build/lms-extension-firefox.xpi
-          channel: listed
-          apiKey: ${{ secrets.AMO_API_KEY }}
-          apiSecret: ${{ secrets.AMO_API_SECRET }}
-          waitForDownload: false
+      - name: Attach unsigned XPI to GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" build/lms-extension-firefox.xpi --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+
+      # Ревью AMO идёт дольше, чем живёт раннер: ждём только валидацию,
+      # одобрение и подписанный XPI — уже в кабинете AMO.
+      - name: Submit to Firefox Add-ons
+        run: bunx web-ext sign --source-dir dist/firefox --channel listed --approval-timeout 0
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_API_SECRET }}
 
   publish-safari:
     name: Publish Safari

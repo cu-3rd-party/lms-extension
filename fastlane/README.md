@@ -114,7 +114,9 @@ Feed URL `releases/latest/download/appcast.xml` перенаправляет н�
 
 Drafts и prereleases не публикуют Safari-обновления. Ручной запуск **Publish Release** или **Build Safari** создаёт только DMG artifact, без изменения публичного feed и без требования приватного ключа Sparkle. Actions artifact скачивается как ZIP с DMG внутри.
 
-Safari job запускается независимо от Chrome и Firefox: `needs` не задан. Его условие явно разрешает ручной запуск или событие `release` с `prerelease == false`; отдельная проверка `draft` не нужна для триггера `release.published`. Шаг **Log release trigger** в Chrome job выводит только имя события, action, тег и флаги prerelease/draft, чтобы диагностировать пропуски Safari. Секреты и полный payload не выводятся. Изменение workflow применяется к новому запуску с коммитом, содержащим исправление; повтор старого запуска не подхватывает новый workflow.
+Safari job запускается независимо от Chrome и Firefox: `needs` не задан. Его условие явно разрешает ручной запуск или событие `release` с `prerelease == false`; отдельная проверка `draft` не нужна для триггера `release.published`. Шаг **Log release trigger** в Chrome job выводит только имя события, action, тег и флаги prerelease/draft. Секреты и полный payload не выводятся. Изменение workflow применяется к новому запуску с коммитом, содержащим исправление; повтор старого запуска не подхватывает новый workflow.
+
+Chrome и Firefox публикуются только при ручном запуске **Publish Release** с полем `tag` существующего релиза; ZIP и неподписанный XPI прикрепляются к этому релизу. Firefox отправляется в AMO без ожидания ревью. Подробности — в [CONTRIBUTING.md](../CONTRIBUTING.md). Поэтому шаг **Log release trigger** в Chrome job также выполняется только при ручном запуске; при событии `release` Chrome job пропускается.
 
 ## Интерфейс и проверка
 
