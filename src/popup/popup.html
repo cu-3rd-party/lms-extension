@@ -1103,6 +1103,24 @@
           </div>
 
           <div class="section">
+            <h3>Статистика</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Анонимная статистика
+                <span class="toggle-hint"
+                  >Версия, браузер и какими функциями пользуются — чтобы знать, что развивать.
+                  Данные из LMS не отправляются</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="metrics-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <p class="status-text" id="metrics-status"></p>
+          </div>
+
+          <div class="section">
             <h3>Не работает?</h3>
             <p class="course-hint">Вернёт все настройки расширения к значениям по умолчанию.</p>
             <button id="reset-all-settings-btn" class="btn-reset">Сбросить все настройки</button>

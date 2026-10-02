@@ -3,6 +3,7 @@ import browser from 'webextension-polyfill';
 import type { PluginManifest } from './plugins/types';
 import { DEFAULT_LMS_ORIGIN, isLmsUrl, lmsOriginOf } from './plugins/lms-hosts';
 import { fetchAllGradesForExport } from './grades-export';
+import { isGoal, maybeSendDaily, trackGoal, trackInstall } from './metrics';
 
 // У LMS два домена с раздельными сессиями, поэтому фоновые запросы идут на тот,
 // где пользователь сейчас работает: cookie другого домена нам недоступны и
@@ -94,6 +95,7 @@ type IncomingMessage =
   | { action: 'OPEN_PDF_VIEWER'; url: string; filename: string }
   | { action: 'OPEN_THEME_EDITOR' }
   | { action: 'GRADES_EXPORT_EXECUTE'; tabId?: number; archived?: boolean }
+  | { action: 'METRICS_GOAL'; goal: string }
   | { action: 'SAFARI_NAVIGATION'; url: string }
   | { action: string; [key: string]: unknown };
 
@@ -1306,6 +1308,7 @@ async function injectPlugin(tabId: number, plugin: (typeof plugins)[number]): Pr
 function handleNavigation(tabId: number, url: string): void {
   if (!isLmsUrl(url)) return;
   rememberLmsOrigin(url);
+  maybeSendDaily();
 
   for (const plugin of plugins) {
     if (!plugin.matches(url)) continue;
@@ -1336,6 +1339,11 @@ browser.webNavigation.onCompleted.addListener((details) => {
   }
 }, navFilter);
 
+// --- СТАТИСТИКА (см. metrics.ts) ---
+browser.runtime.onInstalled.addListener((details) => {
+  trackInstall(details.reason, details.previousVersion);
+});
+
 // --- ОБРАБОТЧИК СООБЩЕНИЙ (ЕДИНЫЙ ДЛЯ ВСЕГО) ---
 browser.runtime.onMessage.addListener(((
   rawRequest: unknown,
@@ -1353,6 +1361,14 @@ browser.runtime.onMessage.addListener(((
       handleNavigation(messageSender.tab.id, navigationRequest.url);
       sendResponse({ success: true });
     }
+    return false;
+  }
+
+  // Цели статистики от контент-скриптов и попапа (см. metrics.ts). Имя цели
+  // проверяем по списку: страница не должна заводить в Метрике что попало.
+  if (request.action === 'METRICS_GOAL') {
+    const goal = (request as { goal?: unknown }).goal;
+    if (isGoal(goal)) trackGoal(goal);
     return false;
   }
 
@@ -1442,6 +1458,14 @@ browser.runtime.onMessage.addListener(((
           return;
         }
 
+        // Пути — из swap_api.js: createOrder и cancelOrder.
+        const path = new URL(swapRequest.url).pathname;
+        if (swapRequest.method === 'POST' && path === '/api/v1/orders') {
+          trackGoal('swap_order_create');
+        } else if (swapRequest.method === 'DELETE' && path.startsWith('/api/v1/orders/')) {
+          trackGoal('swap_order_cancel');
+        }
+
         sendResponse({ success: true, data, status: response.status });
       })
       .catch((error) => sendResponse({ success: false, error: error.message }));
@@ -1450,6 +1474,7 @@ browser.runtime.onMessage.addListener(((
 
   // 2. ЛОГИКА YANDEX MAIL (Поиск контактов по имени)
   if (request.action === 'SEARCH_CONTACTS') {
+    trackGoal('friends_search');
     YandexServices.Mail.searchContacts(
       (request as { action: 'SEARCH_CONTACTS'; query: string }).query
     )
@@ -1467,6 +1492,7 @@ browser.runtime.onMessage.addListener(((
   }
   if (request.action === 'GET_WEEKLY_SCHEDULE') {
     const r = request as { action: 'GET_WEEKLY_SCHEDULE'; email: string; date?: string };
+    trackGoal('friends_schedule');
     // Передаем request.date вторым аргументом
     YandexServices.Calendar.analyzeSchedule(r.email, r.date ?? null)
       .then((res) => sendResponse(res))
@@ -1604,6 +1630,7 @@ browser.runtime.onMessage.addListener(((
   // трогает блокировщик всплывающих окон, а страница расширения умеет то,
   // чего не может дорисованный руками about:blank (см. pdf_viewer.js).
   if (request.action === 'OPEN_PDF_VIEWER') {
+    trackGoal('pdf_viewer_open');
     const viewerUrl =
       browser.runtime.getURL('plugins/longreads/pdf_viewer.html') +
       `?src=${encodeURIComponent(request.url as string)}` +
@@ -1619,6 +1646,7 @@ browser.runtime.onMessage.addListener(((
   // открывается так же: из content-скрипта `tabs.create` недоступен, а
   // `window.open` на `chrome-extension://` браузер не пустит.
   if (request.action === 'OPEN_THEME_EDITOR') {
+    trackGoal('theme_editor_open');
     const editorUrl = browser.runtime.getURL('plugins/theme-editor/theme-editor.html');
 
     // Вторая вкладка редактора не нужна и вредна: обе пишут одни и те же
@@ -1662,6 +1690,7 @@ browser.runtime.onMessage.addListener(((
   // завели ради меню-iframe в Firefox (см. browserApi в popup.js).
   if (request.action === 'GRADES_EXPORT_EXECUTE') {
     const exportRequest = request as { tabId?: number; archived?: boolean };
+    trackGoal(exportRequest.archived === true ? 'grades_export_archived' : 'grades_export');
     (async () => {
       try {
         // Вкладку LMS называет попап — он её уже проверил.

@@ -649,6 +649,7 @@ async function activateCourseExporter() {
 
       zipAllBtn.addEventListener('click', async () => {
         setButtonsState(true);
+        window.cuLmsTrack?.('course_export');
         zipAllText.innerText = 'Сканирование...';
         try {
           await runZipExport(courseId, courseName, true, false, (msg) => {
@@ -665,6 +666,7 @@ async function activateCourseExporter() {
 
       zipNoHwBtn.addEventListener('click', async () => {
         setButtonsState(true);
+        window.cuLmsTrack?.('course_export');
         zipNoHwText.innerText = 'Сканирование...';
         try {
           await runZipExport(courseId, courseName, false, true, (msg) => {
@@ -681,6 +683,7 @@ async function activateCourseExporter() {
 
       pdfNoHwBtn.addEventListener('click', async () => {
         setButtonsState(true);
+        window.cuLmsTrack?.('course_export');
         pdfNoHwText.innerText = 'Сборка PDF...';
         try {
           await runPdfExport(courseId, courseName, false, (msg) => {

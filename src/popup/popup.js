@@ -777,6 +777,72 @@ browser.storage.onChanged.addListener((changes, area) => {
 
 refreshToggleStates();
 
+// --- АНОНИМНАЯ СТАТИСТИКА (см. src/metrics.ts) ---
+//
+// Не в общем `toggles`: те в меню на странице копятся до закрытия, а этот
+// пишется сразу. В Firefox 140+ у статистики есть ещё и согласие самого
+// браузера (`technicalAndInteraction`, его спрашивают при установке): без
+// него background ничего не шлёт, поэтому включение здесь просит и его.
+
+/** Цель статистики. Список целей и проверку держит background. */
+function trackGoal(goal) {
+  browser.runtime.sendMessage({ action: 'METRICS_GOAL', goal }).catch(() => {});
+}
+
+const metricsToggle = document.getElementById('metrics-toggle');
+const metricsStatus = document.getElementById('metrics-status');
+const FIREFOX_DATA_CONSENT = { data_collection: ['technicalAndInteraction'] };
+// null — у браузера нет своего согласия на сбор данных (Chrome, Safari,
+// старый Firefox). Узнаём заранее: `permissions.request` в Firefox работает
+// только синхронно из обработчика клика, ждать там `getAll` нельзя.
+let firefoxDataConsent = null;
+
+async function readFirefoxDataConsent() {
+  try {
+    const perms = await browser.permissions.getAll();
+    if (!Array.isArray(perms.data_collection)) return null;
+    return perms.data_collection.includes('technicalAndInteraction');
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function refreshMetricsToggle() {
+  if (!metricsToggle) return;
+  firefoxDataConsent = await readFirefoxDataConsent();
+  const data = await browser.storage.sync.get('metricsEnabled');
+  metricsToggle.checked = data.metricsEnabled !== false && firefoxDataConsent !== false;
+}
+
+if (metricsToggle) {
+  metricsToggle.addEventListener('change', () => {
+    const enabled = metricsToggle.checked;
+    if (metricsStatus) metricsStatus.textContent = '';
+
+    if (firefoxDataConsent === null) {
+      browser.storage.sync.set({ metricsEnabled: enabled });
+      return;
+    }
+
+    // Firefox: согласие браузера и наш выключатель меняем вместе, чтобы в
+    // about:addons было видно то же, что здесь.
+    const consent = enabled
+      ? browser.permissions.request(FIREFOX_DATA_CONSENT)
+      : browser.permissions.remove(FIREFOX_DATA_CONSENT).then(() => false);
+    consent
+      .catch(() => null)
+      .then(async (granted) => {
+        await browser.storage.sync.set({ metricsEnabled: enabled });
+        if (enabled && granted !== true && metricsStatus) {
+          metricsStatus.textContent =
+            'Firefox не дал разрешение. Включить можно в about:addons → расширение → «Разрешения и данные».';
+        }
+        await refreshMetricsToggle();
+      });
+  });
+  void refreshMetricsToggle();
+}
+
 // Логика сброса настроек
 const resetBtn = document.getElementById('reset-all-settings-btn');
 if (resetBtn) {
@@ -786,7 +852,14 @@ if (resetBtn) {
     );
     if (!confirmed) return;
 
-    browser.storage.local.clear();
+    // Id установки для статистики переживает сброс: иначе после него человек
+    // посчитается новым пользователем. Выключатель статистики лежит в sync,
+    // который сброс не очищает, — отказ от неё тоже остаётся.
+    void browser.storage.local.get('metricsClientId').then(async (kept) => {
+      await browser.storage.local.clear();
+      if (kept.metricsClientId) await browser.storage.local.set(kept);
+      trackGoal('settings_reset');
+    });
 
     if (isInsideIframe) {
       window.parent.postMessage({ action: 'RESET_LMS_LOCAL_STORAGE_IFRAME' }, '*');
@@ -1367,6 +1440,7 @@ if (profileExportBtn) {
     try {
       const profile = await registry.collect(kind);
       const size = await saveProfileFile(profile);
+      trackGoal('settings_export');
       const count = Object.keys(profile.values).length;
       setProfileStatus(`Сохранено: ${count} настроек, ${(size / 1024).toFixed(1)} КБ.`, 'success');
     } catch (error) {
@@ -1418,6 +1492,7 @@ if (profileImportBtn && profileImportFile) {
         return;
       }
 
+      trackGoal('settings_import');
       refreshToggleStates();
       await refreshImagePreview(customLogoPreview, 'customLogo', 'Логотип не выбран');
       await refreshImagePreview(customBackgroundPreview, 'customBackground');
