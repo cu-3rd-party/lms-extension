@@ -777,6 +777,72 @@ browser.storage.onChanged.addListener((changes, area) => {
 
 refreshToggleStates();
 
+// --- АНОНИМНАЯ СТАТИСТИКА (см. src/metrics.ts) ---
+//
+// Не в общем `toggles`: те в меню на странице копятся до закрытия, а этот
+// пишется сразу. В Firefox 140+ у статистики есть ещё и согласие самого
+// браузера (`technicalAndInteraction`, его спрашивают при установке): без
+// него background ничего не шлёт, поэтому включение здесь просит и его.
+
+/** Цель статистики. Список целей и проверку держит background. */
+function trackGoal(goal) {
+  browser.runtime.sendMessage({ action: 'METRICS_GOAL', goal }).catch(() => {});
+}
+
+const metricsToggle = document.getElementById('metrics-toggle');
+const metricsStatus = document.getElementById('metrics-status');
+const FIREFOX_DATA_CONSENT = { data_collection: ['technicalAndInteraction'] };
+// null — у браузера нет своего согласия на сбор данных (Chrome, Safari,
+// старый Firefox). Узнаём заранее: `permissions.request` в Firefox работает
+// только синхронно из обработчика клика, ждать там `getAll` нельзя.
+let firefoxDataConsent = null;
+
+async function readFirefoxDataConsent() {
+  try {
+    const perms = await browser.permissions.getAll();
+    if (!Array.isArray(perms.data_collection)) return null;
+    return perms.data_collection.includes('technicalAndInteraction');
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function refreshMetricsToggle() {
+  if (!metricsToggle) return;
+  firefoxDataConsent = await readFirefoxDataConsent();
+  const data = await browser.storage.sync.get('metricsEnabled');
+  metricsToggle.checked = data.metricsEnabled !== false && firefoxDataConsent !== false;
+}
+
+if (metricsToggle) {
+  metricsToggle.addEventListener('change', () => {
+    const enabled = metricsToggle.checked;
+    if (metricsStatus) metricsStatus.textContent = '';
+
+    if (firefoxDataConsent === null) {
+      browser.storage.sync.set({ metricsEnabled: enabled });
+      return;
+    }
+
+    // Firefox: согласие браузера и наш выключатель меняем вместе, чтобы в
+    // about:addons было видно то же, что здесь.
+    const consent = enabled
+      ? browser.permissions.request(FIREFOX_DATA_CONSENT)
+      : browser.permissions.remove(FIREFOX_DATA_CONSENT).then(() => false);
+    consent
+      .catch(() => null)
+      .then(async (granted) => {
+        await browser.storage.sync.set({ metricsEnabled: enabled });
+        if (enabled && granted !== true && metricsStatus) {
+          metricsStatus.textContent =
+            'Firefox не дал разрешение. Включить можно в about:addons → расширение → «Разрешения и данные».';
+        }
+        await refreshMetricsToggle();
+      });
+  });
+  void refreshMetricsToggle();
+}
+
 // --- СБРОС ВСЕХ НАСТРОЕК ---
 //
 // Раньше сброс писал в storage.sync свой список «значений по умолчанию»: он
@@ -787,13 +853,25 @@ refreshToggleStates();
 // Ключи устройства остаются: по ним сервер биржи пар и 3rd-theme workshop
 // узнают автора, и без них человек потерял бы свои темы и заявки. Это не
 // настройки.
-const RESET_KEEP_LOCAL = ['swapDeviceKey', 'workshopDeviceKey', 'workshopStudentId'];
+//
+// Статистика тоже переживает сброс: id установки — иначе после сброса
+// человек посчитается новым пользователем, а выключатель — потому что отказ
+// от статистики не «настройка по умолчанию», которую можно вернуть.
+const RESET_KEEP_LOCAL = [
+  'swapDeviceKey',
+  'workshopDeviceKey',
+  'workshopStudentId',
+  'metricsClientId',
+];
+const RESET_KEEP_SYNC = ['metricsEnabled'];
 
 async function resetAllSettings() {
   const kept = await browser.storage.local.get(RESET_KEEP_LOCAL);
   await browser.storage.local.clear();
   if (Object.keys(kept).length) await browser.storage.local.set(kept);
+  const keptSync = await browser.storage.sync.get(RESET_KEEP_SYNC);
   await browser.storage.sync.clear();
+  if (Object.keys(keptSync).length) await browser.storage.sync.set(keptSync);
   // Эти две попап и так ставит при каждом открытии (см. начало файла).
   await browser.storage.sync.set({ advancedStatementsEnabled: true, endOfCourseCalcEnabled: true });
   pendingChanges = {};
@@ -820,6 +898,7 @@ if (resetBtn) {
       alert('Не получилось сбросить настройки: ' + (error.message || error));
       return;
     }
+    trackGoal('settings_reset');
 
     // localStorage самой LMS (фильтры задач, друзья, настройки таблицы оценок)
     // чистит reset.js на странице, после чего страницу перезагружаем: часть
@@ -1368,6 +1447,7 @@ if (profileExportBtn) {
     try {
       const profile = await registry.collect(kind);
       const size = await saveProfileFile(profile);
+      trackGoal('settings_export');
       const count = Object.keys(profile.values).length;
       setProfileStatus(`Сохранено: ${count} настроек, ${(size / 1024).toFixed(1)} КБ.`, 'success');
     } catch (error) {
@@ -1419,6 +1499,7 @@ if (profileImportBtn && profileImportFile) {
         return;
       }
 
+      trackGoal('settings_import');
       refreshToggleStates();
       await refreshImagePreview(customLogoPreview, 'customLogo', 'Логотип не выбран');
       await refreshImagePreview(customBackgroundPreview, 'customBackground');

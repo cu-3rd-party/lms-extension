@@ -193,6 +193,12 @@ if (typeof window.cuLmsSettings === 'undefined') {
     data('cachedLatestVersion', 'private', 'string'),
     data('lastVersionCheckTimestamp', 'private', 'number'),
     data('lmsOrigin', 'private', 'string'),
+    // Анонимная статистика (src/metrics.ts). Выключатель в файл не идёт:
+    // согласие на сбор данных даёт человек в своём браузере, а не чужой
+    // профиль. Id установки и день снимка — служебное.
+    bool('metricsEnabled', 'private', true),
+    data('metricsClientId', 'private', 'string'),
+    data('metricsLastDaily', 'private', 'string'),
     // Через них вкладка редактора тем и страница LMS договариваются о пипетке:
     // состояние одного сеанса, чужому профилю оно ни к чему.
     { key: 'themePickerActive', area: 'local', type: 'boolean', group: 'private' },

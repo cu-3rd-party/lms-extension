@@ -1868,6 +1868,7 @@
     event.stopPropagation();
     const fromMore = event.currentTarget.id === MORE_ID;
     state.open = true;
+    window.cuLmsTrack?.('gradebook_open');
     activate();
     if (fromMore) closeMoreDropdown();
   }

@@ -48,6 +48,10 @@ bun run test:browser
 `playwright.config.ts` игнорирует `tests/source/**`, потому что там лежат `bun:test` регрессионные проверки, а не браузерные E2E. Запускаются они так: `bun test tests/source`.
 Шаблон повторён и в проекте `chromium`: собственный `testIgnore` проекта заменяет общий, а не дополняет его, — без повтора Playwright брался грузить `bun:test` и падал на старте всего набора.
 
+## Статистика из тестов не уходит
+
+Расширение шлёт анонимную статистику в Яндекс Метрику ([METRICS.md](../METRICS.md)): цель `install` на каждом чистом профиле и снимок на первой странице LMS. Чтобы прогоны не попадали в настоящий счётчик, `launchExtensionContext` запускает Chrome с `--host-resolver-rules=MAP mc.yandex.ru ~NOTFOUND`. Сами запросы проверяет `metrics.test.ts`, подменяя `fetch` в service worker.
+
 ## Отдельные тесты
 
 ```bash

@@ -42,6 +42,8 @@ const TOGGLES: Record<string, string> = {
   'contest-integration-toggle': 'Задания',
   'friends-toggle': 'Друзья',
   'hide-bonus-button-toggle': 'Друзья',
+  // Не из `toggles`: пишется сразу, а не по закрытию меню (см. popup.js).
+  'metrics-toggle': 'Настройки',
 };
 
 const PAGE_HTML = `<!doctype html><html lang="ru"><head><meta charset="utf-8"></head>

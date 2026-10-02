@@ -73,7 +73,14 @@ export async function launchExtensionContext(options: { headless?: boolean } = {
   const context = await chromium.launchPersistentContext(profileDir, {
     headless: options.headless ?? false,
     ...(options.headless ? { channel: 'chromium' } : {}),
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`],
+    args: [
+      `--disable-extensions-except=${EXTENSION_PATH}`,
+      `--load-extension=${EXTENSION_PATH}`,
+      // Расширение шлёт статистику в Яндекс Метрику (src/metrics.ts): цель
+      // `install` при каждом запуске чистого профиля и снимок на первой же
+      // странице LMS. Из тестов в настоящий счётчик ничего уходить не должно.
+      '--host-resolver-rules=MAP mc.yandex.ru ~NOTFOUND',
+    ],
   });
 
   return {

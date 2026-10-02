@@ -181,8 +181,12 @@ export default defineManifest({
     browser_specific_settings: {
       gecko: {
         id: 'cu-lms-enhancer@centraluniversity.ru',
+        // Анонимная статистика (src/metrics.ts). technicalAndInteraction
+        // бывает только необязательным: Firefox спрашивает его галочкой при
+        // установке, а снять можно в about:addons.
         data_collection_permissions: {
           required: ['none'],
+          optional: ['technicalAndInteraction'],
         },
       },
     },
