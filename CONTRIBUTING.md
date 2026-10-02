@@ -30,6 +30,12 @@ bun install
 | `bun run release:chrome`  | Собрать и упаковать `.zip` для Chrome Web Store    |
 | `bun run release:firefox` | Собрать и упаковать `.xpi` для Firefox Add-ons     |
 
+Джоб **Publish Chrome** в workflow **Publish Release** прикрепляет к GitHub Release `lms-extension-chrome.zip` и отправляет его в Chrome Web Store.
+
+Джоб **Publish Firefox** прикрепляет к GitHub Release неподписанный `lms-extension-firefox.xpi` и отправляет версию в AMO через `web-ext sign --approval-timeout 0`. Ревью он не ждёт: оно идёт дольше, чем живёт раннер. Подписанный XPI после одобрения скачивается из кабинета AMO.
+
+Пока Chrome и Firefox публикуются только ручным запуском **Publish Release**: укажи в поле `tag` тег уже созданного релиза (`vX.Y.Z`). Из тега берётся версия, и к этому релизу прикрепляются файлы.
+
 ### Загрузить расширение в браузер
 
 **Chrome:**
