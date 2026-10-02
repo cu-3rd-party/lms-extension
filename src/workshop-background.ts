@@ -1,4 +1,4 @@
-// Мастерская тем: то, что должно жить в background, а не на странице.
+// 3rd-theme workshop: то, что должно жить в background, а не на странице.
 //
 // Страница мастерской (plugins/workshop/workshop.html) ходит на сервер сама —
 // это страница расширения, CORS ей не мешает. Сюда вынесено только то, что
@@ -31,6 +31,8 @@ interface Snapshot {
 }
 
 interface TryOn {
+  /** Примеряется не тема, а возврат к виду по умолчанию (кнопка в мастерской). */
+  isDefault?: boolean;
   themeId: string;
   versionId: string;
   number: number;
@@ -61,7 +63,7 @@ export async function workshopIdentity(lmsApi: (path: string) => string): Promis
     headers: { Accept: 'application/json' },
   });
   if (response.status === 401 || response.status === 403) {
-    throw new Error('Войди в LMS — мастерская узнаёт тебя по аккаунту LMS');
+    throw new Error('Войди в LMS — 3rd-theme workshop узнаёт тебя по аккаунту LMS');
   }
   if (!response.ok) throw new Error(`LMS: HTTP ${response.status}`);
   const data = (await response.json()) as { id?: unknown };
@@ -122,10 +124,12 @@ export async function recordInstall(themeId: string, versionId: string): Promise
   }
 }
 
-/** Запоминает, какая версия какой темы стоит, — чтобы показать «есть обновление». */
+/**
+ * Запоминает, какая версия какой темы стоит, — чтобы показать «есть
+ * обновление». Новая тема снимает прежние целиком, поэтому запись одна.
+ */
 export async function markInstalled(entry: Omit<TryOn, 'backup'>): Promise<void> {
-  const stored = await browser.storage.local.get(KEYS.installed);
-  const installed = (stored[KEYS.installed] as Record<string, unknown> | undefined) ?? {};
+  const installed: Record<string, unknown> = {};
   installed[entry.themeId] = {
     versionId: entry.versionId,
     number: entry.number,
@@ -145,8 +149,11 @@ export async function endTryOn(keep: boolean): Promise<{ ended: boolean }> {
   const tryOn = stored[KEYS.tryOn] as TryOn | undefined;
   if (!tryOn) return { ended: false };
 
-  if (keep) {
-    const { backup: _backup, ...entry } = tryOn;
+  if (keep && tryOn.isDefault) {
+    // Оставили тему по умолчанию — чужих тем больше нет, отметок тоже.
+    await browser.storage.local.remove(KEYS.installed);
+  } else if (keep) {
+    const { backup: _backup, isDefault: _isDefault, ...entry } = tryOn;
     await markInstalled(entry);
     void recordInstall(tryOn.themeId, tryOn.versionId);
   } else {

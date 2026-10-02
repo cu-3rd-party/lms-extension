@@ -58,7 +58,9 @@ if (typeof browser === 'undefined') {
     try {
       response = await fetch(base + path, { method, headers, body: payload });
     } catch (_error) {
-      throw new WorkshopError('Сервер мастерской недоступен. Проверь интернет и попробуй ещё раз.');
+      throw new WorkshopError(
+        'Сервер 3rd-theme workshop недоступен. Проверь интернет и попробуй ещё раз.'
+      );
     }
     if (response.status === 204) return null;
     const data = await response.json().catch(() => null);

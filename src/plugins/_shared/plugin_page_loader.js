@@ -9,6 +9,7 @@ var CONTENT_WRAPPER_ID = 'cu-plugin-content-wrapper';
 var PLUGIN_BUTTON_ID = 'cu-plugin-main-button';
 var GIST_PANEL_ID = 'cu-plugin-gist-right-panel';
 var NEWS_BUTTON_ID = 'cu-plugin-news-button';
+var WORKSHOP_BANNER_ID = 'cu-plugin-workshop-banner';
 var GIST_STYLE_ID = 'cu-gist-dark-theme-injected-style';
 var leftIframe = leftIframe || null;
 
@@ -160,10 +161,64 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
     contentWrapper.appendChild(rightPanel);
     overlay.appendChild(contentWrapper);
     overlay.appendChild(newsButton);
+    overlay.appendChild(createWorkshopBanner());
     document.body.appendChild(overlay);
 
     overlay.addEventListener('click', closePluginMenu);
     contentWrapper.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  /**
+   * Вход в 3rd-theme workshop — в левом верхнем углу оверлея, вне меню, напротив
+   * «Что нового». Тёмный, в цветах 3rd party, при любой теме меню. 3rd-theme workshop
+   * открывается отдельной вкладкой, меню закрывается — как и по кнопке во
+   * вкладке «Тема».
+   */
+  function createWorkshopBanner() {
+    const banner = document.createElement('button');
+    banner.id = WORKSHOP_BANNER_ID;
+    banner.type = 'button';
+    banner.title = 'Темы других студентов: примерить, поставить, опубликовать свою';
+    banner.style.cssText = `position: absolute; top: 8px; left: 16px; display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 14px 0 10px; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; background: linear-gradient(135deg, #1b1d21 0%, #2b2f36 100%); color: #f2f2f4; font: 13px/1.2 'Inter', sans-serif; text-align: left; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: transform 0.15s ease, box-shadow 0.15s ease;`;
+
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const logo = document.createElementNS(svgNs, 'svg');
+    logo.setAttribute('viewBox', '0 0 152 147');
+    logo.setAttribute('aria-hidden', 'true');
+    logo.style.cssText = 'flex: 0 0 24px; width: 24px; height: 23px; fill: currentColor;';
+    const path = document.createElementNS(svgNs, 'path');
+    // Знак 3rd party.
+    path.setAttribute(
+      'd',
+      'M151.803 64.031 108.512 91.58v51.539l-6.218 3.695-35.063-19.454 8.104-5.153 24.799 13.749v-39.06l-40.87 26.027L.404 90.461v-7.264L43.68 55.649V4.097L49.9.403l58.6 32.499v48.686l32.802-20.874-24.823-13.75v-9.638l35.312 19.441.012 6.634zM96.076 89.505l-48.037-26.63-37.135 23.64 39.02 21.615 9.041 5.002 37.123-23.627zm4.045-51.614L52.072 11.248v44.225l48.037 26.63V37.891z'
+    );
+    logo.appendChild(path);
+
+    const text = document.createElement('span');
+    text.style.cssText = 'display: flex; flex-direction: column;';
+    const title = document.createElement('span');
+    title.textContent = '3rd-theme workshop';
+    title.style.cssText = 'font-weight: 600; white-space: nowrap;';
+    const by = document.createElement('span');
+    by.textContent = 'темы для LMS';
+    by.style.cssText = 'font-size: 11px; color: #9aa0a6;';
+    text.append(title, by);
+    banner.append(logo, text);
+
+    banner.addEventListener('mouseenter', () => {
+      banner.style.transform = 'translateY(-1px)';
+      banner.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
+    });
+    banner.addEventListener('mouseleave', () => {
+      banner.style.transform = '';
+      banner.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+    });
+    banner.addEventListener('click', (e) => {
+      e.stopPropagation();
+      browser.runtime.sendMessage({ action: 'OPEN_WORKSHOP' });
+      closePluginMenu();
+    });
+    return banner;
   }
 
   /**

@@ -63,7 +63,9 @@ if (typeof window.__culmsWorkshopTryOn === 'undefined') {
       bar.className = 'bar';
       const title = document.createElement('span');
       title.className = 'title';
-      title.textContent = `Примерка: «${tryOn.title}» v${tryOn.number}`;
+      title.textContent = tryOn.isDefault
+        ? 'Примерка: тема по умолчанию'
+        : `Примерка: «${tryOn.title}» v${tryOn.number}`;
 
       const button = (text, cls, onClick) => {
         const el = document.createElement('button');
@@ -84,7 +86,7 @@ if (typeof window.__culmsWorkshopTryOn === 'undefined') {
 
       bar.append(
         title,
-        button('Мастерская', 'link', () =>
+        button('3rd-theme workshop', 'link', () =>
           browser.runtime.sendMessage({ action: 'OPEN_WORKSHOP' })
         ),
         button('Вернуть как было', '', end(false)),

@@ -1,4 +1,4 @@
-// workshop.js — страница мастерской тем: комнаты, витрина, примерка,
+// workshop.js — страница 3rd-theme workshop: комнаты, витрина, примерка,
 // установка и публикация.
 //
 // Тема — это профиль настроек вида `workshop` (см. settings_registry.js и
@@ -239,8 +239,66 @@ if (typeof browser === 'undefined') {
       )
     );
     $('nickname-btn').textContent = state.me?.nickname
-      ? `Ты в мастерской: ${state.me.nickname} ✎`
+      ? `Ты в 3rd-theme workshop: ${state.me.nickname} ✎`
       : 'Задать ник ✎';
+  }
+
+  // --- какая тема стоит --------------------------------------------------------
+  //
+  // Новая тема снимает прежнюю целиком, так что в `workshopInstalled` одна
+  // запись. Несколько бывает у тех, кто ставил темы, пока они ложились
+  // друг на друга, — тогда «стоит сейчас» последняя поставленная. Нет ни
+  // одной — смотрим, не включена ли своя тема из редактора.
+
+  function currentInstalled() {
+    let latest = null;
+    Object.entries(state.installed).forEach(([themeId, entry]) => {
+      if (!latest || String(entry.installedAt) > String(latest.installedAt)) {
+        latest = { ...entry, themeId };
+      }
+    });
+    return latest;
+  }
+
+  async function renderCurrentTheme() {
+    const box = $('current-theme');
+    const [sync, local] = await Promise.all([
+      browser.storage.sync.get('customThemeToggle'),
+      browser.storage.local.get('customThemeName'),
+    ]);
+    const tryOn = state.tryOn;
+    const installed = currentInstalled();
+    let title = 'Тема по умолчанию';
+    let hint = 'LMS как есть, без тем из 3rd-theme workshop';
+    let link = null;
+    if (tryOn) {
+      title = tryOn.isDefault ? 'Тема по умолчанию' : `${tryOn.title} · v${tryOn.number}`;
+      hint = 'Примерка — оставь или верни как было';
+      link = tryOn.isDefault ? null : tryOn.themeId;
+    } else if (installed) {
+      title = `${installed.title} · v${installed.number}`;
+      hint = 'Из 3rd-theme workshop';
+      link = installed.themeId;
+    } else if (sync.customThemeToggle) {
+      title = local.customThemeName || 'Своя тема';
+      hint = 'Своя, из редактора тем';
+    }
+    put(
+      box,
+      h('span', { class: 'current-theme__label' }, tryOn ? 'Примеряешь' : 'Стоит сейчас'),
+      link
+        ? h(
+            'button',
+            {
+              class: 'current-theme__title link',
+              title: 'Открыть тему',
+              onclick: () => (location.hash = `#theme/${link}`),
+            },
+            title
+          )
+        : h('span', { class: 'current-theme__title' }, title),
+      h('span', { class: 'current-theme__hint' }, hint)
+    );
   }
 
   // --- плашка примерки -------------------------------------------------------
@@ -257,7 +315,13 @@ if (typeof browser === 'undefined') {
     bar.hidden = false;
     put(
       bar,
-      h('span', {}, `Примеряешь «${tryOn.title}» v${tryOn.number}`),
+      h(
+        'span',
+        {},
+        tryOn.isDefault
+          ? 'Примеряешь тему по умолчанию'
+          : `Примеряешь «${tryOn.title}» v${tryOn.number}`
+      ),
       h('span', { class: 'spacer' }),
       h(
         'button',
@@ -294,6 +358,10 @@ if (typeof browser === 'undefined') {
    * Скачивает версию и отбирает ключи выбранных слоёв. Проверку значений
    * делает реестр: в профиле может быть что угодно, а ставим только то, что
    * эта версия расширения знает.
+   *
+   * `stale` — всё оформление, что стоит сейчас: прежняя тема, своя палитра,
+   * фоны, обложки и переименования. Новая тема его не дополняет, а заменяет —
+   * иначе от старой оставались бы фоны и названия, которых в новой нет.
    */
   async function prepareInstall(theme, version, layers) {
     const profile = await api.resolveProfile(theme.id, version.id);
@@ -304,7 +372,16 @@ if (typeof browser === 'undefined') {
     if (!keys.length) {
       throw new Error('В выбранных слоях нечего ставить — отметь хотя бы один');
     }
-    return { profile, only, keys, skipped: inspected.rejected.length };
+    const stale = await registry.storedKeys('workshop');
+    return { profile, only, keys, stale, skipped: inspected.rejected.length };
+  }
+
+  /** Снимает прежнее оформление и пишет тему на чистое место. */
+  async function replaceWith(profile, only, stale) {
+    await registry.reset(stale);
+    const result = await registry.apply(profile, { only });
+    if (!result.ok) throw new Error(result.error);
+    return result;
   }
 
   function installEntry(theme, version) {
@@ -321,34 +398,37 @@ if (typeof browser === 'undefined') {
     // Примерка поверх примерки: сперва вернуть исходное, иначе снимок второй
     // темы запомнил бы первую вместо настроек человека.
     if (state.tryOn) await endTryOn(false);
-    const { profile, only, keys } = await prepareInstall(theme, version, layers);
-    const backup = await registry.snapshot(keys);
+    const { profile, only, keys, stale } = await prepareInstall(theme, version, layers);
+    // В снимке и то, что тема запишет, и то, что снимется перед ней.
+    const backup = await registry.snapshot([...new Set([...stale, ...keys])]);
     // Снимок пишется до темы: если запись оборвётся на полпути, вернуть всё
     // равно будет из чего.
     await browser.storage.local.set({
       workshopTryOn: { ...installEntry(theme, version), backup, startedAt: Date.now() },
     });
-    const result = await registry.apply(profile, { only, merge: true });
-    if (!result.ok) throw new Error(result.error);
+    await replaceWith(profile, only, stale);
     await browser.runtime.sendMessage({ action: 'WORKSHOP_FOCUS_LMS' });
   }
 
   async function installTheme(theme, version, layers) {
     if (state.tryOn) {
-      if (state.tryOn.themeId === theme.id && state.tryOn.versionId === version.id) {
+      if (
+        !state.tryOn.isDefault &&
+        state.tryOn.themeId === theme.id &&
+        state.tryOn.versionId === version.id
+      ) {
         await endTryOn(true);
         return;
       }
       await endTryOn(false);
     }
-    const { profile, only, skipped } = await prepareInstall(theme, version, layers);
-    const result = await registry.apply(profile, { only, merge: true });
-    if (!result.ok) throw new Error(result.error);
+    const { profile, only, stale, skipped } = await prepareInstall(theme, version, layers);
+    const result = await replaceWith(profile, only, stale);
 
-    // То же делает background, когда примерку оставляют с плашки на LMS
-    // (markInstalled в workshop-background.ts).
+    // Прежние темы сняты целиком — установленной остаётся одна. То же делает
+    // background, когда примерку оставляют с плашки на LMS (markInstalled в
+    // workshop-background.ts).
     state.installed = {
-      ...state.installed,
       [theme.id]: { ...installEntry(theme, version), installedAt: new Date().toISOString() },
     };
     await browser.storage.local.set({ workshopInstalled: state.installed });
@@ -359,6 +439,99 @@ if (typeof browser === 'undefined') {
     );
   }
 
+  // --- тема по умолчанию ---------------------------------------------------------
+  //
+  // Вернуться к тому, как LMS выглядит на свежей установке расширения: снять
+  // из хранилища ключи выбранных слоёв, и плагины возьмут свои значения по
+  // умолчанию. Сервер для этого не нужен — кнопка работает, даже если
+  // мастерская не загрузилась.
+
+  // Названия курсов — свои, а не чужая тема: по умолчанию их не трогаем.
+  const DEFAULT_LAYERS = ['theme', 'appearance', 'images', 'covers'];
+
+  async function defaultKeys(layers) {
+    const keys = await registry.storedKeys('workshop', (key) =>
+      layers.includes(registry.layerOf(key))
+    );
+    if (!keys.length) throw new Error('В выбранных слоях и так всё по умолчанию');
+    return keys;
+  }
+
+  async function tryOnDefault(layers) {
+    if (state.tryOn) await endTryOn(false);
+    const keys = await defaultKeys(layers);
+    const backup = await registry.snapshot(keys);
+    await browser.storage.local.set({
+      workshopTryOn: { isDefault: true, title: 'Тема по умолчанию', backup, startedAt: Date.now() },
+    });
+    await registry.reset(keys);
+    await browser.runtime.sendMessage({ action: 'WORKSHOP_FOCUS_LMS' });
+  }
+
+  async function installDefault(layers) {
+    if (state.tryOn) {
+      if (state.tryOn.isDefault) {
+        await endTryOn(true);
+        return;
+      }
+      await endTryOn(false);
+    }
+    const removed = await registry.reset(await defaultKeys(layers));
+    // Чужих тем больше нет — и отметок «установлена» тоже. То же делает
+    // background, когда примерку темы по умолчанию оставляют с плашки на LMS.
+    state.installed = {};
+    await browser.storage.local.remove('workshopInstalled');
+    toast(
+      `Тема по умолчанию: сброшено ${removed.length} ${plural(removed.length, 'настройка', 'настройки', 'настроек')}`
+    );
+  }
+
+  function defaultThemeModal() {
+    const boxes = Object.entries(registry.LAYERS).map(([layer, label]) => {
+      const box = h('input', { type: 'checkbox', checked: DEFAULT_LAYERS.includes(layer) });
+      return { layer, box, label: h('label', {}, box, label) };
+    });
+    const chosen = () => boxes.filter(({ box }) => box.checked).map(({ layer }) => layer);
+    const run = (work) => async (close) => {
+      const layers = chosen();
+      if (!layers.length) throw new Error('Отметь хотя бы один слой');
+      await work(layers);
+      close();
+      // Значки «установлена» на карточках поменялись — перерисовать.
+      if (state.me) route();
+    };
+    openModal({
+      title: 'Тема по умолчанию',
+      body: [
+        h(
+          'p',
+          {},
+          'LMS станет такой, как на свежей установке расширения: без своей палитры, логотипа, фонов и обложек. Сервер 3rd-theme workshop для этого не нужен.'
+        ),
+        h(
+          'div',
+          { class: 'field' },
+          h('span', {}, 'Что сбросить'),
+          h(
+            'div',
+            { class: 'layers' },
+            boxes.map(({ label }) => label)
+          ),
+          h(
+            'span',
+            { class: 'hint' },
+            'Свои картинки и CSS удалятся. Сначала примерь — на LMS будет кнопка «Вернуть как было».'
+          )
+        ),
+      ],
+      actions: [
+        { label: 'Отмена', kind: 'ghost', onClick: (close) => close() },
+        { label: 'Примерить', onClick: run(tryOnDefault) },
+        { label: 'Поставить', kind: 'primary', submit: true, onClick: run(installDefault) },
+      ],
+    });
+  }
+
   // --- комната -----------------------------------------------------------------
 
   function themeCard(theme) {
@@ -367,7 +540,12 @@ if (typeof browser === 'undefined') {
     if (installed && installed.number < theme.latest_version) {
       badge = h('span', { class: 'badge accent' }, 'есть обновление');
     } else if (installed) {
-      badge = h('span', { class: 'badge ok' }, 'установлена');
+      const current = currentInstalled();
+      badge = h(
+        'span',
+        { class: 'badge ok' },
+        current && current.themeId === theme.id ? 'стоит сейчас' : 'установлена'
+      );
     }
     return h(
       'button',
@@ -493,7 +671,7 @@ if (typeof browser === 'undefined') {
             { class: 'muted' },
             room.is_public
               ? 'Общая комната — её видят все. Новые темы и их версии проходят модерацию.'
-              : `Приватная комната · ${room.member_count} ${plural(room.member_count, 'участник', 'участника', 'участников')}. Войти можно только по коду, модерации нет.`
+              : `Приватная комната · ${room.member_count} ${plural(room.member_count, 'участник', 'участника', 'участников')}. Войти можно только по коду`
           )
         ),
         headActions.length ? h('div', { class: 'row' }, headActions) : null
@@ -762,7 +940,7 @@ if (typeof browser === 'undefined') {
         h(
           'p',
           { class: 'muted small' },
-          'Тема ложится поверх твоих настроек: то, чего в ней нет, остаётся как было. Названия и обложки курсов дописываются к твоим, а применятся только к курсам, которые у тебя есть.'
+          'Тема заменяет твоё оформление целиком: прежние палитра, фоны, логотип, обложки и названия курсов снимаются, даже если в новой теме их нет. Названия и обложки применятся только к курсам, которые у тебя есть.'
         ),
         authorTools.length ? h('div', { class: 'row' }, authorTools) : null
       );
@@ -799,7 +977,7 @@ if (typeof browser === 'undefined') {
               'div',
               { class: 'field' },
               reason,
-              h('span', { class: 'hint' }, 'Жалобу увидит модератор мастерской.')
+              h('span', { class: 'hint' }, 'Жалобу увидит модератор 3rd-theme workshop.')
             ),
             actions: [
               { label: 'Отмена', kind: 'ghost', onClick: (close) => close() },
@@ -1101,7 +1279,7 @@ if (typeof browser === 'undefined') {
       roomSelect ? h('label', { class: 'field' }, h('span', {}, 'Комната'), roomSelect) : null,
       moderationNote,
       nickname
-        ? h('label', { class: 'field' }, h('span', {}, 'Твой ник в мастерской'), nickname)
+        ? h('label', { class: 'field' }, h('span', {}, 'Твой ник в 3rd-theme workshop'), nickname)
         : null,
       h('label', { class: 'field' }, h('span', {}, 'Название'), title),
       h('label', { class: 'field' }, h('span', {}, 'Описание'), description),
@@ -1329,7 +1507,7 @@ if (typeof browser === 'undefined') {
   function nicknameModal() {
     const input = h('input', { required: true, maxlength: 40, value: state.me.nickname || '' });
     openModal({
-      title: 'Ник в мастерской',
+      title: 'Ник в 3rd-theme workshop',
       body: h(
         'div',
         { class: 'field' },
@@ -1574,7 +1752,7 @@ if (typeof browser === 'undefined') {
       h(
         'div',
         { class: 'empty' },
-        h('h2', {}, 'Мастерская не открылась'),
+        h('h2', {}, '3rd-theme workshop не открылся'),
         h('p', {}, error.message || String(error)),
         h(
           'div',
@@ -1594,7 +1772,7 @@ if (typeof browser === 'undefined') {
   }
 
   async function start() {
-    put(main, h('p', { class: 'muted center' }, 'Загружаю мастерскую…'));
+    put(main, h('p', { class: 'muted center' }, 'Загружаю 3rd-theme workshop…'));
     try {
       state.me = await api.init();
       await loadRooms();
@@ -1611,6 +1789,7 @@ if (typeof browser === 'undefined') {
   $('create-room-btn').addEventListener('click', createRoomModal);
   $('mine-btn').addEventListener('click', () => (location.hash = '#mine'));
   $('publish-btn').addEventListener('click', () => (location.hash = '#publish'));
+  $('default-theme-btn').addEventListener('click', defaultThemeModal);
   $('nickname-btn').addEventListener('click', () => state.me && nicknameModal());
   window.addEventListener('hashchange', () => {
     if (state.me) route();
@@ -1620,6 +1799,7 @@ if (typeof browser === 'undefined') {
     if (area === 'sync' && 'themeEnabled' in changes) {
       document.body.classList.toggle('dark', !!changes.themeEnabled.newValue);
     }
+    if (area === 'sync' && 'customThemeToggle' in changes) renderCurrentTheme();
     if (area !== 'local') return;
     if ('workshopTryOn' in changes) {
       state.tryOn = changes.workshopTryOn.newValue || null;
@@ -1628,6 +1808,9 @@ if (typeof browser === 'undefined') {
     if ('workshopInstalled' in changes) {
       state.installed = changes.workshopInstalled.newValue || {};
     }
+    if (['workshopTryOn', 'workshopInstalled', 'customThemeName'].some((key) => key in changes)) {
+      renderCurrentTheme();
+    }
   });
 
   (async () => {
@@ -1635,6 +1818,7 @@ if (typeof browser === 'undefined') {
     document.body.classList.toggle('dark', !!sync.themeEnabled);
     await loadLocalState();
     renderTryOnBar();
+    renderCurrentTheme();
     await start();
   })();
 })();

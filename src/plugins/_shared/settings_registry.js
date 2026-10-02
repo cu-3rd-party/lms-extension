@@ -203,7 +203,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
     data('themeEditorTabId', 'private', 'number'),
     data('themeSourceRequest', 'private', 'number'),
     data('themeSourceDump', 'private', 'object'),
-    // Мастерская тем (plugins/workshop): ключ устройства — как у биржи, отдать
+    // 3rd-theme workshop (plugins/workshop): ключ устройства — как у биржи, отдать
     // его значит отдать вход от имени студента; остальное — состояние этого
     // браузера: что примеряется сейчас и что уже установлено.
     data('workshopDeviceKey', 'private', 'string'),
@@ -237,7 +237,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
     workshop: {
       groups: ['appearance', 'theme', 'content'],
       keys: ['courseNames', 'customCourseNamesToggle'],
-      title: 'Тема из мастерской',
+      title: 'Тема из 3rd-theme workshop',
     },
     full: {
       groups: ['appearance', 'theme', 'features', 'integrations', 'content', 'personal'],
@@ -277,11 +277,6 @@ if (typeof window.cuLmsSettings === 'undefined') {
     }
     return 'appearance';
   }
-
-  // Словари «курс → значение». При установке чужой темы они дополняются, а не
-  // заменяются: в теме названия только тех курсов, что были у автора, и
-  // затирать ими свои было бы потерей.
-  const MERGED_OBJECTS = ['courseNames', 'courseIcons'];
 
   // --- ПРОВЕРКА ЗНАЧЕНИЙ ---
 
@@ -420,9 +415,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
   /**
    * Записывает то, что прошло проверку. Остальное не трогает.
    *
-   * `options.only(key)` отбирает ключи (мастерская ставит тему по слоям),
-   * `options.merge` — словари из MERGED_OBJECTS дописываются к своим, а не
-   * заменяют их.
+   * `options.only(key)` отбирает ключи — мастерская ставит тему по слоям.
    */
   async function apply(raw, options = {}) {
     const result = inspect(raw);
@@ -431,18 +424,10 @@ if (typeof window.cuLmsSettings === 'undefined') {
     const accepted = options.only
       ? result.accepted.filter(({ key }) => options.only(key))
       : result.accepted;
-    const mergeKeys = options.merge
-      ? accepted.map(({ key }) => key).filter((key) => MERGED_OBJECTS.includes(key))
-      : [];
-    const current = mergeKeys.length ? await browser.storage.local.get(mergeKeys) : {};
-
     const sync = {};
     const local = {};
     accepted.forEach(({ entry, key, value }) => {
-      const own = current[key];
-      const merged =
-        mergeKeys.includes(key) && own && typeof own === 'object' ? { ...own, ...value } : value;
-      (entry.area === 'sync' ? sync : local)[key] = merged;
+      (entry.area === 'sync' ? sync : local)[key] = value;
     });
 
     if (Object.keys(sync).length) await browser.storage.sync.set(sync);
@@ -478,6 +463,46 @@ if (typeof window.cuLmsSettings === 'undefined') {
     return { sync: pick(byArea.sync, sync), local: pick(byArea.local, local) };
   }
 
+  /**
+   * Ключи вида профиля, которые сейчас лежат в хранилище. `only(key)` отбирает
+   * из них нужные — мастерская так находит, что снимать при возврате к теме по
+   * умолчанию.
+   */
+  async function storedKeys(kind, only = () => true) {
+    const entries = entriesFor(kind);
+    const [sync, local] = await Promise.all([
+      browser.storage.sync.get(null),
+      browser.storage.local.get(null),
+    ]);
+    const keys = [];
+    entries.forEach((entry) => {
+      const data = entry.area === 'sync' ? sync : local;
+      if (entry.prefix) {
+        Object.keys(data).forEach((key) => {
+          if (key.startsWith(entry.prefix) && key.length > entry.prefix.length) keys.push(key);
+        });
+      } else if (entry.key in data) {
+        keys.push(entry.key);
+      }
+    });
+    return keys.filter(only);
+  }
+
+  /**
+   * Удаляет ключи из хранилища — плагины берут тогда `fallback`, то есть
+   * ведут себя как на свежей установке. Ключи `private` не трогает.
+   */
+  async function reset(keys) {
+    const byArea = { sync: [], local: [] };
+    keys.forEach((key) => {
+      const entry = entryFor(key);
+      if (entry && entry.group !== 'private') byArea[entry.area].push(key);
+    });
+    if (byArea.sync.length) await browser.storage.sync.remove(byArea.sync);
+    if (byArea.local.length) await browser.storage.local.remove(byArea.local);
+    return [...byArea.sync, ...byArea.local];
+  }
+
   /** Значение настройки, когда её ещё ни разу не трогали. */
   function defaultFor(key) {
     const entry = entryFor(key);
@@ -493,6 +518,8 @@ if (typeof window.cuLmsSettings === 'undefined') {
     REGISTRY,
     layerOf,
     snapshot,
+    storedKeys,
+    reset,
     defaultFor,
     entriesFor,
     entryFor,

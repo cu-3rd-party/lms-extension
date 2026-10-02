@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Мастерская тем LMS</title>
+    <title>3rd-theme workshop</title>
     <link rel="stylesheet" href="workshop.css" />
   </head>
   <body>
@@ -11,9 +11,9 @@
     <div class="layout">
       <aside class="sidebar">
         <div class="brand">
-          <strong>Мастерская тем</strong>
-          <span class="muted small">CU LMS Enhancer</span>
+          <strong>3rd-theme workshop</strong>
         </div>
+        <div id="current-theme" class="current-theme"></div>
         <nav id="rooms" class="rooms"></nav>
         <div class="sidebar-actions">
           <button id="join-room-btn" class="btn">Войти по коду</button>
@@ -21,12 +21,13 @@
         </div>
         <div class="sidebar-bottom">
           <button id="mine-btn" class="btn ghost wide">Мои темы</button>
+          <button id="default-theme-btn" class="btn ghost wide">Поставить тему по умолчанию</button>
           <button id="publish-btn" class="btn primary wide">Опубликовать тему</button>
           <button id="nickname-btn" class="nickname" title="Сменить ник"></button>
         </div>
       </aside>
       <main id="main" class="main">
-        <p class="muted center">Загружаю мастерскую…</p>
+        <p class="muted center">Загружаю 3rd-theme workshop…</p>
       </main>
     </div>
     <div id="modal-root"></div>
