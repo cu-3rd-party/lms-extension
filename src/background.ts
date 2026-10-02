@@ -93,6 +93,7 @@ type IncomingMessage =
   | { action: 'TABS_RELOAD'; tabId: number; options: browser.Tabs.ReloadReloadPropertiesType }
   | { action: 'TABS_SEND_MESSAGE'; tabId: number; message: unknown }
   | { action: 'OPEN_PDF_VIEWER'; url: string; filename: string }
+  | { action: 'DOWNLOAD_URL'; url: string; filename: string }
   | {
       action: 'DOWNLOAD_FILE';
       data: string | ArrayBuffer;
@@ -1681,6 +1682,23 @@ browser.runtime.onMessage.addListener(((
       .update(request.tabId as number, request.options as browser.Tabs.UpdateUpdatePropertiesType)
       .then((tab) => sendResponse(tab))
       .catch((err) => sendResponse(null));
+    return true;
+  }
+  // «Скачать» у файлов лонгрида (longreads/file_download.js): ссылку на
+  // хранилище страница уже получила, здесь только имя файла — его LMS в
+  // ссылке не передаёт, и Safari/Chrome назвали бы файл по пути в URL.
+  if (request.action === 'DOWNLOAD_URL') {
+    // В Safari API загрузок нет — тогда страница скачает файл сама.
+    respondWith(
+      sendResponse,
+      Promise.resolve().then(() =>
+        browser.downloads.download({
+          url: request.url as string,
+          filename: request.filename as string,
+          conflictAction: 'uniquify',
+        })
+      )
+    );
     return true;
   }
   if (request.action === 'DOWNLOAD_FILE') {

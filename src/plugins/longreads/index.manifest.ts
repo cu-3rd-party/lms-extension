@@ -10,6 +10,8 @@ const manifest = {
     // нужны — тяжёлая обработка живёт на странице plugins/longreads/pdf_viewer.html.
     'plugins/longreads/pdf_dark_theme.js',
     'plugins/longreads/instant_doc_view_fix.js',
+    // «Скачать» у файла — скачать с настоящим именем, а не открыть вкладку.
+    'plugins/longreads/file_download.js',
     'plugins/longreads/task_status_adaptation.js',
     'plugins/longreads/rename_hw.js',
   ],

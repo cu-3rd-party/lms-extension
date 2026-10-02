@@ -157,6 +157,7 @@ export default defineManifest({
         'plugins/longreads/pdf_viewer.html',
         'plugins/longreads/pdf_viewer.js',
         'plugins/longreads/instant_doc_view_fix.js',
+        'plugins/longreads/file_download.js',
         'plugins/longreads/task_status_adaptation.js',
         'plugins/longreads/rename_hw.js',
         'plugins/statements/advanced_statements.js',
