@@ -70,6 +70,9 @@ export const GOALS = [
   'settings_export',
   'settings_import',
   'settings_reset',
+  'workshop_open',
+  'workshop_theme_install',
+  'file_download',
 ] as const;
 
 export type Goal = (typeof GOALS)[number];

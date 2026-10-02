@@ -115,6 +115,7 @@ test('цели, которые шлют страницы, есть в списк
     'src/popup/popup.js',
     'src/plugins/statements/gradebook.js',
     'src/plugins/course-view/course_exporter.js',
+    'src/workshop-background.ts',
   ];
   const used = new Set<string>();
   for (const path of sources) {

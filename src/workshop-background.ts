@@ -14,6 +14,7 @@
 
 import browser from 'webextension-polyfill';
 import { LMS_HOSTS } from './plugins/lms-hosts';
+import { trackGoal } from './metrics';
 
 export const WORKSHOP_BACKEND_ORIGIN = 'https://lms.workshop.cu3rd.ru';
 
@@ -156,6 +157,7 @@ export async function endTryOn(keep: boolean): Promise<{ ended: boolean }> {
     const { backup: _backup, isDefault: _isDefault, ...entry } = tryOn;
     await markInstalled(entry);
     void recordInstall(tryOn.themeId, tryOn.versionId);
+    trackGoal('workshop_theme_install');
   } else {
     await restore(tryOn.backup ?? {});
   }

@@ -1714,6 +1714,8 @@ browser.runtime.onMessage.addListener(((
   // хранилище страница уже получила, здесь только имя файла — его LMS в
   // ссылке не передаёт, и Safari/Chrome назвали бы файл по пути в URL.
   if (request.action === 'DOWNLOAD_URL') {
+    // Шлёт только «Скачать» у файлов лонгрида (longreads/file_download.js).
+    trackGoal('file_download');
     // В Safari API загрузок нет — тогда страница скачает файл сама.
     respondWith(
       sendResponse,
@@ -1784,6 +1786,7 @@ browser.runtime.onMessage.addListener(((
 
   // --- МАСТЕРСКАЯ ТЕМ (см. workshop-background.ts) ---
   if (request.action === 'OPEN_WORKSHOP') {
+    trackGoal('workshop_open');
     respondWith(sendResponse, openExtensionTab('plugins/workshop/workshop.html', 'workshopTabId'));
     return true;
   }
