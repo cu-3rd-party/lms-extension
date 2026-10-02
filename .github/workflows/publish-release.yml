@@ -16,7 +16,7 @@ permissions:
 jobs:
   publish-chrome:
     name: Publish Chrome
-    if: github.event_name == 'workflow_dispatch'
+    if: ${{ github.event_name == 'release' || inputs.tag != '' }}
     runs-on: ubuntu-latest
     environment: publish-chrome
     permissions:
@@ -90,7 +90,7 @@ jobs:
 
   publish-firefox:
     name: Publish Firefox
-    if: github.event_name == 'workflow_dispatch'
+    if: ${{ github.event_name == 'release' || inputs.tag != '' }}
     runs-on: ubuntu-latest
     environment: publish-firefox
     permissions:
