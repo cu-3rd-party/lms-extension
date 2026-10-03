@@ -4,7 +4,7 @@
 // это страница расширения, CORS ей не мешает. Сюда вынесено только то, что
 // ей недоступно или что нужно ещё и плашке примерки на LMS:
 //   - узнать `student_id`: куки LMS есть у background, а не у страницы
-//     расширения;
+//     расширения (в Safari — только у вкладки LMS, см. workshop-identity.ts);
 //   - показать вкладку LMS, чтобы примерку было видно;
 //   - закончить примерку — оставить тему или вернуть всё как было. Плашка на
 //     LMS и страница мастерской шлют сюда одно и то же сообщение, поэтому
@@ -15,6 +15,7 @@
 import browser from 'webextension-polyfill';
 import { LMS_HOSTS } from './plugins/lms-hosts';
 import { trackGoal } from './metrics';
+import { readStudentIdInPage, resolveStudentId, type StudentIdAnswer } from './workshop-identity';
 
 export const WORKSHOP_BACKEND_ORIGIN = 'https://lms.workshop.cu3rd.ru';
 
@@ -54,23 +55,50 @@ async function backendBase(): Promise<string> {
     : WORKSHOP_BACKEND_ORIGIN;
 }
 
-/**
- * `student_id` из LMS. Отдаём наружу только его: `/students/me` возвращает
- * ещё ИНН, СНИЛС и телефон, и дальше этой функции они не уходят.
- */
-export async function workshopIdentity(lmsApi: (path: string) => string): Promise<string> {
+/** `/students/me` из background — с его куками LMS, если браузер их даёт. */
+async function studentIdFromBackground(lmsApi: (path: string) => string): Promise<StudentIdAnswer> {
   const response = await fetch(lmsApi('/api/student-hub/students/me'), {
     credentials: 'include',
     headers: { Accept: 'application/json' },
   });
-  if (response.status === 401 || response.status === 403) {
-    throw new Error('Войди в LMS — 3rd-theme workshop узнаёт тебя по аккаунту LMS');
-  }
-  if (!response.ok) throw new Error(`LMS: HTTP ${response.status}`);
+  if (!response.ok) return { status: response.status };
   const data = (await response.json()) as { id?: unknown };
-  if (typeof data.id !== 'string' || !data.id) throw new Error('LMS не отдала id студента');
-  await browser.storage.local.set({ [KEYS.studentId]: data.id });
-  return data.id;
+  return { status: response.status, id: data.id };
+}
+
+/** То же из открытой вкладки LMS: активную пробуем первой. */
+async function studentIdFromLmsTab(): Promise<StudentIdAnswer | null> {
+  const tabs = await browser.tabs.query({
+    url: LMS_HOSTS.map((host) => `https://${host}/*`),
+  });
+  tabs.sort((a, b) => Number(b.active) - Number(a.active));
+  for (const tab of tabs) {
+    if (tab.id == null) continue;
+    try {
+      const [result] = await browser.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: readStudentIdInPage,
+      });
+      const answer = result?.result as StudentIdAnswer | undefined;
+      if (answer && typeof answer.status === 'number') return answer;
+    } catch (_error) {
+      // вкладка ещё грузится или выгружена — пробуем следующую
+    }
+  }
+  return null;
+}
+
+/**
+ * `student_id` из LMS. Отдаём наружу только его: `/students/me` возвращает
+ * ещё ИНН, СНИЛС и телефон, и дальше `studentIdFrom*` они не уходят.
+ */
+export async function workshopIdentity(lmsApi: (path: string) => string): Promise<string> {
+  const id = await resolveStudentId({
+    fromBackground: () => studentIdFromBackground(lmsApi),
+    fromLmsTab: studentIdFromLmsTab,
+  });
+  await browser.storage.local.set({ [KEYS.studentId]: id });
+  return id;
 }
 
 /** Делает активной вкладку LMS; если такой нет — открывает «Мои курсы». */
