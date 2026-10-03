@@ -145,8 +145,9 @@ test('примерка ставит тему, а «Вернуть как был�
   await page.getByRole('button', { name: 'Примерить' }).click();
 
   await expect.poll(() => local<string>('customThemeCss')).toBe(AUTHOR_CSS);
-  // Названия курсов дописаны к своим, а не заменили их.
-  await expect.poll(() => local('courseNames')).toEqual({ '7': 'Своё', '1245': 'Матан' });
+  // Тема заменяет оформление целиком: свои названия курсов на время примерки
+  // уходят, а «Вернуть как было» их возвращает.
+  await expect.poll(() => local('courseNames')).toEqual({ '1245': 'Матан' });
   const tryOn = await local<{ title: string }>('workshopTryOn');
   expect(tryOn?.title).toBe('Розовая');
 
@@ -168,7 +169,7 @@ test('примерка ставит тему, а «Вернуть как был�
   await page.close();
 });
 
-test('установка по слоям: без палитры CSS остаётся свой', async () => {
+test('установка по слоям: снятая галочка оставляет слой по умолчанию', async () => {
   const page = await openWorkshop();
   await page.locator('.room-link', { hasText: 'Б-101' }).click();
   await page.locator('.card').first().click();
@@ -176,13 +177,15 @@ test('установка по слоям: без палитры CSS остаёт
   await page.getByRole('button', { name: 'Установить' }).click();
   await expect(page.locator('.panel')).toContainText('Эта версия у тебя установлена');
 
-  expect(await local('customThemeCss')).toBe(OWN_CSS);
+  // Тема снимает прежнее оформление во всех слоях: своего CSS больше нет, а
+  // из темы палитру не взяли — слой остаётся по умолчанию.
+  expect(await local('customThemeCss')).toBeUndefined();
   expect(await local('customLogo')).toBe(LOGO);
   const installed = await local<Record<string, { number: number }>>('workshopInstalled');
   expect(Object.values(installed ?? {})[0]?.number).toBe(1);
 
   await page.locator('.back').click();
-  await expect(page.locator('.card .badge')).toHaveText('установлена');
+  await expect(page.locator('.card .badge')).toHaveText('стоит сейчас');
   await expect(page.locator('.card .stats')).toContainText('⤓ 1');
   await page.close();
 });
