@@ -6,7 +6,9 @@
  * шапке подчёркивались, на месте кнопки темы была пустая рамка, «Плагин» и «Оставить фидбек» в меню профиля стояли
  * без отступов и иконок. Ещё сменился признак раскрытой темы в обзоре курса
  * (`aria-expanded` уехал с `tui-expand` на кнопку аккордеона), и статусы
- * заданий перестали появляться.
+ * заданий перестали появляться. Иконка категории на `tui-icon` переехала из
+ * `--t-icon` в `--t-icon-start` — на обложках старого дизайна карточек вместо
+ * неё были белые квадраты.
  *
  * Логин не нужен: страницу и ответы API отдаёт `context.route`.
  *
@@ -41,6 +43,31 @@ const PAGE_HTML = `<!doctype html><html lang="ru"><head><meta charset="utf-8"></
 </main>
 </body></html>`;
 
+// Список курсов (Taiga 5.15, 2026-10-03): у `tui-icon` иконка в `--t-icon-start`,
+// подписи категории в карточке больше нет.
+const COURSES_HTML = `<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body><main>
+<ul class="course-list">${[
+  ['cuIconBrandDoc', 'Тестовый курс для плагина'],
+  ['cuIconBrandMath', 'Теория вероятностей. Основной уровень'],
+]
+  .map(
+    ([
+      icon,
+      name,
+    ]) => `<li class="course-list__item"><cu-course-card class="course-list__card" tabindex="0">
+  <div class="card-header"><div class="course-category"><tui-icon ${TUI} tuiicons="" class="category-icon" data-icon-start="${icon}" style="--t-icon-start: url(assets/cu/icons/${icon}.svg);"></tui-icon></div></div>
+  <span cutext="s-bold" class="limited-lines-text course-name font-text-s-bold">${name}</span>
+</cu-course-card></li>`
+  )
+  .join('')}</ul>
+</main></body></html>`;
+const COURSES = {
+  items: [
+    { id: 1, name: 'Тестовый курс для плагина', category: 'withoutCategory' },
+    { id: 2, name: 'Теория вероятностей. Основной уровень', category: 'mathematics' },
+  ],
+};
+
 const EXERCISES = {
   name: 'Тестовый курс для плагина',
   exercises: [{ id: 1, name: 'ДЗ 1', longread: { id: LONGREAD_ID } }],
@@ -56,11 +83,19 @@ test.beforeAll(async () => {
 
   const settings = await context.newPage();
   await settings.goto(`chrome-extension://${extensionId}/popup/popup.html`);
-  await settings.evaluate(() => chrome.storage.sync.set({ courseOverviewTaskStatusToggle: true }));
+  await settings.evaluate(() =>
+    chrome.storage.sync.set({ courseOverviewTaskStatusToggle: true, oldCoursesDesignToggle: true })
+  );
   await settings.close();
 
   await context.route(`${LMS_URL}/**`, (route) => {
     const { pathname } = new URL(route.request().url());
+    if (pathname === '/api/micro-lms/courses/student') {
+      return route.fulfill({ json: COURSES });
+    }
+    if (pathname === '/learn/courses/view/actual/all') {
+      return route.fulfill({ contentType: 'text/html; charset=utf-8', body: COURSES_HTML });
+    }
     if (pathname === `/api/micro-lms/courses/${COURSE_ID}/exercises`) {
       return route.fulfill({ json: EXERCISES });
     }
@@ -128,5 +163,23 @@ test('статус задания появляется, когда тема ра
   const badge = page.locator('a.longread cu-task-state-badge');
   await expect(badge).toHaveText('На проверке', { timeout: 10_000 });
   await expect(badge).toHaveCount(1);
+  await page.close();
+});
+
+test('обложка старого дизайна берёт иконку категории из --t-icon-start', async () => {
+  const page = await context.newPage();
+  await page.goto(`${LMS_URL}/learn/courses/view/actual/all`);
+
+  const icons = page.locator('.culms-cover__cat-icon');
+  await expect(icons).toHaveCount(2, { timeout: 15_000 });
+  // Пустая переменная оставляет `mask-image: none` — и иконка рисуется
+  // залитым квадратом цвета текста.
+  await expect
+    .poll(() => icons.evaluateAll((els) => els.map((el) => getComputedStyle(el).maskImage)))
+    .toEqual([
+      `url("${LMS_URL}/assets/cu/icons/cuIconBrandDoc.svg")`,
+      `url("${LMS_URL}/assets/cu/icons/cuIconBrandMath.svg")`,
+    ]);
+  await expect(page.locator('.culms-cover__cat-name').nth(1)).toHaveText('Математика');
   await page.close();
 });

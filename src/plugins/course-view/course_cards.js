@@ -108,9 +108,9 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
     development: 'Разработка',
     withoutCategory: 'Без категории',
   };
-  // Иконки категорий — те же файлы, что LMS ставит в `--t-icon`. Нужны для
-  // бейджа в нашей строке архива: если категории нет в карте, иконку убираем
-  // и остаётся только подпись.
+  // Иконки категорий — те же файлы, что LMS ставит в `--t-icon-start`. Нужны для
+  // бейджа в нашей строке архива (если категории нет в карте, иконку убираем
+  // и остаётся только подпись) и как запасная иконка заглушки на обложке.
   const CATEGORY_ICONS = {
     general: 'url(assets/cu/icons/cuIconBrandAcademic.svg)',
     mathematics: 'url(assets/cu/icons/cuIconBrandMath.svg)',
@@ -738,10 +738,18 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
     // Плейсхолдер повторяет нативную «шапку» карточки: иконка категории + название.
     const sourceIcon = card.querySelector('.category-icon');
     const sourceName = card.querySelector('.category-name');
-    const rawIcon = sourceIcon ? sourceIcon.style.getPropertyValue('--t-icon') : '';
-    // `--t-icon` приходит как `url(assets/...)` — относительный путь, который на
+    // Taiga 5 кладёт иконку в `--t-icon-start`, до 5.15 она жила в `--t-icon`.
+    // Если в разметке иконки нет вовсе, берём её из своей карты категорий:
+    // пустая переменная оставила бы `mask-image` без маски — белый квадрат.
+    const rawIcon =
+      (sourceIcon &&
+        (sourceIcon.style.getPropertyValue('--t-icon-start') ||
+          sourceIcon.style.getPropertyValue('--t-icon'))) ||
+      CATEGORY_ICONS[category] ||
+      CATEGORY_ICONS.withoutCategory;
+    // Иконка приходит как `url(assets/...)` — относительный путь, который на
     // вложенном роуте резолвится не туда, поэтому делаем его абсолютным.
-    const absoluteIcon = rawIcon.replace(/url\(\s*(['"]?)assets\//, 'url($1/assets/');
+    const absoluteIcon = rawIcon.trim().replace(/url\(\s*(['"]?)assets\//, 'url($1/assets/');
 
     const coverIcon = cover.querySelector('.culms-cover__cat-icon');
     if (coverIcon.style.getPropertyValue('--culms-cover-icon') !== absoluteIcon) {
@@ -833,8 +841,13 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
       if (icon) {
         icon.className = category;
         const url = CATEGORY_ICONS[category];
-        if (url) icon.style.setProperty('--t-icon', url);
-        else icon.remove();
+        if (url) {
+          // Клон несёт иконку шаблона в `--t-icon-start` — её и перезаписываем.
+          icon.style.setProperty('--t-icon-start', url);
+          icon.dataset.iconStart = url.replace(/^.*\/(\w+)\.svg\)$/, '$1');
+        } else {
+          icon.remove();
+        }
       }
       const label = badge.querySelector('span');
       if (label) label.textContent = CATEGORY_LABELS[category] || '—';
