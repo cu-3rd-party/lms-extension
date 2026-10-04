@@ -417,23 +417,29 @@ test('в родной колонке «За весь семестр» — про
       .locator('cu-courses-attendance tr.course-row', { hasText: name })
       .locator('.culms-att-native');
 
-  // Одной строкой, как K/D/A: был / не был / ждёт · % из прошедших с отметкой · макс.
-  // Матан: 5 из 7 с отметкой, 2 пары моложе недели ждут, макс. 26 − 2 пропуска;
-  // 71% ниже нормы ЦУ 75% — жёлтый.
-  await expect(note('Математический')).toHaveText('5/2/2·71%·макс 24');
+  // Одной строкой, как K/D/A: был / мог быть (уже прошло) / всего за семестр по LMS.
+  // Матан: прошло 9 (7 с отметкой и 2 моложе недели), был на 5; 5 из 7 с
+  // отметкой — 71%, ниже нормы ЦУ 75% — «был» жёлтый.
+  await expect(note('Математический')).toHaveText('5/9/26');
   await expect(note('Математический').locator('.culms-att-native__rate')).toHaveClass(/is-warn/);
-  // Линал: 1 октября — ровно неделя назад, это уже пропуск; сегодняшний ещё идёт.
-  await expect(note('Линейная')).toHaveText('2/2/0·50%·макс 11');
+  await expect(note('Математический').locator('.culms-att-kda')).toHaveAttribute(
+    'title',
+    /Ещё 2 — меньше недели назад/
+  );
+  // Линал: 1 октября — ровно неделя назад, это уже прошло; сегодняшний ещё идёт.
+  await expect(note('Линейная')).toHaveText('2/4/13');
+  await expect(note('Линейная').locator('.culms-att-native__rate')).toHaveClass(/is-bad/);
   // Английский — без расписания, пары найдены обходом дней.
-  await expect(note('Английский')).toHaveText('1/1/0·50%·макс 9');
+  await expect(note('Английский')).toHaveText('1/2/10');
   // Закрытый курс не трогаем.
   await expect(note('Теория вероятностей')).toHaveCount(0);
 
   // Что значат числа — одной подписью под таблицей.
   const legend = page.locator('#culms-att-native-legend');
   await expect(legend).toHaveCount(1);
-  await expect(legend).toContainText('был/не был/ждёт отметки');
-  await expect(legend).toContainText('Макс — сколько выйдет к концу семестра');
+  await expect(legend).toContainText('был/мог быть/всего');
+  await expect(legend).toContainText('посещено / уже прошло / за семестр');
+  await expect(legend).toContainText('нормы 75%');
 
   // В архиве ни дописок, ни подписи.
   await page.locator('cu-tabs a.tab', { hasText: 'Архивные' }).click();

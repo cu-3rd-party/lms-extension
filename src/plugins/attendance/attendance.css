@@ -572,7 +572,7 @@ cu-course-attendance-events.culms-att-only-mine
   white-space: nowrap;
 }
 
-/* «был / не был / ждёт · % · макс» одной строкой, как K/D/A. */
+/* «был / мог быть / всего» одной строкой, как K/D/A. */
 .culms-att-kda {
   display: inline-flex;
   align-items: baseline;
@@ -587,18 +587,6 @@ cu-course-attendance-events.culms-att-only-mine
 .culms-att-kda i {
   font-style: normal;
   color: var(--att-text-3);
-}
-
-.culms-att-kda .is-attended {
-  color: var(--att-ok-fg);
-}
-
-.culms-att-kda .is-missed {
-  color: var(--att-bad-fg);
-}
-
-.culms-att-kda .is-pending {
-  color: var(--att-wait-fg);
 }
 
 /* Подпись под родной таблицей: что значат числа. */

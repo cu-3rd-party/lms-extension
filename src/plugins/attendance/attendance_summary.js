@@ -303,23 +303,25 @@
   }
 
   /**
-   * Одна строка, как K/D/A: «был / не был / ждёт · % · макс». Что значат
-   * числа — в подписи под таблицей (nativeLegendHtml) и в подсказке.
+   * Одна строка, как K/D/A: «был / мог быть / всего». «Мог быть» — все свои
+   * семинары, которые уже прошли (и те, что ещё ждут отметки), «всего» — за
+   * семестр по LMS. Цвет «был» — доля посещённых относительно нормы. Что
+   * значат числа — в подписи под таблицей (nativeLegendHtml) и в подсказке.
    */
   function nativeNoteHtml(course) {
     const c = course.counts;
-    if (!c || (!c.settled && !c.pending)) return '';
+    const could = c ? c.settled + c.pending : 0;
+    if (!could) return '';
     const title =
-      `Был: ${c.attended}, не был: ${c.missed}, ждёт отметки: ${c.pending}\n` +
-      `${pct(c.rate)} — посещено из прошедших с отметкой\n` +
-      `Макс. ${c.max} из ${c.semester} — если ходить на все оставшиеся`;
+      `Был на ${c.attended} из ${could} прошедших семинаров, всего за семестр ${c.semester}\n` +
+      `${pct(c.rate)} — посещено из прошедших с отметкой` +
+      (c.pending ? `\nЕщё ${c.pending} — меньше недели назад, LMS может поставить отметку` : '') +
+      `\nЕсли ходить на все оставшиеся — ${c.max} из ${c.semester}`;
     return (
       `<span class="culms-att-kda" title="${esc(title)}">` +
-      `<b class="is-attended">${c.attended}</b><i>/</i>` +
-      `<b class="is-missed">${c.missed}</b><i>/</i>` +
-      `<b class="is-pending">${c.pending}</b>` +
-      `<i>·</i><span class="culms-att-native__rate is-${levelOf(c.rate)}">${pct(c.rate)}</span>` +
-      `<i>·</i><span class="culms-att-native__muted">макс ${c.max}</span></span>`
+      `<b class="culms-att-native__rate is-${levelOf(c.rate)}">${c.attended}</b><i>/</i>` +
+      `<span>${could}</span><i>/</i>` +
+      `<span class="culms-att-native__muted">${c.semester}</span></span>`
     );
   }
 
@@ -327,12 +329,12 @@
 
   function nativeLegendHtml() {
     return (
-      `<span class="culms-att-kda"><b class="is-attended">был</b><i>/</i>` +
-      `<b class="is-missed">не был</b><i>/</i><b class="is-pending">ждёт отметки</b></span>` +
-      ` — свои семинары, прошедшие на сегодня; «ждёт» — пара была меньше недели назад. ` +
-      `% — посещено из прошедших с отметкой: зелёный — не ниже нормы ${state.prefs.norm}%, ` +
-      `жёлтый — до 15 п.п. ниже, красный — ещё ниже (норма меняется во вкладке «Сводная»). ` +
-      `Макс — сколько выйдет к концу семестра, если ходить на все оставшиеся. Лекции LMS не отмечает.`
+      `<span class="culms-att-kda"><b>был</b><i>/</i><span>мог быть</span><i>/</i>` +
+      `<span class="culms-att-native__muted">всего</span></span>` +
+      ` — свои семинары: посещено / уже прошло / за семестр. ` +
+      `Цвет «был» — относительно нормы ${state.prefs.norm}%: зелёный — не ниже, жёлтый — до 15 п.п. ниже, ` +
+      `красный — ещё ниже (норма меняется во вкладке «Сводная»). ` +
+      `Пару меньше недели назад LMS может ещё не отметить. Лекции LMS не отмечает.`
     );
   }
 
