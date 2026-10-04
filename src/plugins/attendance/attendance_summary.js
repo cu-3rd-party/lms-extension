@@ -83,7 +83,7 @@
   // Вид — удобство страницы, поэтому localStorage, как у сводной ведомостей.
 
   function loadPrefs() {
-    const defaults = { view: 'table', norm: 70 };
+    const defaults = { view: 'table', norm: window.cuLmsAttendance?.DEFAULT_NORM ?? 75 };
     try {
       const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
       const norm = Number(saved.norm);
@@ -276,6 +276,7 @@
       return;
     }
     const byName = new Map(state.data.courses.map((c) => [normName(c.name), c]));
+    let shown = false;
     rows.forEach((row) => {
       const name = normName(row.querySelector('.name-cell')?.textContent);
       const course = byName.get(name);
@@ -296,21 +297,66 @@
         note.innerHTML = html;
         note.dataset.html = html;
       }
+      shown = true;
     });
+    syncNativeLegend(host, shown);
   }
 
+  /**
+   * Одна строка, как K/D/A: «был / не был / ждёт · % · макс». Что значат
+   * числа — в подписи под таблицей (nativeLegendHtml) и в подсказке.
+   */
   function nativeNoteHtml(course) {
     const c = course.counts;
     if (!c || (!c.settled && !c.pending)) return '';
-    const level = levelOf(c.rate);
-    const pendingNote = c.pending
-      ? ` <span class="culms-att-native__muted">+${c.pending} ждёт</span>`
-      : '';
+    const title =
+      `Был: ${c.attended}, не был: ${c.missed}, ждёт отметки: ${c.pending}\n` +
+      `${pct(c.rate)} — посещено из прошедших с отметкой\n` +
+      `Макс. ${c.max} из ${c.semester} — если ходить на все оставшиеся`;
     return (
-      `<span><span class="culms-att-native__rate is-${level}" title="Из семинаров, отметка по которым уже есть">` +
-      `${c.attended} из ${c.settled} прошедших (${pct(c.rate)})</span>${pendingNote}</span>` +
-      `<span class="culms-att-native__muted" title="Если ходить на все оставшиеся">макс. ${c.max} из ${c.semester}</span>`
+      `<span class="culms-att-kda" title="${esc(title)}">` +
+      `<b class="is-attended">${c.attended}</b><i>/</i>` +
+      `<b class="is-missed">${c.missed}</b><i>/</i>` +
+      `<b class="is-pending">${c.pending}</b>` +
+      `<i>·</i><span class="culms-att-native__rate is-${levelOf(c.rate)}">${pct(c.rate)}</span>` +
+      `<i>·</i><span class="culms-att-native__muted">макс ${c.max}</span></span>`
     );
+  }
+
+  const NATIVE_LEGEND_ID = 'culms-att-native-legend';
+
+  function nativeLegendHtml() {
+    return (
+      `<span class="culms-att-kda"><b class="is-attended">был</b><i>/</i>` +
+      `<b class="is-missed">не был</b><i>/</i><b class="is-pending">ждёт отметки</b></span>` +
+      ` — свои семинары, прошедшие на сегодня; «ждёт» — пара была меньше недели назад. ` +
+      `% — посещено из прошедших с отметкой: зелёный — не ниже нормы ${state.prefs.norm}%, ` +
+      `жёлтый — до 15 п.п. ниже, красный — ещё ниже (норма меняется во вкладке «Сводная»). ` +
+      `Макс — сколько выйдет к концу семестра, если ходить на все оставшиеся. Лекции LMS не отмечает.`
+    );
+  }
+
+  /** Подпись под родной таблицей — одна на страницу, только когда есть дописки. */
+  function syncNativeLegend(host, shown) {
+    let legend = document.getElementById(NATIVE_LEGEND_ID);
+    const table = host.querySelector('table.cu-table');
+    if (!shown || !table) {
+      legend?.remove();
+      return;
+    }
+    if (!legend || legend.previousElementSibling !== table) {
+      legend?.remove();
+      legend = document.createElement('div');
+      legend.id = NATIVE_LEGEND_ID;
+      legend.className = 'culms-att-native culms-att-native-legend';
+      table.after(legend);
+    }
+    // Норму могли поменять во вкладке «Сводная».
+    const html = nativeLegendHtml();
+    if (legend.dataset.html !== html) {
+      legend.innerHTML = html;
+      legend.dataset.html = html;
+    }
   }
 
   // --- ВКЛАДКА ---

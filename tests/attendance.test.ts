@@ -417,16 +417,27 @@ test('в родной колонке «За весь семестр» — про
       .locator('cu-courses-attendance tr.course-row', { hasText: name })
       .locator('.culms-att-native');
 
-  // Матан: был 5 из 7 с отметкой, 2 пары моложе недели ждут, макс. 26 − 2 пропуска.
-  await expect(note('Математический')).toHaveText(
-    /5 из 7 прошедших \(71%\)\s*\+2 ждёт\s*макс\. 24 из 26/
-  );
+  // Одной строкой, как K/D/A: был / не был / ждёт · % из прошедших с отметкой · макс.
+  // Матан: 5 из 7 с отметкой, 2 пары моложе недели ждут, макс. 26 − 2 пропуска;
+  // 71% ниже нормы ЦУ 75% — жёлтый.
+  await expect(note('Математический')).toHaveText('5/2/2·71%·макс 24');
+  await expect(note('Математический').locator('.culms-att-native__rate')).toHaveClass(/is-warn/);
   // Линал: 1 октября — ровно неделя назад, это уже пропуск; сегодняшний ещё идёт.
-  await expect(note('Линейная')).toHaveText(/2 из 4 прошедших \(50%\)\s*макс\. 11 из 13/);
+  await expect(note('Линейная')).toHaveText('2/2/0·50%·макс 11');
   // Английский — без расписания, пары найдены обходом дней.
-  await expect(note('Английский')).toHaveText(/1 из 2 прошедших \(50%\)\s*макс\. 9 из 10/);
+  await expect(note('Английский')).toHaveText('1/1/0·50%·макс 9');
   // Закрытый курс не трогаем.
   await expect(note('Теория вероятностей')).toHaveCount(0);
+
+  // Что значат числа — одной подписью под таблицей.
+  const legend = page.locator('#culms-att-native-legend');
+  await expect(legend).toHaveCount(1);
+  await expect(legend).toContainText('был/не был/ждёт отметки');
+  await expect(legend).toContainText('Макс — сколько выйдет к концу семестра');
+
+  // В архиве ни дописок, ни подписи.
+  await page.locator('cu-tabs a.tab', { hasText: 'Архивные' }).click();
+  await expect(page.locator('.culms-att-native')).toHaveCount(0);
 });
 
 test('вкладка «Сводная» встаёт после «Архивные» и подменяет таблицу', async ({ page }) => {
@@ -489,8 +500,13 @@ test('таблица: недели семестра, свои семинары �
 
 test('норма красит процент и запоминается', async ({ page }) => {
   await open(page, LIST + '#summary');
+  // Норма ЦУ — 75%: матан с 71% — жёлтый.
+  await expect(view(page).locator('input[data-pref="norm"]')).toHaveValue('75');
   const rate = courseRow(page, 'Математический').locator('.culms-att-rate');
-  await expect(rate).toHaveClass(/is-ok/);
+  await expect(rate).toHaveClass(/is-warn/);
+  await view(page).locator('input[data-pref="norm"]').fill('70');
+  await view(page).locator('input[data-pref="norm"]').dispatchEvent('change');
+  await expect(courseRow(page, 'Математический').locator('.culms-att-rate')).toHaveClass(/is-ok/);
   await view(page).locator('input[data-pref="norm"]').fill('80');
   await view(page).locator('input[data-pref="norm"]').dispatchEvent('change');
   await expect(courseRow(page, 'Математический').locator('.culms-att-rate')).toHaveClass(/is-warn/);

@@ -39,6 +39,9 @@
   // делает два запроса на дату, а сводная — до сотни.
   const CONCURRENCY = 6;
   const DATA_TTL_MS = 60 * 1000;
+  // Норма посещения семинаров в ЦУ — 75%. Студент может поменять её во
+  // вкладке «Сводная» (culms.attendance.prefs).
+  const DEFAULT_NORM = 75;
 
   const WEEKDAY_INDEX = {
     monday: 0,
@@ -490,6 +493,7 @@
     seminarsByCourse,
     countsOf,
     MARK_GRACE_DAYS,
+    DEFAULT_NORM,
     CACHE_KEY,
   };
 })();

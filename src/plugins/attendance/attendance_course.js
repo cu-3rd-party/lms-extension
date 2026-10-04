@@ -83,7 +83,7 @@
   /** Норма — та же, что задана в сводной. */
   function levelOf(rate) {
     if (rate == null) return 'none';
-    let norm = 70;
+    let norm = api()?.DEFAULT_NORM ?? 75;
     try {
       const saved = Number(JSON.parse(localStorage.getItem('culms.attendance.prefs') || '{}').norm);
       if (Number.isFinite(saved)) norm = saved;
