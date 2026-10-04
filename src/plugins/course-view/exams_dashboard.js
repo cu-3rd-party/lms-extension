@@ -636,7 +636,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     // Позиция посчитана один раз — при прокрутке она бы отстала от дня.
     document.addEventListener('scroll', hidePopover, { capture: true, once: true });
 
-    // Под днём, по центру; не влезает снизу — над ним; по бокам — не за край окна.
+    // Над днём, по центру: снизу она закрывала контрольные недель. Не влезает
+    // сверху — под ним; по бокам — не за край окна.
     const rect = cell.getBoundingClientRect();
     const width = popover.offsetWidth;
     const height = popover.offsetHeight;
@@ -645,11 +646,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       Math.max(margin, rect.left + rect.width / 2 - width / 2),
       window.innerWidth - width - margin
     );
-    const below = rect.bottom + margin;
-    const top =
-      below + height > window.innerHeight - margin && rect.top - height - margin > margin
-        ? rect.top - height - margin
-        : below;
+    const above = rect.top - height - margin;
+    const top = above < margin ? rect.bottom + margin : above;
     popover.style.left = `${Math.round(left)}px`;
     popover.style.top = `${Math.round(top)}px`;
   }

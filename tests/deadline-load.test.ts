@@ -353,13 +353,26 @@ test('наведение на день показывает его задани�
   await expect(popover().locator('.culms-deadlines-popover__course').nth(3)).toHaveText(
     '🔴 Теория вероятностей. Основной уровень'
   );
-  // Под днём и в пределах окна.
-  const cellBox = (await dayCell(3).boundingBox())!;
-  const popBox = (await popover().boundingBox())!;
+  // Сверху не влезает — под днём.
+  let cellBox = (await dayCell(3).boundingBox())!;
+  let popBox = (await popover().boundingBox())!;
   expect(popBox.y).toBeGreaterThan(cellBox.y + cellBox.height - 1);
-
   await page.mouse.move(5, 5);
   await expect(popover()).toHaveCount(0);
+
+  // Место есть — над днём: снизу она закрывала бы контрольные недель.
+  const shift = (margin: string) =>
+    page.evaluate((value) => {
+      (document.querySelector('.content-container') as HTMLElement).style.marginTop = value;
+    }, margin);
+  await shift('400px');
+  await dayCell(3).hover();
+  cellBox = (await dayCell(3).boundingBox())!;
+  popBox = (await popover().boundingBox())!;
+  expect(popBox.y + popBox.height).toBeLessThan(cellBox.y + 1);
+  await page.mouse.move(5, 5);
+  await expect(popover()).toHaveCount(0);
+  await shift('');
 });
 
 test('длинный день обрезается, пустой — «Дедлайнов нет»', async () => {
@@ -413,8 +426,11 @@ test('во всплывашке — ссылки на задание и на к�
   );
 
   // Курсор уходит с дня во всплывашку через зазор — она не пропадает.
+  // Зазор — над днём или под ним, смотря куда встала всплывашка.
   const cellBox = (await dayCell(3).boundingBox())!;
-  await page.mouse.move(cellBox.x + cellBox.width / 2, cellBox.y + cellBox.height + 4);
+  const popBox = (await popover().boundingBox())!;
+  const gapY = popBox.y < cellBox.y ? cellBox.y - 4 : cellBox.y + cellBox.height + 4;
+  await page.mouse.move(cellBox.x + cellBox.width / 2, gapY);
   await names.nth(1).hover();
   await page.waitForTimeout(500);
   await expect(popover()).toBeVisible();
