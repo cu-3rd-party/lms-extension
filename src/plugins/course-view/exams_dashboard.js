@@ -78,9 +78,15 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   // (isSeminarTask): домашка в семинарской корзине остаётся домашкой.
   const SEMINAR_ACTIVITY = /аудиторн|семинар|активност/i;
   const HOMEWORK_MARKERS = ['дз', 'д/з', 'домашн', 'homework', 'hw'];
-  // Цвет дня — по числу дедлайнов: 1–2, 3–5, 6–9 и 10+. Пороги абсолютные,
-  // а не от «обычного дня»: десять дедлайнов в воскресенье — это много, даже
-  // если так каждую неделю.
+  // Сдано — то, что студент уже отправил: решение прикреплено (`submitAt`)
+  // или работа на проверке либо проверена. У тестов даты сдачи нет: тест на
+  // проверке приходит как `review` без `submitAt`. Проверенное без сдачи —
+  // семинары и работы, сданные вне LMS: делать там тоже нечего.
+  const SUBMITTED_STATES = new Set(['submitted', 'review', 'evaluated']);
+  // Цвет дня — по числу ещё не сданных дедлайнов: 1–2, 3–5, 6–9 и 10+. Сдал
+  // три из четырёх — день зелёный, остался один; насколько дедлайн близко, на
+  // цвет не влияет. Пороги абсолютные, а не от «обычного дня»: десять
+  // дедлайнов в воскресенье — это много, даже если так каждую неделю.
   const LEVELS = [
     { min: 10, level: 4 },
     { min: 6, level: 3 },
@@ -296,9 +302,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     return words.some((word) => HOMEWORK_MARKERS.some((marker) => word.startsWith(marker)));
   }
 
+  const isSubmitted = (task) => !!task.submitAt || SUBMITTED_STATES.has(task.state);
+
   /** Нужно ли студенту что-то сдавать к этому дедлайну (см. NOT_WORK_*). */
   function isWork(task, exercise) {
-    if (task.submitAt) return true;
+    if (task.submitAt || task.state === 'review') return true;
     const activity = (exercise.activity && exercise.activity.name) || '';
     const name = exercise.name || '';
     if (NOT_WORK_ACTIVITY.test(activity) || NOT_WORK_NAME.test(name)) return false;
@@ -343,8 +351,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
           url,
           courseUrl,
           deadline,
-          // Сдано или проверено: у тестов и работ, сданных вне LMS, даты сдачи нет.
-          done: !!task.submitAt || task.state === 'evaluated',
+          done: isSubmitted(task),
         },
       ];
     });
@@ -415,7 +422,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     days.forEach((day) => {
       day.tasks.sort((a, b) => a.deadline - b.deadline || a.name.localeCompare(b.name, 'ru'));
       day.done = day.tasks.filter((task) => task.done).length;
-      day.level = levelOf(day.tasks.length);
+      day.level = levelOf(day.tasks.length - day.done);
     });
     return days;
   }
@@ -483,7 +490,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       // открывает строку, черта у края ни к чему — это помечает `--row-start`.
       cell.classList.toggle('culms-deadlines__day--week-start', weekday === 1 && day.offset > 0);
       cell.classList.toggle('culms-deadlines__day--row-start', day.offset % 7 === 0);
-      // Всё сдано — день приглушён: делать там уже нечего, даже если дедлайнов десять.
+      // Всё сдано — день без цвета и приглушён: делать там уже нечего, даже
+      // если дедлайнов было десять.
       cell.classList.toggle(
         'culms-deadlines__day--closed',
         day.tasks.length > 0 && day.done === day.tasks.length
@@ -628,7 +636,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     // Позиция посчитана один раз — при прокрутке она бы отстала от дня.
     document.addEventListener('scroll', hidePopover, { capture: true, once: true });
 
-    // Под днём, по центру; не влезает снизу — над ним; по бокам — не за край окна.
+    // Над днём, по центру: снизу она закрывала контрольные недель. Не влезает
+    // сверху — под ним; по бокам — не за край окна.
     const rect = cell.getBoundingClientRect();
     const width = popover.offsetWidth;
     const height = popover.offsetHeight;
@@ -637,11 +646,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       Math.max(margin, rect.left + rect.width / 2 - width / 2),
       window.innerWidth - width - margin
     );
-    const below = rect.bottom + margin;
-    const top =
-      below + height > window.innerHeight - margin && rect.top - height - margin > margin
-        ? rect.top - height - margin
-        : below;
+    const above = rect.top - height - margin;
+    const top = above < margin ? rect.bottom + margin : above;
     popover.style.left = `${Math.round(left)}px`;
     popover.style.top = `${Math.round(top)}px`;
   }
