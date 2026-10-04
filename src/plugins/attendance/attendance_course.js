@@ -170,9 +170,14 @@
         );
       })
       .join('');
-    const note = course.scanned
-      ? `<div class="culms-att-muted">Курса нет в вашем расписании — показаны пары, найденные в LMS по дням; будущих не видно.</div>`
-      : '';
+    const { trackFrom, semester } = state.data;
+    const note =
+      (course.scanned
+        ? `<div class="culms-att-muted">Курса нет в вашем расписании — показаны пары, найденные в LMS по дням; будущих не видно.</div>`
+        : '') +
+      (trackFrom != null && trackFrom > semester.start
+        ? `<div class="culms-att-muted">Посещаемость отмечают с ${fmtLong.format(a.dateOf(trackFrom))} — пары раньше не показываются и не считаются.</div>`
+        : '');
     return (
       `<div class="culms-att-course__head">${summary}${toggle}</div>` +
       (chips ? `<div class="culms-att-course__strip">${chips}</div>` : '') +

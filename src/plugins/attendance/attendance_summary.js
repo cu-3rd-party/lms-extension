@@ -379,7 +379,8 @@
       ` — свои семинары: посещено / уже прошло / за семестр. ` +
       `Цвет «был» — относительно нормы ${state.prefs.norm}%: зелёный — не ниже, жёлтый — до 15 п.п. ниже, ` +
       `красный — ещё ниже (норма меняется во вкладке «Сводная»). ` +
-      `Пару меньше недели назад LMS может ещё не отметить. Лекции LMS не отмечает.`
+      `Пару меньше недели назад LMS может ещё не отметить. Лекции LMS не отмечает. ` +
+      esc(state.data ? trackingNote() : '')
     );
   }
 
@@ -626,6 +627,22 @@
     return weeks;
   }
 
+  /** Недели, где посещаемость уже отмечали: до даты отсчёта всё пусто. */
+  function trackedWeeks(weeks) {
+    const from = state.data.trackFrom ?? state.data.semester.start;
+    return weeks.filter((m) => m + 6 >= from);
+  }
+
+  /** «Отмечают с 21 сентября…» — если отсчёт позже начала семестра. */
+  function trackingNote() {
+    const { trackFrom, semester } = state.data;
+    if (trackFrom == null || trackFrom <= semester.start) return '';
+    return (
+      `Посещаемость отмечают с ${fmtLong.format(api().dateOf(trackFrom))} — ` +
+      `пары раньше не показываются и не считаются.`
+    );
+  }
+
   function weekRange(monday) {
     const a = api();
     return `${fmtDayMonth.format(a.dateOf(monday))}–${fmtDayMonth.format(a.dateOf(monday + 6))}`;
@@ -633,15 +650,17 @@
 
   function tableHtml(courses, exams) {
     const a = api();
-    const weeks = semesterWeeks();
+    // Номер недели — от начала семестра, хотя первые недели не показываются.
+    const all = semesterWeeks();
+    const weeks = trackedWeeks(all);
     const thisWeek = a.mondayOf(state.data.today);
     const head =
       `<tr><th class="culms-att-course">Курс</th>` +
       weeks
         .map(
-          (m, i) =>
+          (m) =>
             `<th class="culms-att-week${m === thisWeek ? ' is-now' : ''}" title="${weekRange(m)}">` +
-            `${i + 1}<small>${fmtDayMonth.format(a.dateOf(m))}</small></th>`
+            `${all.indexOf(m) + 1}<small>${fmtDayMonth.format(a.dateOf(m))}</small></th>`
         )
         .join('') +
       `<th class="culms-att-num" title="Был / прошедших с отметкой">Был</th>` +
@@ -739,6 +758,13 @@
         `. Семинары в эти дни лучше не пропускать.</div>`
       : '';
 
+    const from = state.data.trackFrom;
+    if (!items.length && from != null && sunday < from) {
+      return (
+        nav +
+        `<div class="culms-att-empty">До ${fmtLong.format(a.dateOf(from))} посещаемость не отмечали.</div>`
+      );
+    }
     if (!items.length) {
       return (
         nav + examsBanner + `<div class="culms-att-empty">На этой неделе своих семинаров нет.</div>`
@@ -786,7 +812,7 @@
       (state.exams
         ? `<span class="culms-att-legend__item"><span class="culms-att-exam">${svgIcon(EXAM_ICON)}</span>Контрольная</span>`
         : '') +
-      `<span class="culms-att-muted">Считаются только семинары — лекции LMS не отмечает. «Ждёт отметки» — пара была меньше недели назад.</span>` +
+      `<span class="culms-att-muted">Считаются только семинары — лекции LMS не отмечает. «Ждёт отметки» — пара была меньше недели назад. ${esc(trackingNote())}</span>` +
       `</div>`
     );
   }

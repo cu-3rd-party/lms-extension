@@ -418,19 +418,21 @@ test('в родной колонке «За весь семестр» — про
       .locator('.culms-att-native');
 
   // Одной строкой, как K/D/A: был / мог быть (уже прошло) / всего за семестр по LMS.
-  // Матан: прошло 9 (7 с отметкой и 2 моложе недели), был на 5; 5 из 7 с
-  // отметкой — 71%, ниже нормы ЦУ 75% — «был» жёлтый.
-  await expect(note('Математический')).toHaveText('5/9/26');
+  // Посещаемость отмечают с 21 сентября: 7, 9 и 14 сентября не в счёт, хотя
+  // отметки на них есть. Матан с 21.09: прошло 5 (21-е — праздник, не в счёт;
+  // 3 с отметкой и 2 моложе недели), был на 2; 2 из 3 — 67%, ниже нормы ЦУ
+  // 75% — «был» жёлтый.
+  await expect(note('Математический')).toHaveText('2/5/26');
   await expect(note('Математический').locator('.culms-att-native__rate')).toHaveClass(/is-warn/);
   await expect(note('Математический').locator('.culms-att-kda')).toHaveAttribute(
     'title',
     /Ещё 2 — меньше недели назад/
   );
   // Линал: 1 октября — ровно неделя назад, это уже прошло; сегодняшний ещё идёт.
-  await expect(note('Линейная')).toHaveText('2/4/13');
+  await expect(note('Линейная')).toHaveText('1/2/13');
   await expect(note('Линейная').locator('.culms-att-native__rate')).toHaveClass(/is-bad/);
-  // Английский — без расписания, пары найдены обходом дней.
-  await expect(note('Английский')).toHaveText('1/2/10');
+  // Английский — без расписания, дни обходятся с 21.09: 15-е (был) не в счёт.
+  await expect(note('Английский')).toHaveText('0/1/10');
   // Закрытый курс не трогаем.
   await expect(note('Теория вероятностей')).toHaveCount(0);
 
@@ -440,6 +442,11 @@ test('в родной колонке «За весь семестр» — про
   await expect(legend).toContainText('был/мог быть/всего');
   await expect(legend).toContainText('посещено / уже прошло / за семестр');
   await expect(legend).toContainText('нормы 75%');
+  await expect(legend).toContainText('Посещаемость отмечают с 21 сентября');
+
+  // Дни до 21.09 у LMS даже не спрашиваем.
+  const early = requests.filter((r) => /\/events\/2026-09-(0\d|1\d|20)$/.test(r));
+  expect(early).toEqual([]);
 
   // В архиве ни дописок, ни подписи.
   await page.locator('cu-tabs a.tab', { hasText: 'Архивные' }).click();
@@ -474,9 +481,9 @@ test('свои названия курсов и «сердечки» не меш
   });
 
   const note = (name: string) => rows.filter({ hasText: name }).locator('.culms-att-native');
-  await expect(note('Линал любимый')).toHaveText('2/4/13');
-  await expect(note('❤️ Математический')).toHaveText('5/9/26');
-  await expect(note('Английский')).toHaveText('1/2/10');
+  await expect(note('Линал любимый')).toHaveText('1/2/13');
+  await expect(note('❤️ Математический')).toHaveText('2/5/26');
+  await expect(note('Английский')).toHaveText('0/1/10');
 
   // Переход в курс из сводной находит ту же строку и идёт роутером.
   await tab(page).click();
@@ -511,31 +518,33 @@ test('таблица: недели семестра, свои семинары �
 
   // 15 недель: 7 сентября — 14 декабря; текущая — пятая.
   const weeks = view(page).locator('thead .culms-att-week');
-  await expect(weeks).toHaveCount(15);
-  await expect(weeks.nth(4)).toHaveClass(/is-now/);
+  // До 21 сентября не отмечали: колонки с третьей недели, номера — семестровые.
+  await expect(weeks).toHaveCount(13);
+  await expect(weeks.first()).toHaveText(/^3/);
+  await expect(weeks.nth(2)).toHaveClass(/is-now/);
 
   const mat = courseRow(page, 'Математический');
   // Неделя 3: 21-е — праздник, 23-е — пропуск.
   const week3 = await mat
     .locator('td.culms-att-cell')
-    .nth(2)
+    .nth(0)
     .locator('.culms-att-mark')
     .evaluateAll((els) => els.map((el) => el.className.replace('culms-att-mark is-', '')));
   expect(week3).toEqual(['none', 'missed']);
   const all = await marks(mat);
-  expect(all.filter((s) => s === 'attended')).toHaveLength(5);
-  expect(all.filter((s) => s === 'missed')).toHaveLength(2);
+  expect(all.filter((s) => s === 'attended')).toHaveLength(2);
+  expect(all.filter((s) => s === 'missed')).toHaveLength(1);
   expect(all.filter((s) => s === 'pending')).toHaveLength(2);
   expect(all.filter((s) => s === 'upcoming')).toHaveLength(20);
-  await expect(mat.locator('td.culms-att-num').first()).toHaveText(/5\/7\s*71% · \+2 ждёт/);
+  await expect(mat.locator('td.culms-att-num').first()).toHaveText(/2\/3\s*67% · \+2 ждёт/);
 
   // Сегодняшний семинар линала ещё не кончился.
   const lin = await marks(courseRow(page, 'Линейная'));
-  expect(lin.slice(0, 5)).toEqual(['attended', 'missed', 'attended', 'missed', 'upcoming']);
+  expect(lin.slice(0, 3)).toEqual(['attended', 'missed', 'upcoming']);
 
   // Карточки — по всем открытым курсам.
   await expect(view(page).locator('.culms-att-stat').first()).toHaveText(
-    /8 \/ 13\s*был на семинарах · 62%/
+    /3 \/ 6\s*был на семинарах · 50%/
   );
   await expect(view(page).locator('.culms-att-closed')).toHaveText(
     /закрыта: .*Теория вероятностей/
@@ -544,11 +553,11 @@ test('таблица: недели семестра, свои семинары �
 
 test('норма красит процент и запоминается', async ({ page }) => {
   await open(page, LIST + '#summary');
-  // Норма ЦУ — 75%: матан с 71% — жёлтый.
+  // Норма ЦУ — 75%: матан с 67% — жёлтый.
   await expect(view(page).locator('input[data-pref="norm"]')).toHaveValue('75');
   const rate = courseRow(page, 'Математический').locator('.culms-att-rate');
   await expect(rate).toHaveClass(/is-warn/);
-  await view(page).locator('input[data-pref="norm"]').fill('70');
+  await view(page).locator('input[data-pref="norm"]').fill('65');
   await view(page).locator('input[data-pref="norm"]').dispatchEvent('change');
   await expect(courseRow(page, 'Математический').locator('.culms-att-rate')).toHaveClass(/is-ok/);
   await view(page).locator('input[data-pref="norm"]').fill('80');
@@ -577,6 +586,15 @@ test('по неделям: список по дням и стрелки', async 
   await expect(items).toHaveCount(4);
   // Пропуски — английский во вторник и линал в четверг.
   await expect(items.filter({ hasText: 'Не был' })).toHaveCount(2);
+  // Вторая неделя — до 21 сентября: пары были, но посещаемость не отмечали.
+  await view(page).getByRole('button', { name: 'Предыдущая неделя' }).click();
+  await view(page).getByRole('button', { name: 'Предыдущая неделя' }).click();
+  await expect(view(page).locator('.culms-att-weeknav__title')).toHaveText(/Неделя 2/);
+  await expect(items).toHaveCount(0);
+  await expect(view(page).locator('.culms-att-empty')).toHaveText(
+    'До 21 сентября посещаемость не отмечали.'
+  );
+
   await view(page).getByRole('button', { name: 'Текущая неделя' }).click();
   await expect(view(page).locator('.culms-att-weeknav__title')).toHaveText(/Неделя 5/);
 
@@ -588,7 +606,7 @@ test('по неделям: список по дням и стрелки', async 
 
 test('контрольная из расписания — флажок в неделе и предупреждение', async ({ page }) => {
   await open(page, LIST + '#summary', { exams: true });
-  const cell = courseRow(page, 'Математический').locator('td.culms-att-cell').nth(5);
+  const cell = courseRow(page, 'Математический').locator('td.culms-att-cell').nth(3);
   await expect(cell).toHaveClass(/has-exam/);
   await expect(cell.locator('.culms-att-exam')).toHaveAttribute('title', /Контрольная работа 1/);
 
@@ -604,10 +622,13 @@ test('страница курса: свои семинары за семестр
 }) => {
   await open(page, LIST + '/10');
   const panel = page.locator('#culms-att-course');
-  await expect(panel).toContainText('был на 5 из 7 (71%)');
+  await expect(panel).toContainText('был на 2 из 3 (67%)');
   await expect(panel).toContainText('ещё 2 ждёт отметки');
-  await expect(panel.locator('.culms-att-chip')).toHaveCount(30);
+  // С 21 сентября по 16 декабря: 13 понедельников и 13 сред.
+  await expect(panel.locator('.culms-att-chip')).toHaveCount(26);
+  await expect(panel.locator('.culms-att-chip').first()).toHaveText('21.09 пн');
   await expect(panel.locator('.culms-att-chip.is-none')).toHaveText('21.09 пн');
+  await expect(panel).toContainText('Посещаемость отмечают с 21 сентября');
 
   // В родной таблице за 30.09 — своя пара и чужая; чужая спрятана.
   const rows = page.locator('cu-course-attendance-events tbody tr');
@@ -623,7 +644,7 @@ test('страница курса: если своей пары в день не
   await open(page, LIST);
   await page.locator('cu-courses-attendance tr.course-row', { hasText: 'Линейная' }).click();
   // На поддельной странице линал за 30.09 — пар нет вовсе: подсказки нет.
-  await expect(page.locator('#culms-att-course')).toContainText('был на 2 из 4');
+  await expect(page.locator('#culms-att-course')).toContainText('был на 1 из 2');
   await expect(page.locator('#culms-att-course')).not.toContainText('скрыто');
 
   // Подставим день, где есть только чужая группа.
@@ -651,5 +672,5 @@ test('прошедшие дни берутся из кеша: повторный
 
   // Окончательные — старше 8 дней; заново спрашиваются только свежие.
   expect(second).toBeGreaterThan(0);
-  expect(second).toBeLessThan(first / 3);
+  expect(second).toBeLessThan(first / 2);
 });

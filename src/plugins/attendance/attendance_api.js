@@ -42,6 +42,13 @@
   // Норма посещения семинаров в ЦУ — 75%. Студент может поменять её во
   // вкладке «Сводная» (culms.attendance.prefs).
   const DEFAULT_NORM = 75;
+  // Посещаемость в ЦУ отмечают не с первой недели семестра: осенью 2026 — с
+  // 21 сентября (сказал пользователь; с ним сходится и «За весь семестр» в
+  // LMS — 13 суббот из 15, две сентябрьские не в счёт). Пары раньше этой даты
+  // не запрашиваются, не показываются и не считаются. В следующих семестрах
+  // дата не мешает: берётся поздняя из неё и начала семестра. Новую дату
+  // отсчёта — дописать сюда.
+  const TRACKING_STARTS = ['2026-09-21'];
 
   const WEEKDAY_INDEX = {
     monday: 0,
@@ -218,6 +225,19 @@
     return { start, end: Math.max(end, today) };
   }
 
+  /**
+   * С какого дня считать посещаемость: самая поздняя из известных дат начала
+   * отслеживания, не позже сегодня, но не раньше начала семестра.
+   */
+  function trackingStart(semester, today) {
+    let from = semester.start;
+    for (const text of TRACKING_STARTS) {
+      const day = parseYmd(text);
+      if (day != null && day <= today && day > from && day <= semester.end) from = day;
+    }
+    return from;
+  }
+
   // --- ПОСЕЩАЕМОСТЬ ---
 
   /**
@@ -281,16 +301,20 @@
     const planned = new Map();
     for (const s of series) {
       for (const day of seriesDays(s)) {
+        if (day < ctx.trackFrom) continue;
         if (!planned.has(day)) planned.set(day, []);
         planned.get(day).push(s);
       }
     }
 
     // Расписания по курсу нет (поменяли группу, курс не из сетки) — проходим
-    // все дни семестра до сегодня. Будущих пар тогда не знаем.
+    // все дни с начала отслеживания до сегодня. Будущих пар тогда не знаем.
     const scan = !series.length;
     const days = scan
-      ? Array.from({ length: ctx.today - ctx.semester.start + 1 }, (_, i) => ctx.semester.start + i)
+      ? Array.from(
+          { length: Math.max(0, ctx.today - ctx.trackFrom + 1) },
+          (_, i) => ctx.trackFrom + i
+        )
       : [...planned.keys()].sort((a, b) => a - b);
 
     const sessions = [];
@@ -347,8 +371,8 @@
    *              а если его нет — по расписанию;
    *   max      — сколько выйдет к концу, если ходить на все оставшиеся и
    *              ждущие отметки засчитают.
-   * Число LMS бывает меньше, чем пар в расписании: в «За весь семестр» не
-   * входят последние недели (зачётные), хотя в календаре семинары стоят.
+   * Число LMS меньше, чем пар в расписании за весь семестр: оно считается с
+   * начала отслеживания (TRACKING_STARTS), как и всё здесь.
    */
   function countsOf(sessions, lmsStats) {
     const by = (status) => sessions.filter((s) => s.status === status).length;
@@ -428,6 +452,7 @@
       cache: readCache(),
       semester: semesterBounds(byCourse, today),
     };
+    ctx.trackFrom = trackingStart(ctx.semester, today);
 
     const list = (Array.isArray(courses) ? courses : []).filter((c) => c && c.courseId != null);
     const open = list.filter((c) => c.isVisibleForStudents);
@@ -437,8 +462,8 @@
     for (const c of open) {
       const series = byCourse.get(c.courseId) || [];
       progress.total += series.length
-        ? new Set(series.flatMap(seriesDays).filter((d) => d <= today)).size
-        : today - ctx.semester.start + 1;
+        ? new Set(series.flatMap(seriesDays).filter((d) => d >= ctx.trackFrom && d <= today)).size
+        : Math.max(0, today - ctx.trackFrom + 1);
     }
     report({ ...progress });
 
@@ -472,7 +497,13 @@
     );
 
     writeCache(ctx.cache, today);
-    return { courses: result, today, semester: ctx.semester, loadedAt: Date.now() };
+    return {
+      courses: result,
+      today,
+      semester: ctx.semester,
+      trackFrom: ctx.trackFrom,
+      loadedAt: Date.now(),
+    };
   }
 
   /** Сбросить загруженное — следующий `load()` спросит LMS заново. */
