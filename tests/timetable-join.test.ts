@@ -391,6 +391,9 @@ test('запись закрыта: в drawer нет кнопки пересад�
   await expect(page.locator('thead th.culms-tt-join-column + th.actions-column')).toHaveCount(1);
   // Баннер «Настрой расписание» звал бы записываться.
   await expect(page.locator('cu-timetable-banner')).toBeHidden();
+  // Значок «изменить» LMS не показываем: drawer открывает «Все группы».
+  await expect(page.locator('th.actions-column')).toBeHidden();
+  await expect(page.locator('button.action').first()).toBeHidden();
 
   await cell(page, 1).getByRole('button', { name: 'Все группы' }).click();
   await expect(drawer(page).locator('.header__title')).toHaveText('Все группы');
@@ -423,10 +426,8 @@ test('запись закрыта: в drawer нет кнопки пересад�
   expect(await page.evaluate(() => (window as any).__submitted || 0)).toBe(0);
 });
 
-test('drawer открывается и родным действием, второй поток лекции тоже со ссылкой', async ({
-  page,
-}) => {
-  await open(page, { opened: true, peek: true });
+test('запись открыта: значок LMS на месте, drawer по нему тоже со ссылками', async ({ page }) => {
+  await open(page, { opened: true });
   await page.locator('button.action[data-row="2/lecture/1"]').click();
   const options = drawer(page).locator('[tuioption]');
   await expect(options).toHaveCount(2);
@@ -441,6 +442,23 @@ test('запись открыта по-настоящему: drawer LMS не т�
   await expect(drawer(page).locator('.header__title')).toHaveText('Выбрать время');
   await expect(drawer(page).locator('button[type="submit"]')).toBeVisible();
   await expect(drawer(page).locator('.culms-tt-join-drawer-line')).toHaveCount(3);
+});
+
+test('ушли с «Моих пар» — плашка и столбец исчезают, чужие таблицы не трогаем', async ({
+  page,
+}) => {
+  await open(page);
+  await expect(banner(page)).toBeVisible();
+  // Переход роутером Angular: страница та же, разметка — архив курсов.
+  await page.evaluate(() => {
+    history.pushState(null, '', '/learn/courses/view/archived');
+    document.body.innerHTML =
+      '<h1>Архивные курсы</h1><table class="cu-table table"><thead><tr><th>Название</th></tr></thead>' +
+      '<tbody><tr><td class="schedule-column">Курс</td></tr></tbody></table>';
+  });
+  await expect(banner(page)).toHaveCount(0);
+  await page.waitForTimeout(600);
+  await expect(page.locator('.culms-tt-join-column, .culms-tt-join-cell')).toHaveCount(0);
 });
 
 test('столбец возвращается после перерисовки таблицы Angular', async ({ page }) => {

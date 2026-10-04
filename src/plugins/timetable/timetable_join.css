@@ -168,3 +168,11 @@ html[data-culms-slot-view='peek'] cu-student-timetable-events cu-timetable-banne
 html[data-culms-slot-view='peek'] form.form .footer button[type='submit'] {
   display: none !important;
 }
+
+/* Колонка действий LMS (значок «изменить») при закрытой записи не нужна:
+   drawer открывает «Все группы» из нашего столбца — кнопке необязательно
+   быть видимой, её нажимает скрипт. */
+html[data-culms-slot-view='peek'] cu-student-timetable-events th.actions-column,
+html[data-culms-slot-view='peek'] cu-student-timetable-events td.actions-column {
+  display: none !important;
+}

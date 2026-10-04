@@ -64,6 +64,8 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
   const DRAWER_NOTE_CLASS = 'culms-tt-join-drawer-note';
   // Ставит slot_view_main.js, когда показывает выбор пар при закрытой записи.
   const PEEK_ATTR = 'data-culms-slot-view';
+  // Только таблица «Мои пары»: cu-table есть и на других страницах LMS.
+  const TABLE_SELECTOR = 'cu-student-timetable-events table.cu-table';
 
   const WEEKDAYS = {
     sunday: 0,
@@ -505,7 +507,7 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
   }
 
   function renderBanner(rows, now) {
-    const heading = document.querySelector('cu-student-timetable-events h1, h1');
+    const heading = document.querySelector('cu-student-timetable-events > h1');
     let banner = document.getElementById(BANNER_ID);
     const upcoming = rows.filter((row) => row.next && !row.cancelledToday).sort(sortByNext);
     const current = upcoming.filter((row) => isLive(row.next, now));
@@ -568,7 +570,7 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
 
   /** Строки таблицы ↔ строки расписания: как в timetable_status.js. */
   function renderRows(rows, now) {
-    const table = document.querySelector('table.cu-table');
+    const table = document.querySelector(TABLE_SELECTOR);
     const tbody = table && table.querySelector('tbody');
     if (!tbody) return;
     ensureHeader(table);
@@ -651,12 +653,21 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
 
   async function render() {
     if (renderRunning) return;
-    if (!document.querySelector('table.cu-table tbody tr')) return;
+    if (!onTimetablePage()) {
+      removeUi();
+      return;
+    }
+    if (!document.querySelector(`${TABLE_SELECTOR} tbody tr`)) return;
     renderRunning = true;
     try {
       const now = moscowNow();
       const rows = buildRows(await loadTimetable(), now);
       await confirmToday(rows, now);
+      // Пока грузили, могли уйти со страницы — SPA не перезагружается.
+      if (!onTimetablePage()) {
+        removeUi();
+        return;
+      }
       renderRows(rows, now);
       renderBanner(rows, now);
     } catch (error) {
@@ -667,6 +678,20 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
   }
 
   // --- ЖИЗНЕННЫЙ ЦИКЛ ---
+
+  function onTimetablePage() {
+    return /^\/learn\/timetable(\/|$)/.test(location.pathname);
+  }
+
+  function hasUi() {
+    return !!document.querySelector(`#${BANNER_ID}, .${COLUMN_CLASS}, .${CELL_CLASS}`);
+  }
+
+  function removeUi() {
+    document
+      .querySelectorAll(`#${BANNER_ID}, .${COLUMN_CLASS}, .${CELL_CLASS}`)
+      .forEach((node) => node.remove());
+  }
 
   let debounce = null;
 
@@ -693,7 +718,7 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
 
   /** Angular перерисовал таблицу: у какой-то строки нет нашей ячейки. */
   function tableNeedsRender() {
-    const table = document.querySelector('table.cu-table');
+    const table = document.querySelector(TABLE_SELECTOR);
     if (!table || !table.querySelector('tbody tr')) return false;
     if (!table.querySelector(`thead th.${COLUMN_CLASS}`)) return true;
     return [...table.querySelectorAll('tbody tr')].some(
@@ -708,9 +733,15 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
       stop();
       return;
     }
+    fixPeekLabels();
+    // Скрипт живёт, пока живёт SPA: на других страницах (там тоже бывают
+    // таблицы cu-table и формы) ничего своего не оставляем.
+    if (!onTimetablePage()) {
+      if (hasUi()) removeUi();
+      return;
+    }
     if (tableNeedsRender()) scheduleRender();
     if (findDrawerForms().length) scheduleDrawer();
-    fixPeekLabels();
   });
   observer.observe(document.body, { childList: true, subtree: true });
   tickTimer = setInterval(() => {
