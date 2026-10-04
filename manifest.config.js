@@ -164,6 +164,8 @@ export default defineManifest({
         'plugins/statements/gradebook.js',
         'plugins/statements/gradebook.css',
         'plugins/timetable/timetable_status.js',
+        'plugins/timetable/timetable_join.js',
+        'plugins/timetable/timetable_join.css',
         'plugins/timetable/swap_api.js',
         'plugins/timetable/swap_order_button.js',
         'plugins/timetable/swap_menu.js',
