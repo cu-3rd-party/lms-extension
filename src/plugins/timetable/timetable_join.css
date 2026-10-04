@@ -91,7 +91,32 @@
   text-decoration: underline;
 }
 
-/* «Другие группы»: кнопка в строке и список вариантов под ней. */
+/* --- Столбец «Трансляция» --- */
+
+.culms-tt-join-column,
+.culms-tt-join-cell {
+  min-width: 11rem;
+}
+
+.culms-tt-join-cell .culms-tt-join-row {
+  margin: 0;
+  display: block;
+  color: var(--tui-text-primary, #1b1f3b);
+}
+
+.culms-tt-join-cell .culms-tt-join-when--live {
+  color: var(--tui-status-positive, #16a34a);
+  font-weight: 600;
+}
+
+.culms-tt-join-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 2px;
+}
+
+/* «Все группы» — открывает drawer LMS «Выбрать время». */
 .culms-tt-join-others-toggle {
   padding: 0;
   border: 0;
@@ -102,51 +127,44 @@
   white-space: nowrap;
 }
 
-.culms-tt-join-others-toggle::after {
-  content: ' ▾';
-}
-
-.culms-tt-join-others-toggle[aria-expanded='true']::after {
-  content: ' ▴';
-}
-
 .culms-tt-join-others-toggle:hover {
   text-decoration: underline;
 }
 
-.culms-tt-join-others {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 6px;
-  padding: 6px 0 2px 10px;
-  border-left: 2px solid var(--tui-border-normal, rgba(127, 127, 127, 0.3));
-  font-size: 12px;
-  line-height: 16px;
-}
+/* --- Drawer LMS «Выбрать время» --- */
 
-.culms-tt-join-others[hidden] {
-  display: none;
-}
-
-.culms-tt-join-other {
+.culms-tt-join-drawer-line {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 2px 10px;
+  margin-top: 6px;
   color: var(--tui-text-secondary, #6b7280);
 }
 
-.culms-tt-join-other__who {
+.culms-tt-join-drawer-mine {
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--tui-background-neutral-1, rgba(127, 127, 127, 0.15));
   color: var(--tui-text-primary, #1b1f3b);
   font-weight: 500;
 }
 
-.culms-tt-join-other--live .culms-tt-join-other__when {
+.culms-tt-join-drawer-when--live {
   color: var(--tui-status-positive, #16a34a);
   font-weight: 600;
 }
 
-.culms-tt-join-others__note {
+.culms-tt-join-drawer-note {
   color: var(--tui-text-secondary, #6b7280);
+}
+
+/* Запись закрыта, выбор пар показан только для просмотра (slot_view_main.js):
+   баннер «Настрой расписание под себя» звал бы записываться. */
+html[data-culms-slot-view='peek'] cu-student-timetable-events cu-timetable-banner {
+  display: none !important;
+}
+
+html[data-culms-slot-view='peek'] form.form .footer button[type='submit'] {
+  display: none !important;
 }

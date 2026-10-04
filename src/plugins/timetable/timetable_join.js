@@ -1,5 +1,5 @@
 // timetable_join.js — «Мои пары»: ссылка на трансляцию у каждой пары, плашка
-// «Сейчас / Дальше» и трансляции других групп.
+// «Сейчас / Дальше» и трансляции других групп в drawer LMS.
 //
 // Ссылку на пару в Контур.Толке студенты ищут в Яндекс Календаре или просят
 // в чате («скиньте толк на семинар сейчас» — сотни сообщений за семестр). Сама
@@ -9,14 +9,14 @@
 // (аудиторию не обновляют) — аудиторию берём из LMS.
 //
 // Что дописывается:
-//   * под временем каждой строки — когда ближайшее занятие («сегодня, 13:00»,
-//     «пт, 9 окт.») и ссылка «Трансляция»; у пар раз в две недели это снимает
-//     вопрос «на этой неделе есть или нет»;
-//   * кнопка «Другие группы» — все варианты этой строки расписания (другие
-//     преподаватели семинара, другие потоки лекции) с ближайшим занятием и
-//     ссылкой на их трансляцию. Варианты — тот же запрос, что у чипов
-//     статусов слотов (`timetables/{курс}/{тип}/{номер}`); грузятся по
-//     нажатию;
+//   * столбец «Трансляция» — когда ближайшее занятие («сегодня, 11:30–14:20»,
+//     «пт, 9 окт., 16:00») и ссылка; у пар раз в две недели это снимает
+//     вопрос «на этой неделе есть или нет». Там же «Все группы» — открывает
+//     drawer LMS «Выбрать время»;
+//   * в drawer у каждого варианта (другие преподаватели семинара, другие
+//     потоки лекции) — ближайшее занятие и ссылка на его трансляцию. Пока
+//     запись закрыта, drawer показывает slot_view_main.js, и кнопки «Выбрать
+//     время» (пересадка, POST) в нём нет — только посмотреть;
 //   * над таблицей — плашка «Сейчас» (идёт или начнётся в ближайшие 15 минут)
 //     и «Дальше» с кнопкой «Подключиться».
 //
@@ -58,7 +58,12 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
 
   const BANNER_ID = 'culms-tt-join-banner';
   const ROW_CLASS = 'culms-tt-join-row';
-  const OTHERS_CLASS = 'culms-tt-join-others';
+  const COLUMN_CLASS = 'culms-tt-join-column';
+  const CELL_CLASS = 'culms-tt-join-cell';
+  const DRAWER_LINK_CLASS = 'culms-tt-join-drawer-line';
+  const DRAWER_NOTE_CLASS = 'culms-tt-join-drawer-note';
+  // Ставит slot_view_main.js, когда показывает выбор пар при закрытой записи.
+  const PEEK_ATTR = 'data-culms-slot-view';
 
   const WEEKDAYS = {
     sunday: 0,
@@ -103,8 +108,6 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
   const todayEvents = new Map();
   /** Map<ключ строки, { loadedAt, list | null, error, promise }> — варианты. */
   const variants = new Map();
-  /** Ключи строк, у которых раскрыт список других групп. */
-  const expanded = new Set();
 
   const log = (...args) =>
     typeof window.cuLmsLog === 'function' ? window.cuLmsLog('[TimetableJoin]', ...args) : undefined;
@@ -235,13 +238,6 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
       : '';
   }
 
-  function hostsOf(event) {
-    return (event.hosts || [])
-      .map((h) => String((h && h.name) || '').trim())
-      .filter(Boolean)
-      .join(', ');
-  }
-
   /** Строки расписания с ближайшими занятиями — плоский список. */
   function buildRows(courses, now) {
     const rows = [];
@@ -329,9 +325,9 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
     });
   }
 
-  // --- ДРУГИЕ ГРУППЫ ---
+  // --- ВАРИАНТЫ СТРОКИ (для drawer LMS) ---
 
-  /** Варианты строки расписания: свой и чужие. Кешируются, грузятся раз. */
+  /** Варианты строки расписания — тот же запрос, что делает drawer LMS. */
   function loadVariants(row) {
     const cached = variants.get(row.key);
     if (cached && (cached.promise || Date.now() - cached.loadedAt < VARIANTS_TTL_MS)) {
@@ -355,23 +351,6 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
     return entry.promise;
   }
 
-  /** Чужие варианты строки с ближайшими занятиями, по времени. */
-  function otherGroups(row, list, now) {
-    return list
-      .filter((v) => v && v.calendarEventId && v.calendarEventId !== row.calendarEventId)
-      .map((v) => ({
-        calendarEventId: v.calendarEventId,
-        hosts: hostsOf(v),
-        location: locationOf(v),
-        schedule: v.schedule || {},
-        next: nextOccurrence(v.schedule, now),
-      }))
-      .sort((a, b) => {
-        if (!a.next || !b.next) return a.next ? -1 : b.next ? 1 : 0;
-        return a.next.day - b.next.day || a.next.start - b.next.start;
-      });
-  }
-
   function isLive(next, now) {
     return (
       next &&
@@ -381,70 +360,132 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
     );
   }
 
-  function renderOthers(container, row, now) {
-    container.replaceChildren();
+  function whenText(next, now) {
+    if (!next) return 'занятия закончились';
+    if (isLive(next, now)) {
+      return now.minutes < next.start ? `начнётся в ${hhmm(next.start)}` : 'идёт сейчас';
+    }
+    return `ближайшая: ${dayLabel(next.day, now.day)}, ${hhmm(next.start)}`;
+  }
+
+  // --- DRAWER LMS «ВЫБРАТЬ ВРЕМЯ» ---
+  // Родной drawer со всеми вариантами строки. Варианты в нём идут в том же
+  // порядке, что в ответе `timetables/{курс}/{тип}/{номер}` (LMS только
+  // дописывает пересечения), поэтому ссылку к варианту ставим по номеру, а
+  // для надёжности сверяем преподавателя. В режиме просмотра (запись
+  // закрыта, slot_view_main.js) кнопки «Выбрать время» — она шлёт
+  // пересадку — в drawer нет.
+
+  /** Строка таблицы, у которой последней нажали действие. */
+  let drawerRow = null;
+
+  function isPeek() {
+    return document.documentElement.getAttribute(PEEK_ATTR) === 'peek';
+  }
+
+  function findDrawerForms() {
+    return [...document.querySelectorAll('form.form')].filter((form) =>
+      form.querySelector('tui-data-list.events-list')
+    );
+  }
+
+  function decorateDrawer(form, now) {
+    if (isPeek()) {
+      form.querySelectorAll('.footer button[type="submit"]').forEach((button) => button.remove());
+      form.querySelectorAll('.footer').forEach((footer) => {
+        if (!footer.querySelector(`.${DRAWER_NOTE_CLASS}`)) {
+          footer.appendChild(
+            element(
+              'div',
+              `${DRAWER_NOTE_CLASS} font-text-xs`,
+              'Запись на пары закрыта — здесь только посмотреть группы и трансляции.'
+            )
+          );
+        }
+      });
+      const title = form.querySelector('.header__title');
+      if (title && title.textContent.trim() === 'Выбрать время') title.textContent = 'Все группы';
+    }
+
+    const row = drawerRow;
+    const options = [...form.querySelectorAll('tui-data-list.events-list > [tuioption]')];
+    if (!row || !options.length) return;
     const entry = variants.get(row.key);
     if (!entry || entry.promise) {
-      container.appendChild(element('div', 'culms-tt-join-others__note', 'Загружаем группы…'));
+      loadVariants(row).then(() => scheduleDrawer());
       return;
     }
-    if (entry.error) {
-      container.appendChild(
-        element('div', 'culms-tt-join-others__note', 'Не удалось загрузить другие группы')
+    if (!entry.list) return;
+    options.forEach((option, index) => {
+      if (option.querySelector(`.${DRAWER_LINK_CLASS}`)) return;
+      const variant = matchVariant(option, entry.list, index);
+      if (!variant) return;
+      const next = nextOccurrence(variant.schedule, now);
+      const line = element('div', `${DRAWER_LINK_CLASS} font-text-xs`);
+      if (variant.calendarEventId === row.calendarEventId) {
+        line.appendChild(element('span', 'culms-tt-join-drawer-mine', 'твоя группа'));
+      }
+      line.appendChild(
+        element(
+          'span',
+          `culms-tt-join-drawer-when${isLive(next, now) ? ' culms-tt-join-drawer-when--live' : ''}`,
+          whenText(next, now)
+        )
       );
-      return;
-    }
-    const groups = otherGroups(row, entry.list, now);
-    if (!groups.length) {
-      container.appendChild(
-        element('div', 'culms-tt-join-others__note', 'Других групп у этой пары нет')
-      );
-      return;
-    }
-    groups.forEach((group) => {
-      const live = isLive(group.next, now);
-      const item = element('div', `culms-tt-join-other${live ? ' culms-tt-join-other--live' : ''}`);
-      const who = element('span', 'culms-tt-join-other__who', group.hosts || 'Без преподавателя');
-      const weekday = WEEKDAYS[String(group.schedule.dayOfWeek || '').toLowerCase()];
-      const slot = [
-        weekday !== undefined ? WEEKDAY_SHORT[weekday] : '',
-        group.schedule.startTime && group.schedule.endTime
-          ? `${group.schedule.startTime}–${group.schedule.endTime}`
-          : '',
-        Number(group.schedule.interval) === 2 ? 'раз в 2 недели' : '',
-        group.location,
-      ]
-        .filter(Boolean)
-        .join(' · ');
-      const when = group.next
-        ? live
-          ? now.minutes < group.next.start
-            ? `начнётся в ${hhmm(group.next.start)}`
-            : 'идёт сейчас'
-          : `ближайшая: ${dayLabel(group.next.day, now.day)}`
-        : 'занятия закончились';
-      item.appendChild(who);
-      item.appendChild(element('span', 'culms-tt-join-other__slot', slot));
-      item.appendChild(element('span', 'culms-tt-join-other__when', when));
-      item.appendChild(joinLink(group.calendarEventId, 'Трансляция ↗', 'culms-tt-join-link'));
-      container.appendChild(item);
+      // Ссылка внутри кнопки-варианта: щелчок по ней не должен выбирать
+      // вариант, а в Firefox <a> внутри <button> сам не переходит.
+      const link = joinLink(variant.calendarEventId, 'Трансляция ↗', 'culms-tt-join-link');
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        window.open(link.href, '_blank', 'noopener');
+      });
+      line.appendChild(link);
+      option.appendChild(line);
     });
   }
 
-  function toggleOthers(row, button, container) {
-    if (expanded.has(row.key)) {
-      expanded.delete(row.key);
-      button.setAttribute('aria-expanded', 'false');
-      container.hidden = true;
-      return;
-    }
-    expanded.add(row.key);
-    button.setAttribute('aria-expanded', 'true');
-    container.hidden = false;
-    const now = moscowNow();
-    renderOthers(container, row, now);
-    loadVariants(row).then(() => {
-      if (container.isConnected && expanded.has(row.key)) renderOthers(container, row, moscowNow());
+  /** Вариант к пункту drawer: по номеру, если сходится преподаватель. */
+  function matchVariant(option, list, index) {
+    const text = nameKey(option.textContent);
+    const hostMatches = (v) => {
+      const hosts = (v.hosts || []).map((h) => nameKey(h && h.name)).filter(Boolean);
+      return !hosts.length || hosts.every((h) => text.includes(h));
+    };
+    const byIndex = list[index];
+    if (byIndex && hostMatches(byIndex)) return byIndex;
+    const candidates = list.filter(hostMatches);
+    return candidates.length === 1 ? candidates[0] : null;
+  }
+
+  let drawerQueued = false;
+  function scheduleDrawer() {
+    if (drawerQueued) return;
+    drawerQueued = true;
+    setTimeout(() => {
+      drawerQueued = false;
+      const now = moscowNow();
+      findDrawerForms().forEach((form) => decorateDrawer(form, now));
+    }, 50);
+  }
+
+  /** Подпись «Запись на пары» LMS ставит, когда запись не закрыта. */
+  function fixPeekLabels() {
+    if (!isPeek()) return;
+    const selectors = [
+      'cu-student-timetable-events > h1',
+      '.breadcrumbs__item',
+      'tui-breadcrumbs a',
+      'a[href*="/learn/timetable"]',
+    ];
+    document.querySelectorAll(selectors.join(',')).forEach((node) => {
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const text = walker.currentNode;
+        if (text.nodeValue.trim() === 'Запись на пары') {
+          text.nodeValue = text.nodeValue.replace('Запись на пары', 'Мои пары');
+        }
+      }
     });
   }
 
@@ -502,11 +543,37 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
     later.forEach((row) => addItem('Дальше', row, false));
   }
 
+  /** Ячейка в стиле соседних: неглубокая копия ради атрибутов Angular. */
+  function cellLike(template, tag, className) {
+    const node = template ? template.cloneNode(false) : document.createElement(tag);
+    node.className = className;
+    node.removeAttribute('rowspan');
+    node.removeAttribute('colspan');
+    return node;
+  }
+
+  /** Столбец «Трансляция» — перед колонкой действий LMS, если она есть. */
+  function ensureHeader(table) {
+    const headRow = table.querySelector('thead tr');
+    if (!headRow) return;
+    let th = headRow.querySelector(`th.${COLUMN_CLASS}`);
+    const actions = headRow.querySelector('th.actions-column');
+    if (th && (actions ? th.nextElementSibling === actions : !th.nextElementSibling)) return;
+    th?.remove();
+    const template = headRow.querySelector('th.host-name-column') || headRow.querySelector('th');
+    th = cellLike(template, 'th', COLUMN_CLASS);
+    th.textContent = 'Трансляция';
+    headRow.insertBefore(th, actions);
+  }
+
   /** Строки таблицы ↔ строки расписания: как в timetable_status.js. */
   function renderRows(rows, now) {
-    const tbody = document.querySelector('table.cu-table tbody');
+    const table = document.querySelector('table.cu-table');
+    const tbody = table && table.querySelector('tbody');
     if (!tbody) return;
-    tbody.querySelectorAll(`.${ROW_CLASS}, .${OTHERS_CLASS}`).forEach((node) => node.remove());
+    ensureHeader(table);
+    tbody.querySelectorAll(`td.${CELL_CLASS}`).forEach((node) => node.remove());
+    rowByTr = new WeakMap();
 
     let keys = null;
     let index = 0;
@@ -517,41 +584,68 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
         index = 0;
       }
       const scheduleCell = tr.querySelector('td.schedule-column');
-      if (!keys || !scheduleCell) {
-        index++;
-        return;
-      }
-      const row = rows.find((r) => keys.has(r.nameKey) && r.index === index);
+      // «Нет данных» — одна ячейка на всю ширину, её не трогаем.
+      if (!scheduleCell) return;
+      const row = keys ? rows.find((r) => keys.has(r.nameKey) && r.index === index) : null;
       index++;
+
+      const cell = cellLike(
+        tr.querySelector('td.host-name-column') || scheduleCell,
+        'td',
+        CELL_CLASS
+      );
+      tr.insertBefore(cell, tr.querySelector('td.actions-column'));
       if (!row) return;
+      rowByTr.set(tr, row);
 
-      const line = element('div', `${ROW_CLASS} font-text-xs`);
-      if (row.next) {
-        let when = `Ближайшая: ${dayLabel(row.next.day, now.day)}`;
-        if (row.cancelledToday) when = 'Сегодня в LMS её нет — проверь в чате курса';
-        else if (row.next.day !== now.day) when += `, ${hhmm(row.next.start)}`;
-        else when += `, ${timeRange(row.next)}`;
-        line.appendChild(element('span', 'culms-tt-join-when', when));
+      const when = element('div', `${ROW_CLASS}`);
+      if (row.cancelledToday) {
+        when.textContent = 'Сегодня в LMS её нет — проверь в чате курса';
+      } else if (row.next) {
+        when.textContent =
+          row.next.day === now.day
+            ? `${dayLabel(row.next.day, now.day)}, ${timeRange(row.next)}`
+            : `${dayLabel(row.next.day, now.day)}, ${hhmm(row.next.start)}`;
+        if (isLive(row.next, now)) when.classList.add('culms-tt-join-when--live');
       } else {
-        line.appendChild(
-          element('span', 'culms-tt-join-when', 'Занятия по этой строке закончились')
-        );
+        when.textContent = 'Занятия закончились';
       }
-      line.appendChild(joinLink(row.calendarEventId, 'Трансляция ↗', 'culms-tt-join-link'));
+      cell.appendChild(when);
 
-      const others = element('div', OTHERS_CLASS);
-      others.hidden = !expanded.has(row.key);
-      const button = element('button', 'culms-tt-join-others-toggle', 'Другие группы');
-      button.type = 'button';
-      button.setAttribute('aria-expanded', String(expanded.has(row.key)));
-      button.addEventListener('click', () => toggleOthers(row, button, others));
-      line.appendChild(button);
-
-      scheduleCell.appendChild(line);
-      scheduleCell.appendChild(others);
-      if (expanded.has(row.key)) renderOthers(others, row, now);
+      const links = element('div', 'culms-tt-join-links font-text-xs');
+      links.appendChild(joinLink(row.calendarEventId, 'Трансляция ↗', 'culms-tt-join-link'));
+      const action = tr.querySelector('td.actions-column button');
+      if (action) {
+        // Родной drawer LMS со всеми вариантами строки.
+        const button = element('button', 'culms-tt-join-others-toggle', 'Все группы');
+        button.type = 'button';
+        button.addEventListener('click', () => {
+          drawerRow = row;
+          loadVariants(row);
+          action.click();
+        });
+        links.appendChild(button);
+      }
+      cell.appendChild(links);
     });
   }
+
+  /** tr → строка расписания: чтобы знать, чей drawer открыли. */
+  let rowByTr = new WeakMap();
+
+  document.addEventListener(
+    'click',
+    (event) => {
+      const cell = event.target.closest && event.target.closest('td.actions-column');
+      const tr = cell && cell.closest('tr');
+      const row = tr && rowByTr.get(tr);
+      if (row) {
+        drawerRow = row;
+        loadVariants(row);
+      }
+    },
+    true
+  );
 
   let renderRunning = false;
 
@@ -597,15 +691,26 @@ if (typeof window.__culmsTimetableJoinInit === 'undefined') {
     tickTimer = null;
   }
 
+  /** Angular перерисовал таблицу: у какой-то строки нет нашей ячейки. */
+  function tableNeedsRender() {
+    const table = document.querySelector('table.cu-table');
+    if (!table || !table.querySelector('tbody tr')) return false;
+    if (!table.querySelector(`thead th.${COLUMN_CLASS}`)) return true;
+    return [...table.querySelectorAll('tbody tr')].some(
+      (tr) => tr.querySelector('td.schedule-column') && !tr.querySelector(`td.${CELL_CLASS}`)
+    );
+  }
+
   // Angular перерисовывает таблицу при переходах и смене слота — дописываем
-  // заново, когда наших строк в ней не стало.
+  // заново; drawer «Выбрать время» дорисовывается, когда его открывают.
   observer = new MutationObserver(() => {
     if (runtimeGone()) {
       stop();
       return;
     }
-    const tbody = document.querySelector('table.cu-table tbody');
-    if (tbody && !tbody.querySelector(`.${ROW_CLASS}`)) scheduleRender();
+    if (tableNeedsRender()) scheduleRender();
+    if (findDrawerForms().length) scheduleDrawer();
+    fixPeekLabels();
   });
   observer.observe(document.body, { childList: true, subtree: true });
   tickTimer = setInterval(() => {

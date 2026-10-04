@@ -70,6 +70,18 @@ export default defineManifest({
       run_at: 'document_start',
     },
     {
+      // Выбор пар на «Мои пары» при закрытой записи — только просмотр групп
+      // и трансляций. Состояние записи LMS спрашивает один раз при старте,
+      // поэтому подмена встаёт раньше Angular: главный мир страницы и
+      // document_start — синхронно, до любого скрипта LMS. Где `world` не
+      // поддержан, скрипт выполнится в изолированном мире и ничего не тронет.
+      // См. timetable/slot_view_main.js.
+      matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
+      js: ['plugins/timetable/slot_view_main.js'],
+      run_at: 'document_start',
+      world: 'MAIN',
+    },
+    {
       // Safari does not reliably expose SPA history changes through
       // webNavigation. The script is a no-op in Chrome and Firefox.
       matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
