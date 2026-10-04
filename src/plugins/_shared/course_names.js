@@ -86,7 +86,21 @@ if (typeof window.__culmsCourseNamesInitialized === 'undefined') {
   const log = (...args) =>
     typeof window.cuLmsLog === 'function' ? window.cuLmsLog(...args) : undefined;
 
-  const normalize = (text) => (text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  // emoji-swap меняет 🔴/🔵/⚫ на ❤️/💙/🖤 прямо в тексте страницы — и в нашей
+  // подстановке тоже. Для сравнения сердечко и кружок — одно и то же, иначе
+  // «❤️ Курс» не узнавался бы ни как наша подстановка, ни как оригинал.
+  const HEART_TO_CIRCLE = [
+    [/❤/g, '🔴'],
+    [/💙/g, '🔵'],
+    [/🖤/g, '⚫'],
+  ];
+  const normalize = (text) =>
+    HEART_TO_CIRCLE.reduce((out, [heart, circle]) => out.replace(heart, circle), text || '')
+      .replace(/️/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  const sameName = (a, b) => normalize(a) === normalize(b);
 
   /** Строит соответствие id → настоящее название. */
   function applyCourseMeta(items) {
@@ -179,11 +193,14 @@ if (typeof window.__culmsCourseNamesInitialized === 'undefined') {
     for (const node of textNodes) {
       const current = node.nodeValue.trim();
       // Уже подменённый узел сопоставляем по оригиналу, а не по тому, что видно.
-      const base = stashed && current === shown ? stashed : current;
+      const base = stashed && sameName(current, shown) ? stashed : current;
       const custom = enabled ? customByOriginal.get(normalize(base)) : null;
 
       if (custom) {
-        if (current !== custom) {
+        // «❤️ Линал» вместо нашего «🔴 Линал» — это наша подстановка после
+        // emoji-swap: переписывать нельзя, иначе мы с ним перекрашивали бы
+        // название друг за другом бесконечно.
+        if (!sameName(current, custom)) {
           element.setAttribute(ORIGINAL_ATTR, base);
           element.setAttribute(SHOWN_ATTR, custom);
           // Замена внутри значения узла сохраняет окружающие пробелы.
@@ -194,7 +211,7 @@ if (typeof window.__culmsCourseNamesInitialized === 'undefined') {
 
       // Возвращаем оригинал только если на экране всё ещё наша подстановка:
       // иначе Angular уже отрисовал сюда другое, и запись затёрла бы его.
-      if (stashed && shown && current === shown) {
+      if (stashed && shown && sameName(current, shown)) {
         node.nodeValue = node.nodeValue.replace(current, stashed);
         element.removeAttribute(ORIGINAL_ATTR);
         element.removeAttribute(SHOWN_ATTR);

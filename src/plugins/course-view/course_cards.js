@@ -185,8 +185,21 @@ if (typeof window.__culmsCourseCardsInitialized === 'undefined') {
     return Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.round(num)));
   }
 
+  // emoji-swap меняет 🔴/🔵/⚫ на ❤️/💙/🖤 прямо в тексте карточки, а в API
+  // кружки: без этого курс с эмодзи терял ключ картинки и архива при первой
+  // же перерисовке после замены.
+  const HEART_TO_CIRCLE = [
+    [/❤/g, '🔴'],
+    [/💙/g, '🔵'],
+    [/🖤/g, '⚫'],
+  ];
+
   function normalizeName(name) {
-    return (name || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    return HEART_TO_CIRCLE.reduce((out, [heart, circle]) => out.replace(heart, circle), name || '')
+      .replace(/️/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
   }
 
   /**
