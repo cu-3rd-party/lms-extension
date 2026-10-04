@@ -104,3 +104,4 @@ const manifest = {
 | `longreads`    | `.../learn/longreads/*`                 | Страница задания: веса, переименование, адаптация                              |
 | `statements`   | `.../learn/reports/student-performance` | Сводная таблица оценок, расширенные ведомости и архив                          |
 | `timetable`    | `.../learn/timetable`                   | Чипы статусов слотов и биржа обмена парами                                     |
+| `attendance`   | `.../learn/attendance/*`                | Посещаемость семинаров за семестр: сводная, «из прошедших», свои пары курса    |

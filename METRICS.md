@@ -21,26 +21,27 @@
 
 **Цели — на действия.** Включённая функция ещё не значит, что ею пользуются, поэтому у заметных действий своя цель:
 
-| Цель                     | Когда                                                    | Где отправляется                         |
-| ------------------------ | -------------------------------------------------------- | ---------------------------------------- |
-| `install`                | расширение установлено                                   | `background.ts`, `onInstalled`           |
-| `update`                 | расширение обновилось (параметр `from` — прошлая версия) | `background.ts`, `onInstalled`           |
-| `grades_export`          | «Скачать Excel с оценками»                               | `background.ts`, `GRADES_EXPORT_EXECUTE` |
-| `grades_export_archived` | то же по архивным курсам                                 | `background.ts`, `GRADES_EXPORT_EXECUTE` |
-| `pdf_viewer_open`        | открыт тёмный просмотрщик PDF                            | `background.ts`, `OPEN_PDF_VIEWER`       |
-| `theme_editor_open`      | открыт редактор тем                                      | `background.ts`, `OPEN_THEME_EDITOR`     |
-| `swap_order_create`      | создана заявка на обмен пары                             | `background.ts`, `SWAP_API`              |
-| `swap_order_cancel`      | заявка на обмен отменена                                 | `background.ts`, `SWAP_API`              |
-| `friends_search`         | поиск человека во вкладке «Друзья»                       | `background.ts`, `SEARCH_CONTACTS`       |
-| `friends_schedule`       | открыто расписание друга                                 | `background.ts`, `GET_WEEKLY_SCHEDULE`   |
-| `gradebook_open`         | открыта вкладка «Сводная таблица» в ведомостях           | `statements/gradebook.js`                |
-| `course_export`          | выгрузка курса (ZIP или PDF)                             | `course-view/course_exporter.js`         |
-| `settings_export`        | настройки сохранены в файл                               | `popup.js`                               |
-| `settings_import`        | настройки загружены из файла                             | `popup.js`                               |
-| `settings_reset`         | «Сбросить все настройки»                                 | `popup.js`                               |
-| `workshop_open`          | открыта 3rd-theme workshop                               | `background.ts`, `OPEN_WORKSHOP`         |
-| `workshop_theme_install` | тему из мастерской оставили после примерки (установка)   | `workshop-background.ts`, `endTryOn`     |
-| `file_download`          | «Скачать» у файла в лонгриде                             | `background.ts`, `DOWNLOAD_URL`          |
+| Цель                      | Когда                                                    | Где отправляется                         |
+| ------------------------- | -------------------------------------------------------- | ---------------------------------------- |
+| `install`                 | расширение установлено                                   | `background.ts`, `onInstalled`           |
+| `update`                  | расширение обновилось (параметр `from` — прошлая версия) | `background.ts`, `onInstalled`           |
+| `grades_export`           | «Скачать Excel с оценками»                               | `background.ts`, `GRADES_EXPORT_EXECUTE` |
+| `grades_export_archived`  | то же по архивным курсам                                 | `background.ts`, `GRADES_EXPORT_EXECUTE` |
+| `pdf_viewer_open`         | открыт тёмный просмотрщик PDF                            | `background.ts`, `OPEN_PDF_VIEWER`       |
+| `theme_editor_open`       | открыт редактор тем                                      | `background.ts`, `OPEN_THEME_EDITOR`     |
+| `swap_order_create`       | создана заявка на обмен пары                             | `background.ts`, `SWAP_API`              |
+| `swap_order_cancel`       | заявка на обмен отменена                                 | `background.ts`, `SWAP_API`              |
+| `friends_search`          | поиск человека во вкладке «Друзья»                       | `background.ts`, `SEARCH_CONTACTS`       |
+| `friends_schedule`        | открыто расписание друга                                 | `background.ts`, `GET_WEEKLY_SCHEDULE`   |
+| `gradebook_open`          | открыта вкладка «Сводная таблица» в ведомостях           | `statements/gradebook.js`                |
+| `attendance_summary_open` | открыта вкладка «Сводная» в посещаемости                 | `attendance/attendance_summary.js`       |
+| `course_export`           | выгрузка курса (ZIP или PDF)                             | `course-view/course_exporter.js`         |
+| `settings_export`         | настройки сохранены в файл                               | `popup.js`                               |
+| `settings_import`         | настройки загружены из файла                             | `popup.js`                               |
+| `settings_reset`          | «Сбросить все настройки»                                 | `popup.js`                               |
+| `workshop_open`           | открыта 3rd-theme workshop                               | `background.ts`, `OPEN_WORKSHOP`         |
+| `workshop_theme_install`  | тему из мастерской оставили после примерки (установка)   | `workshop-background.ts`, `endTryOn`     |
+| `file_download`           | «Скачать» у файла в лонгриде                             | `background.ts`, `DOWNLOAD_URL`          |
 
 Каждую цель нужно один раз завести в интерфейсе Метрики: «Цели» → «Добавить цель» → «Целевое событие • ex JS-событие», идентификатор цели — **«Совпадает»** с идентификатором из таблицы. По умолчанию там стоит «Содержит» — с ним `grades_export` засчитывалась бы и на `grades_export_archived`. Без цели запросы приходят, но в отчётах её не видно; засчитывается она только с момента создания.
 

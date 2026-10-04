@@ -1,0 +1,646 @@
+/* attendance.css — сводная посещаемости и полоса своих семинаров курса
+   (attendance_summary.js, attendance_course.js). Палитра — как у сводной
+   таблицы ведомостей. */
+
+/* --- Подмена содержимого списка --- */
+
+/* Пока открыта «Сводная», родные таблица и заглушка спрятаны; заголовок с
+   вкладками и плашка про поддержку остаются. */
+.culms-att-on > :not(.top-bar):not(.support-notification):not(#culms-attendance) {
+  display: none !important;
+}
+
+/* Курс: «Только мой семинар» — прячем строки без значка участия. */
+cu-course-attendance-events.culms-att-only-mine
+  tr:has(.icon-container):not(:has(.icon-container._participant)) {
+  display: none !important;
+}
+
+/* --- Палитра --- */
+
+.culms-att,
+.culms-att-native {
+  --att-line: rgba(6, 9, 15, 0.08);
+  --att-line-strong: rgba(6, 9, 15, 0.16);
+  --att-grid: rgba(6, 9, 15, 0.12);
+  --att-sticky-bg: var(--tui-background-base, #fcfcfd);
+  --att-now: rgba(71, 125, 249, 0.07);
+  --att-accent: var(--tui-background-accent-1, #477df9);
+  --att-neutral-bg: rgba(36, 74, 127, 0.07);
+  --att-text-2: var(--tui-text-secondary, #5a5e62);
+  --att-text-3: var(--tui-text-tertiary, #8a8e93);
+
+  --att-ok-bg: #d5f2e1;
+  --att-ok-fg: #13773a;
+  --att-bad-bg: #fde4e1;
+  --att-bad-fg: #c0341d;
+  --att-warn-bg: #ffecd2;
+  --att-warn-fg: #b45309;
+  --att-wait-bg: #f1f2f4;
+  --att-wait-fg: #6b7280;
+
+  --att-exam-fg: #dc2626;
+  --att-exam-bg: rgba(220, 38, 38, 0.07);
+}
+
+:root:has(#culms-dark-theme-style-base) .culms-att,
+:root:has(#culms-dark-theme-style-base) .culms-att-native {
+  --att-line: rgba(255, 255, 255, 0.08);
+  --att-line-strong: rgba(255, 255, 255, 0.18);
+  --att-grid: rgba(255, 255, 255, 0.13);
+  --att-now: rgba(120, 160, 255, 0.09);
+  --att-neutral-bg: rgba(255, 255, 255, 0.09);
+  --att-text-2: rgba(255, 255, 255, 0.72);
+  --att-text-3: rgba(255, 255, 255, 0.5);
+
+  --att-ok-bg: rgba(74, 201, 155, 0.22);
+  --att-ok-fg: #6ee0b0;
+  --att-bad-bg: rgba(244, 87, 37, 0.24);
+  --att-bad-fg: #ff9b7e;
+  --att-warn-bg: rgba(249, 171, 0, 0.2);
+  --att-warn-fg: #ffc15a;
+  --att-wait-bg: rgba(255, 255, 255, 0.09);
+  --att-wait-fg: #bdc1c6;
+
+  --att-exam-fg: #ff8a80;
+  --att-exam-bg: rgba(255, 82, 82, 0.12);
+}
+
+/* --- Каркас --- */
+
+.culms-att {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+  color: var(--tui-text-primary);
+  font: var(--tui-font-text-s);
+}
+
+.culms-att *,
+.culms-att *::before,
+.culms-att *::after {
+  box-sizing: border-box;
+}
+
+.culms-att button {
+  font: inherit;
+  color: inherit;
+}
+
+.culms-att-muted {
+  color: var(--att-text-3);
+}
+
+.culms-att-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.culms-att-empty {
+  padding: 24px 0;
+  color: var(--att-text-2);
+}
+
+/* --- Панель --- */
+
+.culms-att-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+
+.culms-att-toolbar__actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.culms-att-seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--att-neutral-bg);
+}
+
+.culms-att-seg__btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--att-text-2) !important;
+  white-space: nowrap;
+}
+
+.culms-att-seg__btn.is-on {
+  background: var(--tui-background-elevation-1, #fff);
+  color: var(--tui-text-primary) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  font-weight: 500;
+}
+
+:root:has(#culms-dark-theme-style-base) .culms-att-seg__btn.is-on {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.culms-att-button {
+  height: 28px;
+  min-width: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--att-line-strong);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--att-text-2) !important;
+  white-space: nowrap;
+}
+
+.culms-att-button:hover:not(:disabled) {
+  color: var(--tui-text-primary) !important;
+  border-color: var(--att-text-3);
+}
+
+.culms-att-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.culms-att-norm,
+.culms-att-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--att-text-2);
+}
+
+.culms-att-norm input {
+  width: 52px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--att-line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--tui-text-primary);
+  font: inherit;
+}
+
+.culms-att-check {
+  cursor: pointer;
+  user-select: none;
+}
+
+.culms-att-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--att-accent);
+  cursor: pointer;
+}
+
+/* --- Карточки --- */
+
+.culms-att-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.culms-att-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--att-line);
+  border-radius: 12px;
+}
+
+.culms-att-stat__value {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.culms-att-stat__value small {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--att-text-3);
+}
+
+.culms-att-stat__label {
+  color: var(--att-text-2);
+}
+
+.culms-att-stat.is-ok .culms-att-stat__value {
+  color: var(--att-ok-fg);
+}
+
+.culms-att-stat.is-warn .culms-att-stat__value {
+  color: var(--att-warn-fg);
+}
+
+.culms-att-stat.is-bad .culms-att-stat__value {
+  color: var(--att-bad-fg);
+}
+
+/* --- Отметки --- */
+
+.culms-att-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  flex: none;
+}
+
+.culms-att-mark.is-attended {
+  background: var(--att-ok-bg);
+  color: var(--att-ok-fg);
+}
+
+.culms-att-mark.is-missed {
+  background: var(--att-bad-bg);
+  color: var(--att-bad-fg);
+}
+
+.culms-att-mark.is-pending {
+  background: var(--att-wait-bg);
+  color: var(--att-wait-fg);
+}
+
+.culms-att-mark.is-upcoming {
+  border: 1.5px dashed var(--att-line-strong);
+}
+
+.culms-att-mark.is-none {
+  color: var(--att-text-3);
+  opacity: 0.7;
+}
+
+.culms-att-exam {
+  display: inline-flex;
+  color: var(--att-exam-fg);
+}
+
+.culms-att-rate.is-ok {
+  color: var(--att-ok-fg);
+}
+
+.culms-att-rate.is-warn {
+  color: var(--att-warn-fg);
+}
+
+.culms-att-rate.is-bad {
+  color: var(--att-bad-fg);
+}
+
+.culms-att-rate {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Таблица курсы × недели --- */
+
+.culms-att-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--att-line);
+  border-radius: 12px;
+}
+
+.culms-att-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 100%;
+}
+
+.culms-att-table th,
+.culms-att-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--att-grid);
+  text-align: center;
+  vertical-align: middle;
+  font-weight: 400;
+}
+
+.culms-att-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.culms-att-table thead th {
+  color: var(--att-text-3);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.culms-att-table small {
+  display: block;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--att-text-3);
+  font-weight: 400;
+}
+
+.culms-att-table .culms-att-course {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 200px;
+  max-width: 280px;
+  padding-left: 14px;
+  text-align: left;
+  background: var(--att-sticky-bg);
+  border-right: 1px solid var(--att-grid);
+}
+
+.culms-att-week,
+.culms-att-cell {
+  min-width: 44px;
+}
+
+.culms-att-week.is-now,
+.culms-att-cell.is-now {
+  background: var(--att-now);
+}
+
+.culms-att-week.is-now {
+  color: var(--att-accent);
+}
+
+.culms-att-cell.has-exam {
+  background: var(--att-exam-bg);
+}
+
+/* Семинары недели — столбиком, как в соседних неделях; флажок контрольной
+   не занимает места среди них, а стоит в углу клетки. */
+.culms-att-cell__in {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+  min-height: 20px;
+}
+
+.culms-att-cell__in > .culms-att-exam {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+}
+
+.culms-att-cell__in > .culms-att-exam .culms-att-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.culms-att-table th.culms-att-course small {
+  display: block;
+  margin-top: 2px;
+}
+
+.culms-att-num {
+  min-width: 72px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  border-left: 1px solid var(--att-grid);
+}
+
+.culms-att-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.culms-att-link:hover {
+  color: var(--att-accent) !important;
+}
+
+/* --- По неделям --- */
+
+.culms-att-weeknav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.culms-att-weeknav__title {
+  min-width: 170px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.culms-att-weeknav__title small {
+  display: block;
+  font-weight: 400;
+  color: var(--att-text-3);
+}
+
+.culms-att-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--att-exam-bg);
+  color: var(--att-exam-fg);
+}
+
+.culms-att-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--att-line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.culms-att-day {
+  padding: 8px 14px;
+  background: var(--att-neutral-bg);
+  color: var(--att-text-2);
+  font-weight: 500;
+}
+
+.culms-att-day.is-today {
+  color: var(--att-accent);
+}
+
+.culms-att-item {
+  display: grid;
+  grid-template-columns: 96px minmax(160px, 1.2fr) minmax(160px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border-top: 1px solid var(--att-line);
+}
+
+.culms-att-item__time {
+  font-variant-numeric: tabular-nums;
+  color: var(--att-text-2);
+}
+
+.culms-att-item__who {
+  color: var(--att-text-2);
+}
+
+@media (max-width: 720px) {
+  .culms-att-item {
+    grid-template-columns: 1fr auto;
+  }
+
+  .culms-att-item__who {
+    grid-column: 1 / -1;
+  }
+}
+
+.culms-att-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.culms-att-chip.is-attended {
+  background: var(--att-ok-bg);
+  color: var(--att-ok-fg);
+}
+
+.culms-att-chip.is-missed {
+  background: var(--att-bad-bg);
+  color: var(--att-bad-fg);
+}
+
+.culms-att-chip.is-pending {
+  background: var(--att-wait-bg);
+  color: var(--att-wait-fg);
+}
+
+.culms-att-chip.is-upcoming {
+  border: 1px dashed var(--att-line-strong);
+  color: var(--att-text-2);
+}
+
+.culms-att-chip.is-none {
+  color: var(--att-text-3);
+  text-decoration: line-through;
+}
+
+.culms-att-chip.is-today {
+  box-shadow: 0 0 0 2px var(--att-accent);
+}
+
+/* --- Подвал --- */
+
+.culms-att-closed {
+  line-height: 20px;
+}
+
+.culms-att-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  color: var(--att-text-2);
+}
+
+.culms-att-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- Дописка в родную колонку «За весь семестр» --- */
+
+.culms-att-native {
+  margin-top: 4px;
+  font: var(--tui-font-text-xs, 12px/16px sans-serif);
+  white-space: nowrap;
+}
+
+/* «был / мог быть / всего» одной строкой, как K/D/A. */
+.culms-att-kda {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.culms-att-kda b {
+  font-weight: 600;
+}
+
+.culms-att-kda i {
+  font-style: normal;
+  color: var(--att-text-3);
+}
+
+/* Подпись под родной таблицей: что значат числа. */
+.culms-att-native-legend {
+  margin-top: 12px;
+  padding: 0 12px;
+  white-space: normal;
+  color: var(--att-text-3);
+}
+
+.culms-att-native__rate {
+  font-weight: 600;
+}
+
+.culms-att-native__rate.is-ok {
+  color: var(--att-ok-fg);
+}
+
+.culms-att-native__rate.is-warn {
+  color: var(--att-warn-fg);
+}
+
+.culms-att-native__rate.is-bad {
+  color: var(--att-bad-fg);
+}
+
+.culms-att-native__muted {
+  color: var(--att-text-3);
+}
+
+/* --- Курс: полоса своих семинаров --- */
+
+.culms-att-course {
+  gap: 10px;
+  padding: 4px 0 8px;
+}
+
+.culms-att-course__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+}
+
+.culms-att-course__head .culms-att-check {
+  margin-left: auto;
+}
+
+.culms-att-course__title {
+  font-weight: 600;
+}
+
+.culms-att-course__strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

@@ -66,6 +66,7 @@ export const GOALS = [
   'friends_schedule',
   'friends_search',
   'gradebook_open',
+  'attendance_summary_open',
   'course_export',
   'settings_export',
   'settings_import',
