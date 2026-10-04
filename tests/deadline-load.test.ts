@@ -72,6 +72,8 @@ function task(
   options: {
     course?: { id: number; name: string; isArchived?: boolean };
     done?: boolean;
+    /** Состояние без даты сдачи — как у теста на проверке. */
+    state?: string;
     hour?: number;
     minute?: number;
     openHours?: number;
@@ -89,7 +91,7 @@ function task(
     // Тема и лонгрид — из них складывается ссылка на страницу задания.
     theme: { id: 300 + id, name: 'Неделя' },
     longread: { id: 700 + id, name: 'Домашнее задание' },
-    state: options.done ? 'evaluated' : 'inProgress',
+    state: options.state ?? (options.done ? 'evaluated' : 'inProgress'),
     submitAt: options.done ? new Date(deadline.getTime() - 3600_000).toISOString() : null,
     deadline: deadline.toISOString(),
     lateDays: null,
@@ -129,10 +131,12 @@ const TASKS = [
   task(1, 'HW. Week 4', { course: { id: 1370, name: 'Английский язык 204S3' } }),
   // Домашка в семинарской корзине остаётся домашкой.
   task(2, 'ДЗ 3_1. Градиентный спуск', { activity: 'Активность без веса' }),
-  // Через три дня — четыре дедлайна, один уже сдан; в списке — по времени.
+  // Через три дня — пять дедлайнов, два уже сданы: ДЗ с решением и тест на
+  // проверке (у тестов нет `submitAt`); в списке — по времени.
   task(3, 'Тетрадь рефлексии', { hour: 23 }),
   task(3, 'ДЗ 3. Условная вероятность', { hour: 10, done: true }),
   task(3, 'ДЗ 3. Линейная регрессия', { hour: 20 }),
+  task(3, 'Контроль теоретических знаний 1', { hour: 20, minute: 30, state: 'review' }),
   task(3, 'HW. Week 3', {
     hour: 21,
     course: { id: 1418, name: '🔴 Теория вероятностей. Основной уровень' },
@@ -143,6 +147,8 @@ const TASKS = [
   // Через одиннадцать — два, и оба уже сданы: день закрыт.
   task(11, 'ДЗ 40', { done: true }),
   task(11, 'ДЗ 41', { done: true }),
+  // Через двенадцать — четыре, три сданы: остался один, день зелёный.
+  ...Array.from({ length: 4 }, (_, index) => task(12, `ДЗ ${index + 50}`, { done: index > 0 })),
 ];
 
 // Минимальная страница «Мои курсы»: контейнер и группа курсов, куда
@@ -270,7 +276,7 @@ test('14 дней с сегодняшнего: сдано/всего и цвет
     '0/1',
     '0/1',
     '0/1',
-    '1/4',
+    '2/5',
     '',
     '',
     '0/7',
@@ -279,10 +285,11 @@ test('14 дней с сегодняшнего: сдано/всего и цвет
     '0/13',
     '',
     '2/2',
-    '',
+    '3/4',
     '',
   ]);
-  // Цвет — по числу дедлайнов, сданы они или нет.
+  // Цвет — по числу несданных: через двенадцать дней из четырёх остался один
+  // — зелёный, закрытый день — без цвета.
   expect(read.map((day) => day.level)).toEqual([
     '1',
     '1',
@@ -295,8 +302,8 @@ test('14 дней с сегодняшнего: сдано/всего и цвет
     '0',
     '4',
     '0',
-    '1',
     '0',
+    '1',
     '0',
   ]);
   // Всё сдано — день приглушён; остальные нет.
@@ -304,7 +311,7 @@ test('14 дней с сегодняшнего: сдано/всего и цвет
   await expect(dayCell(3)).not.toHaveClass(/culms-deadlines__day--closed/);
   await expect(dayCell(3)).toHaveAttribute(
     'aria-label',
-    `${dayTitle(addDays(today, 3))}: 4 дедлайна, сдано 1`
+    `${dayTitle(addDays(today, 3))}: 5 дедлайнов, сдано 2`
   );
   await expect(dashboard().locator('.culms-deadlines__legend-item')).toHaveText([
     '1–2',
@@ -321,23 +328,29 @@ test('наведение на день показывает его задани�
     dayTitle(addDays(today, 3))
   );
   await expect(popover().locator('.culms-deadlines-popover__summary')).toHaveText(
-    '4 дедлайна, сдано 1'
+    '5 дедлайнов, сдано 2'
   );
   // По времени дедлайна.
   await expect(popover().locator('.culms-deadlines-popover__name')).toHaveText([
     'ДЗ 3. Условная вероятность',
     'ДЗ 3. Линейная регрессия',
+    'Контроль теоретических знаний 1',
     'HW. Week 3',
     'Тетрадь рефлексии',
   ]);
   await expect(popover().locator('.culms-deadlines-popover__time')).toHaveText([
     '10:00',
     '20:00',
+    '20:30',
     '21:00',
     '23:00',
   ]);
-  await expect(popover().locator('.culms-deadlines-popover__item').first()).toHaveClass(/--done/);
-  await expect(popover().locator('.culms-deadlines-popover__course').nth(2)).toHaveText(
+  // Сданы ДЗ с решением и тест на проверке, хотя даты сдачи у теста нет.
+  const items = popover().locator('.culms-deadlines-popover__item');
+  await expect(items.nth(0)).toHaveClass(/--done/);
+  await expect(items.nth(1)).not.toHaveClass(/--done/);
+  await expect(items.nth(2)).toHaveClass(/--done/);
+  await expect(popover().locator('.culms-deadlines-popover__course').nth(3)).toHaveText(
     '🔴 Теория вероятностей. Основной уровень'
   );
   // Под днём и в пределах окна.
@@ -388,13 +401,13 @@ function taskHref(name: string) {
 test('во всплывашке — ссылки на задание и на курс, до них можно довести курсор', async () => {
   await dayCell(3).hover();
   const names = popover().locator('.culms-deadlines-popover__name');
-  await expect(names).toHaveCount(4);
+  await expect(names).toHaveCount(5);
   await expect(names.nth(1)).toHaveAttribute('href', taskHref('ДЗ 3. Линейная регрессия'));
   await expect(popover().locator('.culms-deadlines-popover__course').nth(1)).toHaveAttribute(
     'href',
     '/learn/courses/view/actual/1245'
   );
-  await expect(popover().locator('.culms-deadlines-popover__course').nth(2)).toHaveAttribute(
+  await expect(popover().locator('.culms-deadlines-popover__course').nth(3)).toHaveAttribute(
     'href',
     '/learn/courses/view/actual/1418'
   );
@@ -419,7 +432,7 @@ test('щелчок по заданию во всплывашке открыва�
   await page.goto(LIST_URL);
   await expect(days()).toHaveCount(14, { timeout: 30_000 });
   await dayCell(3).hover();
-  await popover().locator('.culms-deadlines-popover__course').nth(2).click();
+  await popover().locator('.culms-deadlines-popover__course').nth(3).click();
   await expect(page).toHaveURL(`${LMS_URL}/learn/courses/view/actual/1418`);
 
   await page.goto(LIST_URL);
