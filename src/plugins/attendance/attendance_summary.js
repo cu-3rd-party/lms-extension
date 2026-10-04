@@ -136,10 +136,56 @@
     return names && typeof names.toDisplay === 'function' ? names.toDisplay(name) : name;
   }
 
-  function normName(name) {
+  /**
+   * Ключ для сравнения названий: только буквы и цифры. «Сердечки» меняют 🔴
+   * на ❤️ прямо в тексте страницы, а в API эмодзи прежний.
+   */
+  function nameKey(name) {
     return String(name || '')
-      .replace(/\s+/g, ' ')
+      .toLowerCase()
+      .replace(/ё/g, 'е')
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
       .trim();
+  }
+
+  /**
+   * Ключи названия в строке родной таблицы. Свои названия курсов
+   * (_shared/course_names.js) подменяют текст ячейки, а оригинал держат в
+   * `data-culms-orig-name` — спрашиваем его через `cuLmsCourseNames`.
+   */
+  function rowNameKeys(row) {
+    const cell = row.querySelector('.name-cell');
+    const text = cell?.textContent?.trim() || '';
+    const names = window.cuLmsCourseNames;
+    const keys = new Set([nameKey(text)]);
+    if (cell && names) {
+      const target = cell.querySelector('[data-culms-orig-name]') || cell;
+      if (typeof names.originalFor === 'function')
+        keys.add(nameKey(names.originalFor(target, text)));
+      if (typeof names.toOriginal === 'function') keys.add(nameKey(names.toOriginal(text)));
+    }
+    keys.delete('');
+    return keys;
+  }
+
+  /** Курс строки родной таблицы: у строк нет id, только название. */
+  function courseOfRow(row, byKey) {
+    for (const key of rowNameKeys(row)) {
+      const course = byKey.get(key);
+      if (course) return course;
+    }
+    return null;
+  }
+
+  function coursesByKey() {
+    const byKey = new Map();
+    for (const c of state.data?.courses || []) {
+      byKey.set(nameKey(c.name), c);
+      // Своё название тоже ключ — на случай, если оригинал в разметке потерялся.
+      const shown = nameKey(displayCourseName(c.name));
+      if (shown && !byKey.has(shown)) byKey.set(shown, c);
+    }
+    return byKey;
   }
 
   function sessionTitle(course, s) {
@@ -275,11 +321,10 @@
       host.querySelectorAll(`.${NATIVE_CLASS}`).forEach((el) => el.remove());
       return;
     }
-    const byName = new Map(state.data.courses.map((c) => [normName(c.name), c]));
+    const byKey = coursesByKey();
     let shown = false;
     rows.forEach((row) => {
-      const name = normName(row.querySelector('.name-cell')?.textContent);
-      const course = byName.get(name);
+      const course = courseOfRow(row, byKey);
       const cell = row.lastElementChild;
       if (!cell) return;
       const html = course ? nativeNoteHtml(course) : '';
@@ -781,12 +826,10 @@
    * ведёт роутером Angular, без перезагрузки. Не нашлась — обычный переход.
    */
   function openCourse(id) {
-    const course = state.data?.courses.find((c) => c.id === id);
-    const row = course
-      ? [...document.querySelectorAll('cu-courses-attendance tr.course-row')].find(
-          (r) => normName(r.querySelector('.name-cell')?.textContent) === normName(course.name)
-        )
-      : null;
+    const byKey = coursesByKey();
+    const row = [...document.querySelectorAll('cu-courses-attendance tr.course-row')].find(
+      (r) => courseOfRow(r, byKey)?.id === id
+    );
     state.open = false;
     deactivate();
     if (row) row.click();

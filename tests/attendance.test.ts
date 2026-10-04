@@ -446,6 +446,44 @@ test('в родной колонке «За весь семестр» — про
   await expect(page.locator('.culms-att-native')).toHaveCount(0);
 });
 
+test('свои названия курсов и «сердечки» не мешают найти курс строки', async ({ page }) => {
+  await open(page);
+  const rows = page.locator('cu-courses-attendance tr.course-row');
+  await expect(rows.locator('.culms-att-native')).toHaveCount(3);
+
+  // Как _shared/course_names.js: в ячейке своё название, оригинал — в
+  // data-culms-orig-name; как emoji_swap.js: 🔴 → ❤️ прямо в тексте.
+  await page.evaluate(() => {
+    const original = 'Линейная алгебра и геометрия';
+    (window as any).cuLmsCourseNames = {
+      toDisplay: (name: string) => (name === original ? 'Линал любимый' : name),
+      toOriginal: (text: string) => (text === 'Линал любимый' ? original : text),
+      originalFor: (el: Element, text: string) =>
+        el.closest('[data-culms-orig-name]')?.getAttribute('data-culms-orig-name') ?? text,
+    };
+    for (const row of document.querySelectorAll('cu-courses-attendance tr.course-row')) {
+      const span = row.querySelector('.name-cell span')!;
+      if (span.textContent === original) {
+        span.setAttribute('data-culms-orig-name', original);
+        span.textContent = 'Линал любимый';
+      }
+      span.textContent = span.textContent!.replace('🔴', '❤️');
+      // Перерисовка, как у Angular: дописки пропадают и должны вернуться.
+      row.lastElementChild!.querySelector('.culms-att-native')?.remove();
+    }
+  });
+
+  const note = (name: string) => rows.filter({ hasText: name }).locator('.culms-att-native');
+  await expect(note('Линал любимый')).toHaveText('2/4/13');
+  await expect(note('❤️ Математический')).toHaveText('5/9/26');
+  await expect(note('Английский')).toHaveText('1/2/10');
+
+  // Переход в курс из сводной находит ту же строку и идёт роутером.
+  await tab(page).click();
+  await view(page).locator('[data-course="11"]').click();
+  await expect(page).toHaveURL(/\/learn\/attendance\/courses\/11$/);
+});
+
 test('вкладка «Сводная» встаёт после «Архивные» и подменяет таблицу', async ({ page }) => {
   await open(page);
   await expect(tab(page)).toHaveText('Сводная');
