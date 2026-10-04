@@ -19,6 +19,11 @@ if (typeof window.__culmsSwapApiInit === 'undefined') {
   let timetableCache = null;
   let identityCache = null;
 
+  // Статус биржи, наоборот, кэшируем ненадолго: его меняют на сервере, и
+  // страница должна подхватить это сама, без перезагрузки.
+  const STATUS_TTL_MS = 15000;
+  let statusCache = null;
+
   function log(...args) {
     if (typeof cuLmsLog === 'function') cuLmsLog('[Swap]', ...args);
   }
@@ -180,17 +185,22 @@ if (typeof window.__culmsSwapApiInit === 'undefined') {
    * кросс-доменный fetch падает даже при корректных заголоках сервера.
    */
   async function request(method, path, body, options = {}) {
-    const identity = await getIdentity();
-    const deviceKey = await getDeviceKey();
+    // Личность выясняем только там, где она нужна. Статус биржи спрашивается
+    // анонимно — пока неизвестно, работает ли она вообще, лезть в профиль
+    // студента незачем.
+    let headers = {};
+    if (!options.anonymous) {
+      const identity = await getIdentity();
+      const deviceKey = await getDeviceKey();
+      headers = { Authorization: `Bearer ${deviceKey}`, 'X-Student-Id': identity.studentId };
+    }
 
     const response = await api.runtime.sendMessage({
       action: 'SWAP_API',
       method,
       url: `${SWAP_BACKEND_URL}${path}`,
       body,
-      headers: options.anonymous
-        ? {}
-        : { Authorization: `Bearer ${deviceKey}`, 'X-Student-Id': identity.studentId },
+      headers,
     });
 
     if (!response) throw new Error('нет ответа от background');
@@ -258,6 +268,29 @@ if (typeof window.__culmsSwapApiInit === 'undefined') {
     }
   }
 
+  /**
+   * Включена ли биржа. Спрашивается раньше всего остального и без авторизации.
+   *
+   * Если сервер не ответил, считаем выключенной: лучше честно написать, что
+   * биржа недоступна, чем нарисовать кнопки, которые всё равно упрутся в ошибку.
+   */
+  async function getStatus(options = {}) {
+    const fresh = statusCache && Date.now() - statusCache.at < STATUS_TTL_MS;
+    if (fresh && !options.force) return statusCache.value;
+
+    let value;
+    try {
+      const data = await request('GET', '/api/v1/status', undefined, { anonymous: true });
+      value = { enabled: !!data.enabled, message: data.message || '', reachable: true };
+    } catch (e) {
+      log('статус биржи недоступен:', e.message);
+      value = { enabled: false, message: '', reachable: false };
+    }
+
+    statusCache = { at: Date.now(), value };
+    return value;
+  }
+
   const listOrders = () => request('GET', '/api/v1/orders');
   const createOrder = (payload) => request('POST', '/api/v1/orders', payload);
   const cancelOrder = (orderId) => request('DELETE', `/api/v1/orders/${orderId}`);
@@ -287,6 +320,7 @@ if (typeof window.__culmsSwapApiInit === 'undefined') {
     isOrderable,
     normalizeTelegram,
     defaultContact,
+    getStatus,
     getStoredContact,
     setStoredContact,
     register,

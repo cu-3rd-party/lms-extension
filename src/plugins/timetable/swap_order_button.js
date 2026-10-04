@@ -199,6 +199,11 @@ if (typeof window.__culmsSwapButtonInit === 'undefined') {
   }
 
   async function decorateDialog(dialog) {
+    // Пока биржа выключена, заказывать нечего — кнопок быть не должно.
+    // Статус берётся из общего кэша, который обновляет опрос в меню.
+    const status = await swap().getStatus();
+    if (!status.enabled) return;
+
     const header = parseDialogHeader(dialog);
     if (!header) return;
 

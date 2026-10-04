@@ -15,6 +15,10 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
 
   let pollTimer = null;
   let identity = null;
+  // Что нарисовано сейчас: true — полное меню, false — сообщение о выключенной
+  // бирже. Нужно, чтобы опрос заметил переключение рубильника на сервере и
+  // перебрал меню, а не продолжал показывать устаревшее.
+  let renderedEnabled = null;
 
   /**
    * Меню должно быть видно только на самой странице записи на пары.
@@ -82,6 +86,31 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
       </div>
     `;
 
+    return section;
+  }
+
+  function buildClosedMenu(status) {
+    const section = document.createElement('section');
+    section.id = MENU_ID;
+    section.className = 'culms-swap-menu';
+
+    const head = document.createElement('div');
+    head.className = 'culms-swap-menu__head';
+    const title = document.createElement('h2');
+    title.className = 'culms-swap-menu__title';
+    title.textContent = 'Мои запросы';
+    const badge = document.createElement('span');
+    badge.className = 'culms-swap-menu__badge';
+    badge.textContent = 'биржа обмена парами';
+    head.append(title, badge);
+
+    const notice = document.createElement('div');
+    notice.className = 'culms-swap-closed';
+    notice.textContent = status.reachable
+      ? status.message || 'Биржа обмена парами сейчас выключена.'
+      : 'Биржа обмена парами сейчас недоступна — сервер не отвечает. Попробуй позже.';
+
+    section.append(head, notice);
     return section;
   }
 
@@ -401,20 +430,43 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
 
   // --- Монтирование ----------------------------------------------------------
 
-  function startPolling(root) {
+  function startPolling() {
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(() => {
-      if (!document.getElementById(MENU_ID)) {
+    pollTimer = setInterval(async () => {
+      const menu = document.getElementById(MENU_ID);
+      if (!menu) {
         clearInterval(pollTimer);
         pollTimer = null;
         return;
       }
-      refreshOrders(root);
+
+      // Рубильник могли переключить на сервере — тогда меню нужно собрать
+      // заново, в другом виде. Статус спрашиваем принудительно, мимо кэша.
+      const status = await swap().getStatus({ force: true });
+      if (status.enabled !== renderedEnabled) {
+        menu.remove();
+        tryMount();
+        return;
+      }
+
+      if (status.enabled) refreshOrders(menu);
     }, POLL_INTERVAL_MS);
   }
 
   async function mount(anchor) {
     if (document.getElementById(MENU_ID)) return;
+
+    // Первым делом спрашиваем сервер, работает ли биржа. Пока это неизвестно,
+    // лезть в профиль студента незачем: у выключенной биржи нет вопроса «кто ты».
+    const status = await swap().getStatus({ force: true });
+    renderedEnabled = status.enabled;
+
+    if (!status.enabled) {
+      if (!shouldShow() || document.getElementById(MENU_ID)) return;
+      anchor.parentElement.insertBefore(buildClosedMenu(status), anchor.nextSibling);
+      startPolling();
+      return;
+    }
 
     identity = await swap().getIdentity();
 
@@ -435,7 +487,7 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
     }
 
     await refreshOrders(menu);
-    startPolling(menu);
+    startPolling();
   }
 
   let mounting = false;
@@ -445,7 +497,10 @@ if (typeof window.__culmsSwapMenuInit === 'undefined') {
 
     if (!shouldShow()) {
       // Опрос остановится сам: интервал проверяет, что меню ещё в документе.
-      if (existing) existing.remove();
+      if (existing) {
+        existing.remove();
+        renderedEnabled = null;
+      }
       return;
     }
 

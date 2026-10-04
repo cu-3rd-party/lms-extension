@@ -43,6 +43,20 @@
   line-height: 20px;
 }
 
+/* --- Выключенная биржа --- */
+
+.culms-swap-closed {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--tui-border-normal, #cdcfd2);
+  border-radius: var(--tui-radius-m, 0.625rem);
+  background: var(--tui-background-base-alt, #f2f4f7);
+  color: var(--tui-text-secondary, #5a5e62);
+  font-size: 14px;
+  line-height: 20px;
+  max-width: 720px;
+}
+
 /* --- Способ связи --- */
 
 .culms-swap-contact {
