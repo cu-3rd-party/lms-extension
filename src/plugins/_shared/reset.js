@@ -12,6 +12,10 @@ if (!window.__cu_reset_loaded) {
         'cu_friends_list',
         // Вид сводной таблицы ведомостей: режим, колонки, фильтры (statements/gradebook.js).
         'culms.gradebook.prefs',
+        // Посещаемость (attendance/): вид сводной, галочка курса, кеш прошедших дней.
+        'culms.attendance.prefs',
+        'culms.attendance.course.prefs',
+        'culms.attendance.cache.v1',
       ];
       keysToRemove.forEach((key) => localStorage.removeItem(key));
       console.log('[CU Extension] LMS LocalStorage очищен (фильтры, друзья, таблица оценок).');
