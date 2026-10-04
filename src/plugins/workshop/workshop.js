@@ -362,17 +362,19 @@ if (typeof browser === 'undefined') {
    * `stale` — всё оформление, что стоит сейчас: прежняя тема, своя палитра,
    * фоны, обложки и переименования. Новая тема его не дополняет, а заменяет —
    * иначе от старой оставались бы фоны и названия, которых в новой нет.
+   * Базовый светлый/тёмный режим — выбор пользователя: не сбрасываем его
+   * и не переносим `themeEnabled` из профиля автора.
    */
   async function prepareInstall(theme, version, layers) {
     const profile = await api.resolveProfile(theme.id, version.id);
     const inspected = registry.inspect(profile);
     if (!inspected.ok) throw new Error(inspected.error);
-    const only = (key) => layers.includes(registry.layerOf(key));
+    const only = (key) => key !== 'themeEnabled' && layers.includes(registry.layerOf(key));
     const keys = inspected.accepted.map(({ key }) => key).filter(only);
     if (!keys.length) {
       throw new Error('В выбранных слоях нечего ставить — отметь хотя бы один');
     }
-    const stale = await registry.storedKeys('workshop');
+    const stale = await registry.storedKeys('workshop', (key) => key !== 'themeEnabled');
     return { profile, only, keys, stale, skipped: inspected.rejected.length };
   }
 
