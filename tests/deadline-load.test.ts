@@ -478,6 +478,36 @@ test('с клавиатуры в список заданий: ↓ — к ссы�
   await expect(popover()).toHaveCount(0);
 });
 
+test('метод скипа: скипнутое задание считается сданным и зачёркнуто', async () => {
+  const today0 = TASKS.find((item) => item.exercise.name === 'ДЗ на сегодня')!;
+  // Новый ключ — по id задачи, старый — «курс::задание» из прошлых версий.
+  await page.evaluate(
+    (keys) => localStorage.setItem('cu.lms.skipped-tasks', JSON.stringify(keys)),
+    [`id:${today0.id}`, 'машинное обучение::дз 1']
+  );
+  await page.reload();
+  await expect(days()).toHaveCount(14, { timeout: 30_000 });
+  await expect(dayCell(0).locator('.culms-deadlines__count')).toHaveText('1/1');
+  await expect(dayCell(1).locator('.culms-deadlines__count')).toHaveText('1/1');
+  await expect(dayCell(0)).toHaveClass(/culms-deadlines__day--closed/);
+  await expect(dayCell(0)).toHaveClass(/culms-deadlines--l0/);
+
+  await dayCell(0).hover();
+  const item = popover().locator('.culms-deadlines-popover__item');
+  await expect(item).toHaveClass(/--done/);
+  await expect(item).toHaveClass(/--skipped/);
+  await expect(item).toHaveAttribute('title', 'Метод скипа');
+  await expect(popover().locator('.culms-deadlines-popover__summary')).toHaveText(
+    '1 дедлайн, всё сдано'
+  );
+  await page.mouse.move(5, 5);
+
+  await page.evaluate(() => localStorage.removeItem('cu.lms.skipped-tasks'));
+  await page.reload();
+  await expect(days()).toHaveCount(14, { timeout: 30_000 });
+  await expect(dayCell(0).locator('.culms-deadlines__count')).toHaveText('0/1');
+});
+
 test('свои пороги цвета меняют дни и легенду на лету', async () => {
   const levels = () =>
     days().evaluateAll((cells) =>

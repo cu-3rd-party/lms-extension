@@ -620,7 +620,12 @@
     прикреплено (`submitAt`) или задание отправлено, на проверке либо
     проверено (`submitted`, `review`, `evaluated` — `SUBMITTED_STATES`): тест
     на проверке приходит как `review` без `submitAt`, у работ, сданных вне
-    LMS, даты сдачи тоже нет. Цвет дня — по числу **ещё не сданных**
+    LMS, даты сдачи тоже нет. Задание под **методом скипа** (courses/tasks_fix.js)
+    тоже закрыто: во всплывашке оно зачёркнуто, как сданное, с подсказкой
+    «Метод скипа» (`culms-deadlines-popover__item--skipped`). Скипы читаются из
+    localStorage LMS (`cu.lms.skipped-tasks`) при каждой сборке дней — по ключу
+    `id:<id задачи>` и по старым `курс::задание` (с эмодзи и без), как в
+    tasks_fix.js; скип из соседней вкладки подхватывается по событию `storage`. Цвет дня — по числу **ещё не сданных**
     дедлайнов, пороги абсолютные и задаются в попапе (`thresholds`, см.
     выше; по умолчанию 1–2 — зелёный, 3–5 — жёлтый, 6–9 — оранжевый, 10+ —
     красный). Было четыре, сдал три — день зелёный:
@@ -709,7 +714,8 @@
   `cu-courses-group`; `#culms-deadlines-popover` в `body`, пока открыта всплывашка дня
 - Хранилище: `browser.storage.sync` (`futureExamsDashboardToggle`,
   `futureExamsDashboardDeadlines`, `deadlineLevel*`, `themeEnabled`), `browser.storage.local`
-  (`archivedCourseIds`, `courseMetaCache` — только чтение)
+  (`archivedCourseIds`, `courseMetaCache` — только чтение), `localStorage` LMS
+  (`cu.lms.skipped-tasks` — только чтение)
 - Fetch: `/api/micro-lms/courses/student?limit=200&offset=0&state=published` и
   расписание через `future_exams_api.js` — для контрольных;
   `/api/micro-lms/tasks/student?state=…` (все состояния) — для дедлайнов

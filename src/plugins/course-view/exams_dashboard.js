@@ -83,6 +83,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   // проверке приходит как `review` без `submitAt`. Проверенное без сдачи —
   // семинары и работы, сданные вне LMS: делать там тоже нечего.
   const SUBMITTED_STATES = new Set(['submitted', 'review', 'evaluated']);
+  // Метод скипа из courses/tasks_fix.js: задание, которое студент решил не
+  // делать, — тоже закрыто. Список живёт в localStorage LMS; ключ — `id:<id
+  // задачи>`, у старых скипов — `курс::задание` (с эмодзи и без).
+  const SKIPPED_TASKS_KEY = 'cu.lms.skipped-tasks';
+  const SKIP_EMOJI = /(?:🔴|🔵|⚫️|⚫|❤️|💙|🖤)/g;
   // Цвет дня — по числу ещё не сданных дедлайнов: зелёный, жёлтый, оранжевый,
   // красный. Сдал три из четырёх — день зелёный, остался один; насколько
   // дедлайн близко, на цвет не влияет. Пороги абсолютные, а не от «обычного
@@ -307,6 +312,30 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
   const isSubmitted = (task) => !!task.submitAt || SUBMITTED_STATES.has(task.state);
 
+  /** Ключи, под которыми tasks_fix.js мог запомнить скип этой задачи. */
+  function skipKeys(task, exercise, course) {
+    const keys = task.id != null ? [`id:${task.id}`] : [];
+    const taskName = (exercise.name || '').trim();
+    const courseName = (course.name || '').trim();
+    if (taskName && courseName) {
+      // Как getTaskIdentifier и getLegacyTaskIdentifier в tasks_fix.js.
+      const hearts = (text) =>
+        text.split('❤️').join('🔴').split('💙').join('🔵').split('🖤').join('⚫️').trim();
+      keys.push(`${hearts(courseName).toLowerCase()}::${hearts(taskName).toLowerCase()}`);
+      const strip = (text) => text.replace(SKIP_EMOJI, '').trim().toLowerCase();
+      keys.push(`${strip(courseName)}::${strip(taskName)}`);
+    }
+    return keys;
+  }
+
+  function readSkipped() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(SKIPPED_TASKS_KEY) || '[]'));
+    } catch (_error) {
+      return new Set();
+    }
+  }
+
   /** Нужно ли студенту что-то сдавать к этому дедлайну (см. NOT_WORK_*). */
   function isWork(task, exercise) {
     if (task.submitAt || task.state === 'review') return true;
@@ -354,7 +383,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
           url,
           courseUrl,
           deadline,
-          done: isSubmitted(task),
+          submitted: isSubmitted(task),
+          skipKeys: skipKeys(task, exercise, course),
+          // Решают buildDays(): скип ставят и снимают и без перезапроса заданий.
+          skipped: false,
+          done: false,
         },
       ];
     });
@@ -441,7 +474,10 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       days.push({ key: dayKey(date), date, offset, tasks: [] });
     }
     const byKey = new Map(days.map((day) => [day.key, day]));
+    const skipped = readSkipped();
     tasks.forEach((task) => {
+      task.skipped = !task.submitted && task.skipKeys.some((key) => skipped.has(key));
+      task.done = task.submitted || task.skipped;
       // Курс в своём архиве студента — его и в списке курсов не видно.
       if (isArchived({ id: task.courseId, name: task.courseName })) return;
       const day = byKey.get(dayKey(task.deadline));
@@ -629,6 +665,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       day.tasks.slice(0, POPOVER_LIMIT).forEach((task) => {
         const item = element('li', 'culms-deadlines-popover__item');
         item.classList.toggle('culms-deadlines-popover__item--done', task.done);
+        item.classList.toggle('culms-deadlines-popover__item--skipped', task.skipped);
+        if (task.skipped) item.title = 'Метод скипа';
         item.appendChild(
           element('span', 'culms-deadlines-popover__time', formatTime(task.deadline))
         );
@@ -1264,6 +1302,13 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       archivedKeys = new Set(changes[ARCHIVE_KEY].newValue || []);
       update();
     }
+  });
+
+  // Скип поставили или сняли в соседней вкладке LMS. В этой же вкладке скип
+  // ставят на странице заданий, а при возвращении к списку дэшборд и так
+  // пересобирается.
+  window.addEventListener('storage', (event) => {
+    if (event.key === SKIPPED_TASKS_KEY || event.key === null) update();
   });
 
   // Вкладка могла провисеть открытой до следующей недели: при возвращении к
