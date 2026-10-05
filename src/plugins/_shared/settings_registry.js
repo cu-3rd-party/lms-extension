@@ -126,6 +126,11 @@ if (typeof window.cuLmsSettings === 'undefined') {
     // убран): из чужого профиля этот ключ просто пропускается.
     bool('futureExamsDashboardToggle', 'features'),
     bool('futureExamsDashboardDeadlines', 'features'),
+    // С какого числа несданных дедлайнов день жёлтый, оранжевый и красный.
+    // Порядок (каждый больше предыдущего) держат попап и сам дэшборд.
+    range('deadlineLevelYellow', 'features', 2, 99, 3),
+    range('deadlineLevelOrange', 'features', 2, 99, 6),
+    range('deadlineLevelRed', 'features', 2, 99, 10),
     bool('courseOverviewTaskStatusToggle', 'features'),
     bool('courseOverviewAutoscrollToggle', 'features'),
     bool('courseExporterToggle', 'features'),

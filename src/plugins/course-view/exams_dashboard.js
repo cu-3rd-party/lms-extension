@@ -83,17 +83,18 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   // проверке приходит как `review` без `submitAt`. Проверенное без сдачи —
   // семинары и работы, сданные вне LMS: делать там тоже нечего.
   const SUBMITTED_STATES = new Set(['submitted', 'review', 'evaluated']);
-  // Цвет дня — по числу ещё не сданных дедлайнов: 1–2, 3–5, 6–9 и 10+. Сдал
-  // три из четырёх — день зелёный, остался один; насколько дедлайн близко, на
-  // цвет не влияет. Пороги абсолютные, а не от «обычного дня»: десять
-  // дедлайнов в воскресенье — это много, даже если так каждую неделю.
-  const LEVELS = [
-    { min: 10, level: 4 },
-    { min: 6, level: 3 },
-    { min: 3, level: 2 },
-    { min: 1, level: 1 },
-  ];
-  const LEGEND = ['1–2', '3–5', '6–9', '10+'];
+  // Цвет дня — по числу ещё не сданных дедлайнов: зелёный, жёлтый, оранжевый,
+  // красный. Сдал три из четырёх — день зелёный, остался один; насколько
+  // дедлайн близко, на цвет не влияет. Пороги абсолютные, а не от «обычного
+  // дня»: десять дедлайнов в воскресенье — это много, даже если так каждую
+  // неделю. С какого числа начинается жёлтый, оранжевый и красный, студент
+  // задаёт в попапе; по умолчанию — 1–2, 3–5, 6–9 и 10+.
+  const LEVEL_KEYS = ['deadlineLevelYellow', 'deadlineLevelOrange', 'deadlineLevelRed'];
+  const DEFAULT_THRESHOLDS = [3, 6, 10];
+  // Как в settings_registry.js: порог жёлтого — не меньше двух, иначе
+  // зелёному не осталось бы ни одного числа.
+  const THRESHOLD_MIN = 2;
+  const THRESHOLD_MAX = 99;
   const WEEKDAYS_SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
   const WEEKDAYS_FULL = [
     'Воскресенье',
@@ -179,6 +180,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   let tasksFetchedAt = 0;
   let tasksFailed = false;
   let tasksLoading = null;
+  /** С какого числа несданных день жёлтый, оранжевый и красный. */
+  let thresholds = DEFAULT_THRESHOLDS;
   /** Собранный дэшборд; между вкладками фильтра переносится, а не строится заново. */
   let root = null;
   let signature = '';
@@ -395,9 +398,34 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   const dayKey = (date) =>
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
+  /**
+   * Пороги из хранилища: целые, по возрастанию, каждый больше предыдущего.
+   * Попап пишет уже такие, но ключи могли приехать из чужого профиля.
+   */
+  function toThresholds(values) {
+    let previous = THRESHOLD_MIN - 1;
+    return DEFAULT_THRESHOLDS.map((fallback, index) => {
+      const raw = Math.round(Number(values[index]));
+      const value = Number.isFinite(raw) ? raw : fallback;
+      previous = Math.max(previous + 1, Math.min(THRESHOLD_MAX, value));
+      return previous;
+    });
+  }
+
+  /** 0 — дедлайнов не осталось, 1 — зелёный … 4 — красный. */
   function levelOf(count) {
-    const found = LEVELS.find((entry) => count >= entry.min);
-    return found ? found.level : 0;
+    if (count <= 0) return 0;
+    return 1 + thresholds.filter((threshold) => count >= threshold).length;
+  }
+
+  /** «1–2», «3–5», «6–9», «10+»; диапазон из одного числа — «1». */
+  function legendTexts() {
+    const starts = [1, ...thresholds];
+    return starts.map((start, index) => {
+      if (index === starts.length - 1) return `${start}+`;
+      const end = starts[index + 1] - 1;
+      return end === start ? String(start) : `${start}–${end}`;
+    });
   }
 
   /**
@@ -469,7 +497,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     // Пункт легенды — маленькая копия дня: та же заливка и цвет числа. Раньше
     // там был квадратик цвета числа, а день красит заливка, — и цвета легенды
     // с днями не совпадали.
-    LEGEND.forEach((text, index) => {
+    legendTexts().forEach((text, index) => {
       legend.appendChild(
         element('span', `culms-deadlines__legend-item culms-deadlines--l${index + 1}`, text)
       );
@@ -979,6 +1007,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     const exams = view.exams;
     return JSON.stringify([
       showExams,
+      thresholds,
       view.examsError,
       exams
         ? [
@@ -1198,13 +1227,14 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
   async function init() {
     const [syncData, localData] = await Promise.all([
-      browser.storage.sync.get([SETTING_KEY, THEME_KEY, DEADLINES_KEY]),
+      browser.storage.sync.get([SETTING_KEY, THEME_KEY, DEADLINES_KEY, ...LEVEL_KEYS]),
       browser.storage.local.get([ARCHIVE_KEY, META_CACHE_KEY]),
     ]);
 
     isDark = !!syncData[THEME_KEY];
     showExams = !!syncData[SETTING_KEY];
     showDeadlines = !!syncData[DEADLINES_KEY];
+    thresholds = toThresholds(LEVEL_KEYS.map((key) => syncData[key]));
     archivedKeys = new Set(localData[ARCHIVE_KEY] || []);
     const cached = toCourses(localData[META_CACHE_KEY]);
     if (cached.length) courses = cached;
@@ -1222,6 +1252,13 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       if (SETTING_KEY in changes) showExams = !!changes[SETTING_KEY].newValue;
       if (DEADLINES_KEY in changes) showDeadlines = !!changes[DEADLINES_KEY].newValue;
       applySettings();
+    }
+    if (area === 'sync' && LEVEL_KEYS.some((key) => key in changes)) {
+      // Ключи меняются разом, но приезжают и по одному — берём все три.
+      browser.storage.sync.get(LEVEL_KEYS).then((data) => {
+        thresholds = toThresholds(LEVEL_KEYS.map((key) => data[key]));
+        update();
+      });
     }
     if (area === 'local' && ARCHIVE_KEY in changes) {
       archivedKeys = new Set(changes[ARCHIVE_KEY].newValue || []);
