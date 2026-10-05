@@ -1,0 +1,178 @@
+/* timetable_join.css — плашка «Сейчас / Дальше» и строки «Ближайшая · Трансляция»
+   на странице «Мои пары». Цвета — из переменных Taiga: тёмная тема и своя
+   палитра плагина подменяют их сами. */
+
+.culms-tt-join-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.culms-tt-join-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 320px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--tui-background-neutral-1, rgba(0, 0, 0, 0.04));
+  color: var(--tui-text-primary, #1b1f3b);
+}
+
+.culms-tt-join-item--live {
+  box-shadow: inset 3px 0 0 var(--tui-status-positive, #16a34a);
+}
+
+.culms-tt-join-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tui-text-secondary, #6b7280);
+}
+
+.culms-tt-join-item--live .culms-tt-join-label {
+  color: var(--tui-status-positive, #16a34a);
+}
+
+.culms-tt-join-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.culms-tt-join-course {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.culms-tt-join-meta {
+  font-size: 12px;
+  color: var(--tui-text-secondary, #6b7280);
+}
+
+.culms-tt-join-button {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  background: var(--tui-background-accent-1, #2b6cff);
+  color: var(--tui-text-primary-on-accent-1, #fff);
+}
+
+.culms-tt-join-button:hover {
+  background: var(--tui-background-accent-1-hover, #1f5ae0);
+}
+
+.culms-tt-join-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  color: var(--tui-text-secondary, #6b7280);
+}
+
+.culms-tt-join-link {
+  color: var(--tui-text-action, #2b6cff);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.culms-tt-join-link:hover {
+  text-decoration: underline;
+}
+
+/* --- Столбец «Трансляция» --- */
+
+.culms-tt-join-column,
+.culms-tt-join-cell {
+  min-width: 11rem;
+}
+
+.culms-tt-join-cell .culms-tt-join-row {
+  margin: 0;
+  display: block;
+  color: var(--tui-text-primary, #1b1f3b);
+}
+
+.culms-tt-join-cell .culms-tt-join-when--live {
+  color: var(--tui-status-positive, #16a34a);
+  font-weight: 600;
+}
+
+.culms-tt-join-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 2px;
+}
+
+/* «Все группы» — открывает drawer LMS «Выбрать время». */
+.culms-tt-join-others-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--tui-text-action, #2b6cff);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.culms-tt-join-others-toggle:hover {
+  text-decoration: underline;
+}
+
+/* --- Drawer LMS «Выбрать время» --- */
+
+.culms-tt-join-drawer-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin-top: 6px;
+  color: var(--tui-text-secondary, #6b7280);
+}
+
+.culms-tt-join-drawer-mine {
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--tui-background-neutral-1, rgba(127, 127, 127, 0.15));
+  color: var(--tui-text-primary, #1b1f3b);
+  font-weight: 500;
+}
+
+.culms-tt-join-drawer-when--live {
+  color: var(--tui-status-positive, #16a34a);
+  font-weight: 600;
+}
+
+.culms-tt-join-drawer-note {
+  color: var(--tui-text-secondary, #6b7280);
+}
+
+/* Запись закрыта, выбор пар показан только для просмотра (slot_view_main.js):
+   баннер «Настрой расписание под себя» звал бы записываться. */
+html[data-culms-slot-view='peek'] cu-student-timetable-events cu-timetable-banner {
+  display: none !important;
+}
+
+html[data-culms-slot-view='peek'] form.form .footer button[type='submit'] {
+  display: none !important;
+}
+
+/* Колонка действий LMS (значок «изменить») при закрытой записи не нужна:
+   drawer открывает «Все группы» из нашего столбца — кнопке необязательно
+   быть видимой, её нажимает скрипт. */
+html[data-culms-slot-view='peek'] cu-student-timetable-events th.actions-column,
+html[data-culms-slot-view='peek'] cu-student-timetable-events td.actions-column {
+  display: none !important;
+}
