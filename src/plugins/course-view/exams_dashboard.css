@@ -494,6 +494,39 @@ html[data-culms-dashboard-pending] cu-courses-group {
   content: '✓ ';
 }
 
+/* «Метод скипа» — плашка под курсом, в цветах статуса из таблицы заданий
+   (courses/tasks_fix.js). */
+.culms-deadlines-popover__status {
+  grid-column: 2;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  padding: 1px 8px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--culms-dp-text);
+  background: rgba(181, 22, 215, 0.15);
+  border-radius: 8px;
+}
+
+.culms-deadlines-popover__status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: #b516d7;
+  border-radius: 50%;
+}
+
+.culms-deadlines-popover--dark .culms-deadlines-popover__status {
+  background: rgba(181, 22, 215, 0.35);
+}
+
+.culms-deadlines-popover--dark .culms-deadlines-popover__status::before {
+  background: #d633ff;
+}
+
 .culms-deadlines-popover__more {
   margin-top: 6px;
 }

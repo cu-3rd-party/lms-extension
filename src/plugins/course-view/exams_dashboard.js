@@ -666,13 +666,16 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
         const item = element('li', 'culms-deadlines-popover__item');
         item.classList.toggle('culms-deadlines-popover__item--done', task.done);
         item.classList.toggle('culms-deadlines-popover__item--skipped', task.skipped);
-        if (task.skipped) item.title = 'Метод скипа';
         item.appendChild(
           element('span', 'culms-deadlines-popover__time', formatTime(task.deadline))
         );
         item.appendChild(link('culms-deadlines-popover__name', task.name, task.url));
         // Своё название курса подставит course_names.js — этот класс он знает.
         item.appendChild(link('culms-deadlines-popover__course', task.courseName, task.courseUrl));
+        // Скип — не сдача: подписываем, чтобы зачёркнутое не путали со сданным.
+        if (task.skipped) {
+          item.appendChild(element('span', 'culms-deadlines-popover__status', 'Метод скипа'));
+        }
         list.appendChild(item);
       });
       popover.appendChild(list);

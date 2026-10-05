@@ -496,10 +496,14 @@ test('метод скипа: скипнутое задание считаетс�
   const item = popover().locator('.culms-deadlines-popover__item');
   await expect(item).toHaveClass(/--done/);
   await expect(item).toHaveClass(/--skipped/);
-  await expect(item).toHaveAttribute('title', 'Метод скипа');
+  // Подпись — чтобы скип не путали со сдачей.
+  await expect(item.locator('.culms-deadlines-popover__status')).toHaveText('Метод скипа');
   await expect(popover().locator('.culms-deadlines-popover__summary')).toHaveText(
     '1 дедлайн, всё сдано'
   );
+  // У сданного без скипа подписи нет.
+  await dayCell(3).hover();
+  await expect(popover().locator('.culms-deadlines-popover__status')).toHaveCount(0);
   await page.mouse.move(5, 5);
 
   await page.evaluate(() => localStorage.removeItem('cu.lms.skipped-tasks'));
