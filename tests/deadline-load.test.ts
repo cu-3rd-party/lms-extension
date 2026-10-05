@@ -478,6 +478,141 @@ test('с клавиатуры в список заданий: ↓ — к ссы�
   await expect(popover()).toHaveCount(0);
 });
 
+test('метод скипа: скипнутое задание считается сданным и зачёркнуто', async () => {
+  const today0 = TASKS.find((item) => item.exercise.name === 'ДЗ на сегодня')!;
+  // Новый ключ — по id задачи, старый — «курс::задание» из прошлых версий.
+  await page.evaluate(
+    (keys) => localStorage.setItem('cu.lms.skipped-tasks', JSON.stringify(keys)),
+    [`id:${today0.id}`, 'машинное обучение::дз 1']
+  );
+  await page.reload();
+  await expect(days()).toHaveCount(14, { timeout: 30_000 });
+  await expect(dayCell(0).locator('.culms-deadlines__count')).toHaveText('1/1');
+  await expect(dayCell(1).locator('.culms-deadlines__count')).toHaveText('1/1');
+  await expect(dayCell(0)).toHaveClass(/culms-deadlines__day--closed/);
+  await expect(dayCell(0)).toHaveClass(/culms-deadlines--l0/);
+
+  await dayCell(0).hover();
+  const item = popover().locator('.culms-deadlines-popover__item');
+  await expect(item).toHaveClass(/--done/);
+  await expect(item).toHaveClass(/--skipped/);
+  // Подпись — чтобы скип не путали со сдачей.
+  await expect(item.locator('.culms-deadlines-popover__status')).toHaveText('Метод скипа');
+  await expect(popover().locator('.culms-deadlines-popover__summary')).toHaveText(
+    '1 дедлайн, всё сдано'
+  );
+  // У сданного без скипа подписи нет.
+  await dayCell(3).hover();
+  await expect(popover().locator('.culms-deadlines-popover__status')).toHaveCount(0);
+  await page.mouse.move(5, 5);
+
+  await page.evaluate(() => localStorage.removeItem('cu.lms.skipped-tasks'));
+  await page.reload();
+  await expect(days()).toHaveCount(14, { timeout: 30_000 });
+  await expect(dayCell(0).locator('.culms-deadlines__count')).toHaveText('0/1');
+});
+
+test('свои пороги цвета меняют дни и легенду на лету', async () => {
+  const levels = () =>
+    days().evaluateAll((cells) =>
+      cells.map((cell) => (cell.className.match(/culms-deadlines--l(\d)/) || [])[1])
+    );
+  // Несданных по дням: 1, 1, 1, 3, -, -, 7, -, -, 13, -, 0, 1, -.
+  await writeStorage({
+    sync: { deadlineLevelYellow: 2, deadlineLevelOrange: 4, deadlineLevelRed: 13 },
+  });
+  await expect(dashboard().locator('.culms-deadlines__legend-item')).toHaveText([
+    '1',
+    '2–3',
+    '4–12',
+    '13+',
+  ]);
+  await expect
+    .poll(levels)
+    .toEqual(['1', '1', '1', '2', '0', '0', '3', '0', '0', '4', '0', '0', '1', '0']);
+
+  // Пороги не по порядку (из чужого профиля) — каждый не меньше предыдущего + 1.
+  await writeStorage({
+    sync: { deadlineLevelYellow: 5, deadlineLevelOrange: 3, deadlineLevelRed: 1 },
+  });
+  await expect(dashboard().locator('.culms-deadlines__legend-item')).toHaveText([
+    '1–4',
+    '5',
+    '6',
+    '7+',
+  ]);
+
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+  await popup.evaluate(() =>
+    chrome.storage.sync.remove(['deadlineLevelYellow', 'deadlineLevelOrange', 'deadlineLevelRed'])
+  );
+  await popup.close();
+  await expect(dashboard().locator('.culms-deadlines__legend-item')).toHaveText([
+    '1–2',
+    '3–5',
+    '6–9',
+    '10+',
+  ]);
+});
+
+test('в попапе пороги под галочкой дедлайнов, соседние сдвигаются за правленым', async () => {
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+  await popup.getByRole('tab', { name: 'Сроки' }).click();
+  const yellow = popup.locator('#deadline-level-yellow');
+  const orange = popup.locator('#deadline-level-orange');
+  const red = popup.locator('#deadline-level-red');
+  await expect(yellow).toBeVisible();
+  await expect(yellow).toHaveValue('3');
+  await expect(orange).toHaveValue('6');
+  await expect(red).toHaveValue('10');
+  await expect(popup.locator('#deadline-level-green-range')).toHaveText('1–2');
+
+  // Жёлтый 7 — оранжевый за ним становится 8, красный 10 остаётся.
+  await yellow.fill('7');
+  await yellow.press('Enter');
+  await expect(orange).toHaveValue('8');
+  await expect(red).toHaveValue('10');
+  await expect(popup.locator('#deadline-level-green-range')).toHaveText('1–6');
+  const stored = () =>
+    popup.evaluate(() =>
+      chrome.storage.sync.get(['deadlineLevelYellow', 'deadlineLevelOrange', 'deadlineLevelRed'])
+    );
+  await expect
+    .poll(stored)
+    .toEqual({ deadlineLevelYellow: 7, deadlineLevelOrange: 8, deadlineLevelRed: 10 });
+  await expect(dashboard().locator('.culms-deadlines__legend-item')).toHaveText([
+    '1–6',
+    '7',
+    '8–9',
+    '10+',
+  ]);
+
+  // Красный 3 — правленое поле остаётся, младшие уступают вниз.
+  await red.fill('3');
+  await red.press('Enter');
+  await expect(yellow).toHaveValue('2');
+  await expect(orange).toHaveValue('3');
+  await expect(red).toHaveValue('4');
+  await expect(popup.locator('#deadline-level-green-range')).toHaveText('1');
+
+  // Галочка дедлайнов выключена — порогов не видно.
+  await popup
+    .locator('label.switch', { has: popup.locator('#future-exams-dashboard-deadlines-toggle') })
+    .click();
+  await expect(yellow).toBeHidden();
+  await popup
+    .locator('label.switch', { has: popup.locator('#future-exams-dashboard-deadlines-toggle') })
+    .click();
+  await expect(yellow).toBeVisible();
+
+  await popup.evaluate(() =>
+    chrome.storage.sync.remove(['deadlineLevelYellow', 'deadlineLevelOrange', 'deadlineLevelRed'])
+  );
+  await popup.close();
+});
+
 test('легенда окрашена ровно как дни того же уровня', async () => {
   // Заливка и цвет текста пункта легенды — те же, что у дня с таким числом дедлайнов.
   const colors = (locator: ReturnType<typeof days>) =>

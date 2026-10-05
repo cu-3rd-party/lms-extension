@@ -47,6 +47,16 @@ body.dark-theme .setting-label {
   color: #9aa0a6;
 }
 
+body.dark-theme .deadline-level {
+  color: #e8eaed;
+}
+
+body.dark-theme .deadline-level__input {
+  color: #e8eaed;
+  background-color: #3c4043;
+  border-color: #5f6368;
+}
+
 body.dark-theme .section-actions {
   border-top-color: #3c4043;
 }

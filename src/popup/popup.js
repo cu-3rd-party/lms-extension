@@ -170,6 +170,16 @@ const themeFileStatus = document.getElementById('theme-file-status');
 const gradesExportBtn = document.getElementById('grades-export-btn');
 const gradesExportArchivedBtn = document.getElementById('grades-export-archived-btn');
 const gradesExportStatus = document.getElementById('grades-export-status');
+const deadlineLevels = document.getElementById('deadline-levels');
+const deadlineGreenRange = document.getElementById('deadline-level-green-range');
+// Пороги цвета дней с дедлайнами: с какого числа несданных день жёлтый,
+// оранжевый и красный. Порядок полей — порядок ключей.
+const DEADLINE_LEVELS = [
+  { key: 'deadlineLevelYellow', input: document.getElementById('deadline-level-yellow') },
+  { key: 'deadlineLevelOrange', input: document.getElementById('deadline-level-orange') },
+  { key: 'deadlineLevelRed', input: document.getElementById('deadline-level-red') },
+];
+const DEADLINE_LEVEL_DEFAULTS = [3, 6, 10];
 
 const allKeys = [
   ...Object.keys(toggles),
@@ -183,6 +193,7 @@ const allKeys = [
   'logoScale',
   'backgroundFit',
   'backgroundVeil',
+  ...DEADLINE_LEVELS.map((level) => level.key),
 ];
 let pendingChanges = {};
 
@@ -432,6 +443,7 @@ function refreshToggleStates() {
         data.backgroundVeil === undefined ? 60 : data.backgroundVeil
       );
     }
+    updateDeadlineLevelsUI(data);
     updateCourseFilters(data);
     updateContestAuthStatus();
     if (renameTemplateSelect && data.autoRenameTemplate) {
@@ -512,6 +524,8 @@ allKeys.forEach((key) => {
         }
       } else if (key === 'futureExamsViewToggle') {
         updateFormatDisplayVisibility();
+      } else if (key === 'futureExamsDashboardDeadlines') {
+        if (deadlineLevels) deadlineLevels.hidden = !isEnabled;
       } else if (key === 'autoRenameEnabled') {
         updateAutoRenameUI(isEnabled);
       } else if (key === 'oldCoursesDesignToggle') {
@@ -770,6 +784,60 @@ if (isInsideIframe) {
     }
   });
 }
+
+// --- ПОРОГИ ЦВЕТА ДЕДЛАЙНОВ ---
+//
+// Тот же разбор, что в course-view/exams_dashboard.js (toThresholds): целые
+// от 2 до 99, каждый больше предыдущего. Поле, которое правят, остаётся как
+// есть, а соседние сдвигаются за ним: поставил жёлтый 7 — оранжевый станет 8.
+
+function toDeadlineThresholds(values, fixedIndex = -1) {
+  const clamp = (value, fallback) => {
+    const raw = Math.round(Number(value));
+    return Math.min(99, Math.max(2, Number.isFinite(raw) ? raw : fallback));
+  };
+  const result = DEADLINE_LEVEL_DEFAULTS.map((fallback, index) => clamp(values[index], fallback));
+  // Дальше сдвигаем только соседей правленого поля; места выше 99 не хватает
+  // — тогда уступает и оно само.
+  for (let index = Math.max(fixedIndex + 1, 1); index < result.length; index++) {
+    result[index] = Math.max(result[index], result[index - 1] + 1);
+  }
+  for (let index = Math.min(fixedIndex, result.length) - 1; index >= 0; index--) {
+    result[index] = Math.min(result[index], result[index + 1] - 1);
+  }
+  let previous = 1;
+  return result.map((value) => (previous = Math.max(previous + 1, Math.min(99, value))));
+}
+
+function updateDeadlineLevelsUI(data) {
+  if (!deadlineLevels) return;
+  deadlineLevels.hidden = !data.futureExamsDashboardDeadlines;
+  const thresholds = toDeadlineThresholds(DEADLINE_LEVELS.map((level) => data[level.key]));
+  DEADLINE_LEVELS.forEach((level, index) => {
+    // Поле, в котором сейчас печатают, не трогаем — иначе курсор прыгал бы.
+    if (document.activeElement !== level.input) level.input.value = String(thresholds[index]);
+  });
+  const greenEnd = thresholds[0] - 1;
+  deadlineGreenRange.textContent = greenEnd === 1 ? '1' : `1–${greenEnd}`;
+}
+
+DEADLINE_LEVELS.forEach((level, index) => {
+  if (!level.input) return;
+  level.input.addEventListener('change', () => {
+    const thresholds = toDeadlineThresholds(
+      DEADLINE_LEVELS.map((entry) => entry.input.value),
+      index
+    );
+    DEADLINE_LEVELS.forEach((entry, position) => {
+      entry.input.value = String(thresholds[position]);
+    });
+    browser.storage.sync.set(
+      Object.fromEntries(
+        DEADLINE_LEVELS.map((entry, position) => [entry.key, thresholds[position]])
+      )
+    );
+  });
+});
 
 browser.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync') refreshToggleStates();

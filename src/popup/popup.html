@@ -488,6 +488,64 @@
         background-color: #90caf9;
       }
 
+      /* Пороги цвета дней с дедлайнами: строка на цвет, число справа. */
+      .deadline-levels {
+        display: grid;
+        gap: 6px;
+        max-width: 240px;
+      }
+
+      .deadline-level {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 28px;
+        font-size: 13px;
+        color: #333;
+      }
+
+      .deadline-level > :last-child {
+        margin-left: auto;
+      }
+
+      .deadline-level::before {
+        content: '';
+        flex: none;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--deadline-level-color);
+      }
+
+      .deadline-level--green {
+        --deadline-level-color: #40c057;
+      }
+
+      .deadline-level--yellow {
+        --deadline-level-color: #fab005;
+      }
+
+      .deadline-level--orange {
+        --deadline-level-color: #fd7e14;
+      }
+
+      .deadline-level--red {
+        --deadline-level-color: #fa5252;
+      }
+
+      /* Ячейка «1–2» у зелёного — той же ширины, что поля, чтобы числа стояли
+         столбиком. */
+      #deadline-level-green-range {
+        width: 56px;
+        text-align: center;
+      }
+
+      .text-input.deadline-level__input {
+        width: 56px;
+        padding: 4px 6px;
+        text-align: center;
+      }
+
       .text-input {
         width: 100%;
         padding: 8px 12px;
@@ -940,9 +998,47 @@
                 <span class="slider"></span>
               </label>
             </div>
+            <div class="setting-group" id="deadline-levels" hidden>
+              <span class="setting-label">Цвет дня по числу несданных дедлайнов:</span>
+              <div class="deadline-levels">
+                <span class="deadline-level deadline-level--green"
+                  >Зелёный <span id="deadline-level-green-range">1–2</span></span
+                >
+                <label class="deadline-level deadline-level--yellow"
+                  >Жёлтый от
+                  <input
+                    class="text-input deadline-level__input"
+                    id="deadline-level-yellow"
+                    type="number"
+                    min="2"
+                    max="99"
+                    step="1"
+                /></label>
+                <label class="deadline-level deadline-level--orange"
+                  >Оранжевый от
+                  <input
+                    class="text-input deadline-level__input"
+                    id="deadline-level-orange"
+                    type="number"
+                    min="2"
+                    max="99"
+                    step="1"
+                /></label>
+                <label class="deadline-level deadline-level--red"
+                  >Красный от
+                  <input
+                    class="text-input deadline-level__input"
+                    id="deadline-level-red"
+                    type="number"
+                    min="2"
+                    max="99"
+                    step="1"
+                /></label>
+              </div>
+            </div>
             <p class="course-hint" style="margin: 12px 0 0">
-              Полоской под списком курсов. Цвет дня — по числу несданных дедлайнов (1–2, 3–5, 6–9,
-              10+), при наведении — сами задания. Тесты на паре, перезачёты и дорешивания не
+              Полоской под списком курсов. Цвет дня — по числу несданных дедлайнов, пороги задаются
+              выше; при наведении — сами задания. Тесты на паре, перезачёты и дорешивания не
               считаются. Можно включить обе части или любую одну.
             </p>
           </div>
