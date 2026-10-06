@@ -337,6 +337,16 @@ cu-course-attendance-events.culms-att-only-mine
   border-bottom: 0;
 }
 
+.culms-att-table tfoot > tr > * {
+  border-top: 2px solid var(--att-line-strong);
+  border-bottom: 0;
+  font-weight: 600;
+}
+
+.culms-att-table tfoot small {
+  font-weight: 400;
+}
+
 .culms-att-table thead th {
   color: var(--att-text-3);
   font-weight: 500;
@@ -590,6 +600,14 @@ cu-course-attendance-events.culms-att-only-mine
 }
 
 /* Подпись под родной таблицей: что значат числа. */
+.culms-att-native-total td:first-child {
+  font-weight: 600;
+}
+
+.culms-att-native-total > tr > * {
+  border-top: 2px solid var(--att-line-strong, rgba(127, 127, 127, 0.3));
+}
+
 .culms-att-native-legend {
   margin-top: 12px;
   padding: 0 12px;

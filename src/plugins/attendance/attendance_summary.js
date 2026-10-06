@@ -318,7 +318,9 @@
     if (!host) return;
     const rows = host.querySelectorAll('tr.course-row');
     if (isArchived() || !state.data) {
-      host.querySelectorAll(`.${NATIVE_CLASS}`).forEach((el) => el.remove());
+      host
+        .querySelectorAll(`.${NATIVE_CLASS}, .${NATIVE_TOTAL_CLASS}`)
+        .forEach((el) => el.remove());
       return;
     }
     const byKey = coursesByKey();
@@ -345,6 +347,67 @@
       shown = true;
     });
     syncNativeLegend(host, shown);
+    syncNativeTotal(host, shown);
+  }
+
+  const NATIVE_TOTAL_CLASS = 'culms-att-native-total';
+
+  /**
+   * Строка «Всего» под родной таблицей: по всем курсам с посещаемостью сразу,
+   * в том же виде «был / мог быть / всего» и с процентом. Процент — сумма
+   * посещённых к сумме прошедших с отметкой (как карточка в «Сводной»), а не
+   * среднее процентов курсов. Строка живёт в `<tfoot>`, а не в `<tbody>`:
+   * Angular перерисовывает строки курсов и мог бы её унести. Ячейки берут
+   * разметку у строки курса (клон без содержимого) — стили родной таблицы
+   * привязаны к атрибутам Angular, у чужих элементов их нет.
+   */
+  function syncNativeTotal(host, shown) {
+    const table = host.querySelector('table.cu-table');
+    let foot = table?.querySelector(`:scope > tfoot.${NATIVE_TOTAL_CLASS}`);
+    const counted = shown ? state.data.courses.filter((c) => c.counts) : [];
+    const sum = (key) => counted.reduce((total, c) => total + c.counts[key], 0);
+    const could = sum('settled') + sum('pending');
+    if (!table || !counted.length || !could) {
+      foot?.remove();
+      return;
+    }
+    const attended = sum('attended');
+    const settled = sum('settled');
+    const semester = sum('semester');
+    const rate = settled ? attended / settled : null;
+    const cells = table.querySelectorAll('thead th').length || 4;
+    const title =
+      `Был на ${attended} из ${could} прошедших семинаров по ${counted.length} курсам, всего за семестр ${semester}
+` + `${pct(rate)} — посещено из прошедших с отметкой (все курсы вместе)`;
+    const html =
+      `<span class="culms-att-kda" title="${esc(title)}">` +
+      `<b class="culms-att-native__rate is-${levelOf(rate)}">${attended}</b><i>/</i>` +
+      `<span>${could}</span><i>/</i><span class="culms-att-native__muted">${semester}</span></span>` +
+      `<div class="culms-att-native__muted">${pct(rate)} посещено</div>`;
+    if (!foot) {
+      foot = document.createElement('tfoot');
+      foot.className = NATIVE_TOTAL_CLASS;
+      const sample = table.querySelector('tbody tr.course-row');
+      const row = sample ? sample.cloneNode(false) : document.createElement('tr');
+      row.className = '';
+      for (const name of ['data-id', 'tabindex', 'role']) row.removeAttribute(name);
+      const sampleCells = sample ? [...sample.children] : [];
+      for (let i = 0; i < cells; i++) {
+        const cell = sampleCells[i]
+          ? sampleCells[i].cloneNode(false)
+          : document.createElement('td');
+        cell.className = '';
+        row.append(cell);
+      }
+      row.firstElementChild.textContent = 'Всего';
+      foot.append(row);
+    }
+    if (foot.previousElementSibling?.tagName !== 'TBODY') table.append(foot);
+    const last = foot.firstElementChild.lastElementChild;
+    if (last.dataset.html !== html) {
+      last.innerHTML = html;
+      last.dataset.html = html;
+    }
   }
 
   /**
@@ -711,7 +774,40 @@
 
     return (
       `<div class="culms-att-scroll"><table class="culms-att-table">` +
-      `<thead>${head}</thead><tbody>${rows}</tbody></table></div>`
+      `<thead>${head}</thead><tbody>${rows}</tbody>${totalRowHtml(courses, weeks.length)}</table></div>`
+    );
+  }
+
+  function plural(n, one, few, many) {
+    const tail = n % 100;
+    if (tail >= 11 && tail <= 14) return many;
+    return n % 10 === 1 ? one : n % 10 >= 2 && n % 10 <= 4 ? few : many;
+  }
+
+  /**
+   * «Всего»: среднее по курсам с открытой посещаемостью. Считается по всем
+   * парам сразу (сумма «был» к сумме прошедших с отметкой), как карточка над
+   * таблицей, а не как среднее процентов курсов — у курса с большим числом
+   * пар вес больше.
+   */
+  function totalRowHtml(courses, weekCount) {
+    const counted = courses.filter((c) => c.counts);
+    if (!counted.length) return '';
+    const sum = (key) => counted.reduce((total, c) => total + c.counts[key], 0);
+    const attended = sum('attended');
+    const settled = sum('settled');
+    const pending = sum('pending');
+    const max = sum('max');
+    const semester = sum('semester');
+    const rate = settled ? attended / settled : null;
+    return (
+      `<tfoot><tr class="culms-att-total"><th class="culms-att-course">Всего` +
+      `<small>${counted.length} ${plural(counted.length, 'курс', 'курса', 'курсов')} с посещаемостью</small></th>` +
+      `<td colspan="${weekCount}"></td>` +
+      `<td class="culms-att-num"><span class="culms-att-rate is-${levelOf(rate)}">${attended}/${settled}</span>` +
+      `<small>${pct(rate)}${pending ? ` · +${pending} ждёт` : ''}</small></td>` +
+      `<td class="culms-att-num">${max}/${semester}<small>${pct(semester ? max / semester : null)}</small></td>` +
+      `</tr></tfoot>`
     );
   }
 

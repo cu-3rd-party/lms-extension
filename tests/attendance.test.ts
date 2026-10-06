@@ -436,6 +436,13 @@ test('в родной колонке «За весь семестр» — про
   // Закрытый курс не трогаем.
   await expect(note('Теория вероятностей')).toHaveCount(0);
 
+  // «Всего» — под таблицей, по всем открытым курсам: 2+1+0 был, 5+2+1 прошло,
+  // 26+13+10 за семестр; процент — 3 из 6 с отметкой.
+  const total = page.locator('cu-courses-attendance tfoot.culms-att-native-total tr');
+  await expect(total.locator('td').first()).toHaveText('Всего');
+  await expect(total.locator('td')).toHaveCount(4);
+  await expect(total.locator('td').last()).toHaveText(/3\/8\/49\s*50% посещено/);
+
   // Что значат числа — одной подписью под таблицей.
   const legend = page.locator('#culms-att-native-legend');
   await expect(legend).toHaveCount(1);
@@ -448,9 +455,10 @@ test('в родной колонке «За весь семестр» — про
   const early = requests.filter((r) => /\/events\/2026-09-(0\d|1\d|20)$/.test(r));
   expect(early).toEqual([]);
 
-  // В архиве ни дописок, ни подписи.
+  // В архиве ни дописок, ни подписи, ни «Всего».
   await page.locator('cu-tabs a.tab', { hasText: 'Архивные' }).click();
   await expect(page.locator('.culms-att-native')).toHaveCount(0);
+  await expect(page.locator('.culms-att-native-total')).toHaveCount(0);
 });
 
 test('свои названия курсов и «сердечки» не мешают найти курс строки', async ({ page }) => {
@@ -541,6 +549,12 @@ test('таблица: недели семестра, свои семинары �
   // Сегодняшний семинар линала ещё не кончился.
   const lin = await marks(courseRow(page, 'Линейная'));
   expect(lin.slice(0, 3)).toEqual(['attended', 'missed', 'upcoming']);
+
+  // «Всего» — по всем открытым курсам сразу, как карточка ниже.
+  const total = view(page).locator('tfoot .culms-att-total');
+  await expect(total.locator('th')).toContainText('Всего');
+  await expect(total.locator('th')).toContainText('3 курса с посещаемостью');
+  await expect(total.locator('td.culms-att-num').first()).toHaveText(/3\/6\s*50%/);
 
   // Карточки — по всем открытым курсам.
   await expect(view(page).locator('.culms-att-stat').first()).toHaveText(
