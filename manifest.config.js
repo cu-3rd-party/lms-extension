@@ -183,6 +183,8 @@ export default defineManifest({
         'plugins/timetable/swap_menu.js',
         'plugins/timetable/swap.css',
         'plugins/attendance/attendance_api.js',
+        'plugins/course-view/course_attendance_bar.js',
+        'plugins/course-view/course_attendance_bar.css',
         'plugins/attendance/attendance_summary.js',
         'plugins/attendance/attendance_course.js',
         'plugins/attendance/attendance.css',

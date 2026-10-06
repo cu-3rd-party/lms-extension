@@ -16,6 +16,7 @@ if (!window.__cu_reset_loaded) {
         'culms.attendance.prefs',
         'culms.attendance.course.prefs',
         'culms.attendance.cache.v1',
+        'culms.attendance.bar.v1',
       ];
       keysToRemove.forEach((key) => localStorage.removeItem(key));
       console.log('[CU Extension] LMS LocalStorage очищен (фильтры, друзья, таблица оценок).');

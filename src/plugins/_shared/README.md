@@ -53,7 +53,7 @@
   - `cu.lms.skipped-tasks`
   - `cu_friends_list`
   - `culms.gradebook.prefs` — вид сводной таблицы ведомостей
-  - `culms.attendance.prefs`, `culms.attendance.course.prefs`, `culms.attendance.cache.v1` — вид сводной посещаемости, галочка «Только мой семинар» и кеш прошедших дней (`attendance/`)
+  - `culms.attendance.prefs`, `culms.attendance.course.prefs`, `culms.attendance.cache.v1` — вид сводной посещаемости, галочка «Только мой семинар» и кеш прошедших дней (`attendance/`); `culms.attendance.bar.v1` — последние числа курса для полосы под «Прогрессом по курсу» (`course-view/`)
 
 **Взаимодействие со страницей:** только `localStorage`, DOM не трогает.
 

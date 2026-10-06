@@ -133,6 +133,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
     range('deadlineLevelRed', 'features', 2, 99, 10),
     bool('courseOverviewTaskStatusToggle', 'features'),
     bool('courseOverviewAutoscrollToggle', 'features'),
+    bool('courseAttendanceBarToggle', 'features'),
     bool('courseExporterToggle', 'features'),
     bool('advancedStatementsEnabled', 'features'),
     bool('endOfCourseCalcEnabled', 'features'),

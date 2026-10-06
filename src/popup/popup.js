@@ -121,6 +121,7 @@ const toggles = {
   akhIntegrationEnabled: document.getElementById('akh-integration-toggle'),
   contestIntegrationEnabled: document.getElementById('contest-integration-toggle'),
   courseOverviewTaskStatusToggle: document.getElementById('course-overview-task-status-toggle'),
+  courseAttendanceBarToggle: document.getElementById('course-attendance-bar-toggle'),
   emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
   oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
   customCourseNamesToggle: document.getElementById('custom-course-names-toggle'),

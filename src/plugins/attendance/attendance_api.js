@@ -406,9 +406,12 @@
 
   /**
    * Все курсы посещаемости с семинарами за семестр.
-   * `onProgress({ done, total })` — для полосы загрузки; `force` — мимо кеша.
+   * `onProgress({ done, total })` — для полосы загрузки; `force` — мимо кеша;
+   * `only` — id одного курса: грузится только он (страница курса ждёт один
+   * курс, а не все), результат общим не становится и в кеш загрузки не идёт.
    */
-  function load({ force = false, onProgress } = {}) {
+  function load({ force = false, onProgress, only = null } = {}) {
+    if (only != null) return loadAll(force, onProgress || (() => {}), only);
     if (!force && current && (current.pending || Date.now() - current.at < DATA_TTL_MS)) {
       if (onProgress) current.listeners.add(onProgress);
       return current.promise;
@@ -434,7 +437,7 @@
     return entry.promise;
   }
 
-  async function loadAll(force, report) {
+  async function loadAll(force, report, only = null) {
     const now = new Date();
     const today = dayNumber(now);
     const [courses, timetables] = await Promise.all([
@@ -454,7 +457,9 @@
     };
     ctx.trackFrom = trackingStart(ctx.semester, today);
 
-    const list = (Array.isArray(courses) ? courses : []).filter((c) => c && c.courseId != null);
+    const list = (Array.isArray(courses) ? courses : []).filter(
+      (c) => c && c.courseId != null && (only == null || c.courseId === only)
+    );
     const open = list.filter((c) => c.isVisibleForStudents);
     // Число запросов заранее: по дню на прошедшее занятие (или на каждый день
     // семестра, если расписания по курсу нет).

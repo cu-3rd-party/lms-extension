@@ -38,6 +38,7 @@ export const FEATURE_TOGGLES: Readonly<Record<string, boolean>> = {
   futureExamsDashboardDeadlines: false,
   courseOverviewTaskStatusToggle: false,
   courseOverviewAutoscrollToggle: false,
+  courseAttendanceBarToggle: false,
   courseExporterToggle: false,
   advancedStatementsEnabled: false,
   endOfCourseCalcEnabled: false,

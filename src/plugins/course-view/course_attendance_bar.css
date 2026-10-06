@@ -1,0 +1,147 @@
+/* course_attendance_bar.css — полоса посещаемости под «Прогрессом по курсу»
+   (course_attendance_bar.js). Размеры шрифтов, отступы и цвета сняты с
+   родного cu-course-progress-widget. */
+
+.culms-course-att {
+  --cca-attended: #00bc7d;
+  --cca-left: #ffe666;
+  --cca-lost: #f4f4f5;
+  --cca-ok: #13773a;
+  --cca-warn: #b45309;
+  --cca-bad: #c0341d;
+  --cca-ok-bg: #d5f2e1;
+  --cca-warn-bg: #ffecd2;
+  --cca-bad-bg: #fde4e1;
+  display: block;
+  margin: 16px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--tui-border-normal, rgba(127, 127, 127, 0.25));
+}
+
+:root:has(#culms-dark-theme-style-base) .culms-course-att {
+  --cca-left: #fbbf24;
+  --cca-lost: rgba(255, 255, 255, 0.15);
+  --cca-ok: #6ee0b0;
+  --cca-warn: #fbbf24;
+  --cca-bad: #ff9b7e;
+  --cca-ok-bg: rgba(74, 201, 155, 0.22);
+  --cca-warn-bg: rgba(249, 171, 0, 0.2);
+  --cca-bad-bg: rgba(244, 87, 37, 0.24);
+}
+
+.culms-course-att__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: help;
+}
+
+.culms-course-att__details {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.culms-course-att__score {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.culms-course-att__big {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 38px;
+  letter-spacing: -0.64px;
+}
+
+.culms-course-att__rate {
+  align-self: center;
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  background: rgba(127, 127, 127, 0.15);
+}
+
+.culms-course-att__rate.is-ok {
+  color: var(--cca-ok);
+  background: var(--cca-ok-bg);
+}
+
+.culms-course-att__rate.is-warn {
+  color: var(--cca-warn);
+  background: var(--cca-warn-bg);
+}
+
+.culms-course-att__rate.is-bad {
+  color: var(--cca-bad);
+  background: var(--cca-bad-bg);
+}
+
+.culms-course-att__bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin: 8px 0 12px;
+}
+
+.culms-course-att__seg {
+  height: 10px;
+  border-radius: 2px;
+}
+
+.culms-course-att__seg.is-attended {
+  background: var(--cca-attended);
+}
+
+.culms-course-att__seg.is-left {
+  background: var(--cca-left);
+}
+
+.culms-course-att__seg.is-lost {
+  background: var(--cca-lost);
+}
+
+.culms-course-att__legend {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.culms-course-att__row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.culms-course-att__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.culms-course-att__name::before {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.culms-course-att__name.is-attended::before {
+  background: var(--cca-attended);
+}
+
+.culms-course-att__name.is-left::before {
+  background: var(--cca-left);
+}
+
+.culms-course-att__value {
+  font-weight: 500;
+}

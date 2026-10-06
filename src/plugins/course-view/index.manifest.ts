@@ -3,7 +3,11 @@ import type { PluginManifest } from '../types';
 const manifest = {
   id: 'courseView',
   matches: (url: string) => url.includes('/learn/courses/view'),
-  cssFiles: ['plugins/course-view/course_cards.css', 'plugins/course-view/exams_dashboard.css'],
+  cssFiles: [
+    'plugins/course-view/course_cards.css',
+    'plugins/course-view/exams_dashboard.css',
+    'plugins/course-view/course_attendance_bar.css',
+  ],
   scripts: [
     // gif_reencode.js должен быть до карточек: они зовут window.cuLmsGifReencode
     'plugins/course-view/gif_reencode.js',
@@ -16,6 +20,9 @@ const manifest = {
     'plugins/course-view/future_exams_api.js',
     'plugins/course-view/future_exams_view.js',
     'plugins/course-view/exams_dashboard.js',
+    // attendance_api.js — до полосы: она зовёт window.cuLmsAttendance
+    'plugins/attendance/attendance_api.js',
+    'plugins/course-view/course_attendance_bar.js',
     'plugins/_shared/fflate.umd.min.js',
     'plugins/_shared/pdf-lib.min.js',
     'plugins/course-view/course_exporter.js',
