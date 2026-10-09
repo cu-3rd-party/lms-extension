@@ -44,6 +44,7 @@ export const FEATURE_TOGGLES: Readonly<Record<string, boolean>> = {
   endOfCourseCalcEnabled: false,
   friendsEnabled: true,
   hideBonusButtonEnabled: false,
+  seminarStatusEnabled: false,
   autoRenameEnabled: false,
   hideTasksBeforeEnabled: false,
   akhIntegrationEnabled: false,

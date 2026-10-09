@@ -79,6 +79,14 @@
         overflow-y: auto;
       }
 
+      .menu-footnote {
+        margin: 8px 0 0;
+        padding: 0 8px;
+        font-size: 12px;
+        line-height: 1.4;
+        opacity: 0.65;
+      }
+
       .menu-tab {
         display: flex;
         align-items: center;
@@ -580,6 +588,9 @@
         <div id="reload-notice" class="notice" style="display: none">
           Изменения применятся после закрытия меню
         </div>
+        <p class="menu-footnote">
+          После смены некоторых настроек страницу LMS нужно обновить вручную.
+        </p>
       </nav>
 
       <main class="menu-content">
@@ -1085,6 +1096,22 @@
                   <option value="hw_if">HW_Имя_Фамилия</option>
                 </select>
               </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Список задач</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Статус «Аудиторная»
+                <span class="toggle-hint"
+                  >Чёрный чип и тёмная строка у аудиторных заданий</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="seminar-status-toggle" />
+                <span class="slider"></span>
+              </label>
             </div>
           </div>
 

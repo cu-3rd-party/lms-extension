@@ -16,11 +16,14 @@ if (from === -1 || to === -1 || to < from) {
   throw new Error('Не нашли блок определения аудиторных работ в tasks_fix.js');
 }
 
-const { looksLikeHomework, isSeminarTask } = new Function(
-  source.slice(from, to) + '\nreturn { looksLikeHomework, isSeminarTask };'
+const { looksLikeHomework, isSeminarTask, setEnabled } = new Function(
+  'let seminarStatusEnabled = true;\n' +
+    source.slice(from, to) +
+    '\nreturn { looksLikeHomework, isSeminarTask, setEnabled: (v) => { seminarStatusEnabled = v; } };'
 )() as {
   looksLikeHomework: (name: string) => boolean;
   isSeminarTask: (task: unknown, status: string, row: unknown) => boolean;
+  setEnabled: (value: boolean) => void;
 };
 
 const row = (name: string) => ({ querySelector: () => ({ textContent: name }) });
@@ -71,4 +74,19 @@ test('обычная активность без ключевых слов не 
 test('домашку видно и по заголовку строки, если из API приехало другое', () => {
   const mismatched = task('Семинар 4', 'Аудиторная работа на семинарах');
   expect(isSeminarTask(mismatched, 'Задано', row('ДЗ 4. Двойственность'))).toBe(false);
+});
+
+test('при выключенной настройке аудиторной не бывает никогда', () => {
+  setEnabled(false);
+  try {
+    expect(
+      isSeminarTask(
+        task('Семинар 1', 'Аудиторная работа на семинарах'),
+        'В работе',
+        row('Семинар 1')
+      )
+    ).toBe(false);
+  } finally {
+    setEnabled(true);
+  }
 });

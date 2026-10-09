@@ -140,6 +140,8 @@ if (typeof window.cuLmsSettings === 'undefined') {
     // Вкладка друзей показывается, пока её явно не выключили.
     bool('friendsEnabled', 'features', true),
     bool('hideBonusButtonEnabled', 'features'),
+    // Статус «Аудиторная» в списке задач; по умолчанию выключен.
+    bool('seminarStatusEnabled', 'features'),
     bool('autoRenameEnabled', 'features'),
     choice('autoRenameTemplate', 'features', ['short', 'full'], 'short'),
     // Скрытие старых заданий в архиве задач (поле даты над его таблицей).

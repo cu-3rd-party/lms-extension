@@ -136,6 +136,7 @@ const toggles = {
   endOfCourseCalcEnabled: document.getElementById('end-of-course-calc-toggle'),
   friendsEnabled: document.getElementById('friends-toggle'),
   hideBonusButtonEnabled: document.getElementById('hide-bonus-button-toggle'),
+  seminarStatusEnabled: document.getElementById('seminar-status-toggle'),
 };
 
 // Элементы UI для зависимых настроек

@@ -44,6 +44,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
   const SKIPPED_STATUS_TEXT = 'Метод скипа';
   const SEMINAR_STATUS_TEXT = 'Аудиторная';
 
+  // Статус «Аудиторная» включается в меню плагина; по умолчанию выключен.
+  // Читается в runLogic до отрисовки таблицы; смена настройки вступает в силу
+  // после перезагрузки страницы.
+  const SEMINAR_ENABLED_KEY = 'seminarStatusEnabled';
+  let seminarStatusEnabled = false;
+
   // Аудиторную работу LMS никак не помечает, поэтому вычисляем её сами по
   // названию активности. Активность (`exercise.activity`) — это не тип
   // задания, а корзина в формуле оценки: «Аудиторная работа на семинарах»,
@@ -72,6 +78,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
   /** Аудиторная ли это работа: решает название задания, а не корзина оценки. */
   function isSeminarTask(task, originalStatus, row) {
+    if (!seminarStatusEnabled) return false;
     if (!SEMINAR_LOW_PRIORITY_STATUSES.includes(originalStatus)) return false;
 
     const activityName = task?.exercise?.activity?.name || '';
@@ -1024,7 +1031,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
       // постоять без процентов, дедлайнов и кнопок — всё «доезжало» на глазах.
       // Angular рисует таблицу дольше, чем идёт наш запрос, поэтому к моменту
       // появления строк данные обычно уже готовы.
-      const settingsPromise = browser.storage.sync.get('emojiHeartsEnabled');
+      const settingsPromise = browser.storage.sync.get(['emojiHeartsEnabled', SEMINAR_ENABLED_KEY]);
       const tasksPromise = fetchTasksData();
 
       await waitForElement('tr[class*="task-table__task"]');
@@ -1032,6 +1039,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
 
       const [settings, tasksData] = await Promise.all([settingsPromise, tasksPromise]);
       const isEmojiSwapEnabled = !!settings.emojiHeartsEnabled;
+      seminarStatusEnabled = !!settings[SEMINAR_ENABLED_KEY];
 
       buildTableStructure();
       if (tasksData && tasksData.length > 0) {
@@ -1683,6 +1691,12 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     'Аудиторная',
     SKIPPED_STATUS_TEXT,
   ];
+  /** Без «Аудиторной» в списке фильтра, пока статус выключен в настройках. */
+  function statusOptions() {
+    return seminarStatusEnabled
+      ? HARDCODED_STATUSES
+      : HARDCODED_STATUSES.filter((status) => status !== SEMINAR_STATUS_TEXT);
+  }
   const masterCourseList = new Set();
   let selectedStatuses = new Set(HARDCODED_STATUSES);
   let selectedCourses = new Set();
@@ -1929,7 +1943,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     const host = document.querySelector('cu-multiselect-filter[controlname="state"]');
     writeFilterChip(
       host,
-      HARDCODED_STATUSES.filter((status) => selectedStatuses.has(status))
+      statusOptions().filter((status) => selectedStatuses.has(status))
     );
   }
 
@@ -1940,7 +1954,7 @@ if (typeof window.__culmsTasksFixInitialized === 'undefined') {
     const template = dataList.querySelector('button[tuioption]');
     dataList.innerHTML = '';
 
-    HARDCODED_STATUSES.forEach((text) => {
+    statusOptions().forEach((text) => {
       const isSelected = selectedStatuses.has(text);
       dataList.appendChild(createStatusOption(template, text, isSelected));
     });
