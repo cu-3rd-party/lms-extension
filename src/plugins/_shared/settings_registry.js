@@ -134,6 +134,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
     bool('courseOverviewTaskStatusToggle', 'features'),
     bool('courseOverviewAutoscrollToggle', 'features'),
     bool('courseAttendanceBarToggle', 'features'),
+    bool('coursePossibleScoreToggle', 'features'),
     bool('courseExporterToggle', 'features'),
     bool('advancedStatementsEnabled', 'features'),
     bool('endOfCourseCalcEnabled', 'features'),

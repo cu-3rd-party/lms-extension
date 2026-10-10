@@ -35,6 +35,8 @@ const TOGGLES: Record<string, string> = {
   'course-overview-task-status-toggle': 'Курсы',
   'course-overview-autoscroll-toggle': 'Курсы',
   'course-attendance-bar-toggle': 'Курсы',
+  'course-possible-score-toggle': 'Курсы',
+  'seminar-status-toggle': 'Задания',
   'future-exams-view-toggle': 'Сроки',
   'future-exams-dashboard-toggle': 'Сроки',
   'future-exams-dashboard-deadlines-toggle': 'Сроки',

@@ -185,6 +185,8 @@ export default defineManifest({
         'plugins/attendance/attendance_api.js',
         'plugins/course-view/course_attendance_bar.js',
         'plugins/course-view/course_attendance_bar.css',
+        'plugins/course-view/course_possible_score.js',
+        'plugins/course-view/course_possible_score.css',
         'plugins/attendance/attendance_summary.js',
         'plugins/attendance/attendance_course.js',
         'plugins/attendance/attendance.css',

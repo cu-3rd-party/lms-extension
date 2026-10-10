@@ -85,6 +85,7 @@
 }
 
 .culms-course-att__bar {
+  position: relative;
   display: flex;
   gap: 2px;
   height: 10px;
@@ -144,4 +145,19 @@
 
 .culms-course-att__value {
   font-weight: 500;
+}
+
+.culms-course-att__mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 3px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: #f4521e;
+  box-shadow: 0 0 0 1px var(--tui-background-base, #fff);
+}
+
+.culms-course-att__name.is-passed::before {
+  background: #f4521e;
 }

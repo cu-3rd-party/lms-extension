@@ -1,0 +1,52 @@
+/* course_possible_score.css — строка «Можно было набрать» в виджете
+   «Прогресс по курсу» (course_possible_score.js). Размеры — как у строк
+   легенды родного виджета. */
+
+.culms-course-possible {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  line-height: 18px;
+  cursor: help;
+}
+
+.culms-course-possible__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.culms-course-possible__name::before {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f4521e;
+}
+
+.culms-course-possible__value {
+  font-weight: 500;
+}
+
+.progress-bar:has(> .culms-course-possible-mark) {
+  position: relative;
+  overflow: visible;
+}
+
+.culms-course-possible-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 3px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: #f4521e;
+  box-shadow: 0 0 0 1px var(--tui-background-base, #fff);
+  pointer-events: auto;
+}
+
+/* Копия родной строки легенды: вид — родной; точка — свой элемент (красится в JS) или ::before. */
+.culms-course-possible-clone *::before {
+  background-color: #f4521e !important;
+}

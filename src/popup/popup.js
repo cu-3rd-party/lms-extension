@@ -122,6 +122,7 @@ const toggles = {
   contestIntegrationEnabled: document.getElementById('contest-integration-toggle'),
   courseOverviewTaskStatusToggle: document.getElementById('course-overview-task-status-toggle'),
   courseAttendanceBarToggle: document.getElementById('course-attendance-bar-toggle'),
+  coursePossibleScoreToggle: document.getElementById('course-possible-score-toggle'),
   emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
   oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
   customCourseNamesToggle: document.getElementById('custom-course-names-toggle'),

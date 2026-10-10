@@ -7,6 +7,7 @@ const manifest = {
     'plugins/course-view/course_cards.css',
     'plugins/course-view/exams_dashboard.css',
     'plugins/course-view/course_attendance_bar.css',
+    'plugins/course-view/course_possible_score.css',
   ],
   scripts: [
     // gif_reencode.js должен быть до карточек: они зовут window.cuLmsGifReencode
@@ -23,6 +24,7 @@ const manifest = {
     // attendance_api.js — до полосы: она зовёт window.cuLmsAttendance
     'plugins/attendance/attendance_api.js',
     'plugins/course-view/course_attendance_bar.js',
+    'plugins/course-view/course_possible_score.js',
     'plugins/_shared/fflate.umd.min.js',
     'plugins/_shared/pdf-lib.min.js',
     'plugins/course-view/course_exporter.js',

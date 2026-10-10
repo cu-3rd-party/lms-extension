@@ -142,10 +142,12 @@
       `<div class="culms-course-att__seg is-attended" style="width:${share(c.attended)}"></div>` +
       `<div class="culms-course-att__seg is-left" style="width:${share(canStill)}"></div>` +
       `<div class="culms-course-att__seg is-lost" style="width:${share(total - c.max)}"></div>` +
+      `<div class="culms-course-att__mark" style="left:${share(passed)}" title="Уже прошло пар: ${passed}"></div>` +
       `</div>` +
       `<div class="culms-course-att__legend text-secondary">` +
       `<div class="culms-course-att__row"><span class="culms-course-att__name is-attended">Посещено</span><span class="culms-course-att__value">${c.attended}</span></div>` +
       `<div class="culms-course-att__row"><span class="culms-course-att__name is-left">Еще можно посетить</span><span class="culms-course-att__value">${canStill}</span></div>` +
+      `<div class="culms-course-att__row"><span class="culms-course-att__name is-passed">Можно было посетить</span><span class="culms-course-att__value">${passed}</span></div>` +
       `</div></div>`
     );
   }

@@ -175,10 +175,13 @@ test('под прогрессом по курсу: посещено, прошл�
   await expect(block(page).locator('.culms-course-att__rate')).toHaveText('50%');
   await expect(block(page).locator('.culms-course-att__rate')).toHaveClass(/is-bad/);
   const rows = block(page).locator('.culms-course-att__row');
-  await expect(rows).toHaveCount(2);
+  await expect(rows).toHaveCount(3);
   await expect(rows.nth(0)).toContainText('Посещено1');
   // Максимум 12 (13 за семестр минус один пропуск) минус уже посещённый.
   await expect(rows.nth(1)).toContainText('Еще можно посетить11');
+  // Красная черта — сколько пар уже прошло (1 + 2 с отметкой и без): 3 из 13.
+  await expect(rows.nth(2)).toContainText('Можно было посетить3');
+  await expect(block(page).locator('.culms-course-att__mark')).toHaveAttribute('style', /left:\s*23\.0/);
 });
 
 test('ширины сегментов — доли семестра', async ({ page }) => {

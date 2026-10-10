@@ -415,7 +415,6 @@
   }
 
   function buildModel(scope, courses, performances, activityLists, allTasks, timetables) {
-    const now = Date.now();
     const skipped = getSkippedTasks();
     const tasksByCourse = new Map();
     for (const task of allTasks) {
@@ -515,16 +514,11 @@
       // берутся лучшие N, делим на N. Итог курса выше 10 не поднимается.
       //
       // Рядом с накопом — сколько можно было набрать к сегодняшнему дню: все
-      // уже оценённые работы и те, чей дедлайн прошёл, на максимум.
-      //
-      // Цвет же — только по оценённым: работа на проверке ещё не принесла
-      // баллов, и строка краснела бы, пока преподаватель не проверит.
+      // уже оценённые работы на максимум (так же, как на странице «Активность»
+      // и в виджете курса). Работы на проверке и несданные не считаются нулями.
       let accumulated = 0;
       let possibleGraded = 0;
-      let possibleNow = 0;
       let hasWeight = false;
-      const topByMax = (list, n) =>
-        n ? [...list].sort((a, b) => b.max - a.max).slice(0, n) : list;
       const sumOf = (list, key) => list.reduce((s, t) => s + t[key], 0);
       for (const activity of activities.values()) {
         // Делим на план, даже если заданий выдали больше: в «STEM» 16 лекций при
@@ -535,9 +529,6 @@
         if (activity.best) {
           counted = [...graded].sort((a, b) => b.score - a.score).slice(0, activity.best);
         }
-        const due = activity.tasks.filter(
-          (t) => t.score != null || (t.deadline && t.deadline.getTime() <= now)
-        );
         activity.denominator = denominator;
         activity.value = denominator > 0 ? sumOf(counted, 'score') / denominator : 0;
         activity.gradedCount = graded.length;
@@ -546,8 +537,6 @@
         accumulated += activity.weight * activity.value;
         if (denominator > 0) {
           possibleGraded += (activity.weight * sumOf(counted, 'max')) / denominator;
-          possibleNow +=
-            (activity.weight * sumOf(topByMax(due, activity.best), 'max')) / denominator;
         }
       }
       accumulated = Math.min(accumulated, 10);
@@ -575,7 +564,7 @@
           performance?.activitiesBlockerTriggered
         ),
         accumulated: hasWeight ? accumulated : null,
-        possibleNow: hasWeight ? Math.min(possibleNow, 10) : null,
+        possibleNow: hasWeight ? Math.min(possibleGraded, 10) : null,
         rate: hasWeight && possibleGraded > 0 ? (accumulated / possibleGraded) * 10 : null,
         activities: [...activities.values()].sort((a, b) => b.weight - a.weight),
         tasks: tasks.sort(
@@ -1307,7 +1296,7 @@
       `<th class="culms-gb-acc culms-gb-sticky-r2" rowspan="2" scope="col"` +
       ` title="${esc(
         'Набрано — накоп, как в ведомости курса: Σ вес активности × её средний балл, несданные работы идут как 0.\n' +
-          'Можно — сколько дали бы к сегодняшнему дню все оценённые работы и работы с прошедшим дедлайном, если бы каждая была на максимум.'
+          'Можно — сколько дали бы к сегодняшнему дню все проверенные работы, если бы каждая была на максимум.'
       )}">Накоп<span class="culms-gb-acc__sub">набрано / можно</span></th>` +
       actsHeadHtml();
 
@@ -1334,7 +1323,7 @@
         const archived = state.data.scope === 'archived';
         const accTitle = hasAcc
           ? `Набрано: ${fmtLms(course.accumulated)} из 10 — столько курс даст, если больше ничего не сдать.\n` +
-            `К сегодняшнему дню можно было набрать ${fmtLms(course.possibleNow)}: все оценённые работы и работы с прошедшим дедлайном на максимум.` +
+            `К сегодняшнему дню можно было набрать ${fmtLms(course.possibleNow)}: все проверенные работы на максимум; работы на проверке не считаются.` +
             (course.rate != null
               ? `\nНа оценённых работах — в среднем ${fmtNum(course.rate, 1)} из 10 (по этому и цвет).`
               : '') +
