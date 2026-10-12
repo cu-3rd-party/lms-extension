@@ -5,6 +5,15 @@ import { DEFAULT_LMS_ORIGIN, isLmsUrl, lmsOriginOf } from './plugins/lms-hosts';
 import { fetchAllGradesForExport } from './grades-export';
 import { endTryOn, focusLmsTab, workshopIdentity } from './workshop-background';
 import { isGoal, maybeSendDaily, trackGoal, trackInstall } from './metrics';
+import {
+  clearOfflineCache,
+  initOfflineSync,
+  offlineOnLmsNavigation,
+  offlineStatus,
+  runOfflineSync,
+  stopOfflineSync,
+} from './offline/offline-sync';
+import { initOfflineEntry } from './offline/offline-entry';
 
 // У LMS два домена с раздельными сессиями, поэтому фоновые запросы идут на тот,
 // где пользователь сейчас работает: cookie другого домена нам недоступны и
@@ -22,6 +31,12 @@ function rememberLmsOrigin(url: string): void {
   lmsOrigin = origin;
   void browser.storage.local.set({ [LMS_ORIGIN_KEY]: origin });
 }
+
+// Офлайн-копия LMS ходит туда же, куда остальные фоновые запросы.
+initOfflineSync(() => lmsOrigin);
+// Вход в офлайн-копию без меню: my.centraluniversity.ru/offline (см.
+// offline/offline-entry.ts).
+initOfflineEntry();
 
 void browser.storage.local.get(LMS_ORIGIN_KEY).then((data) => {
   const saved = data?.[LMS_ORIGIN_KEY];
@@ -108,6 +123,11 @@ type IncomingMessage =
   | { action: 'WORKSHOP_FOCUS_LMS' }
   | { action: 'WORKSHOP_TRYON_END'; keep: boolean }
   | { action: 'GRADES_EXPORT_EXECUTE'; tabId?: number; archived?: boolean }
+  | { action: 'OFFLINE_STATUS' }
+  | { action: 'OFFLINE_SYNC_NOW' }
+  | { action: 'OFFLINE_STOP' }
+  | { action: 'OFFLINE_CLEAR' }
+  | { action: 'OPEN_OFFLINE' }
   | { action: 'METRICS_GOAL'; goal: string }
   | { action: 'SAFARI_NAVIGATION'; url: string }
   | { action: string; [key: string]: unknown };
@@ -1322,6 +1342,7 @@ function handleNavigation(tabId: number, url: string): void {
   if (!isLmsUrl(url)) return;
   rememberLmsOrigin(url);
   maybeSendDaily();
+  void offlineOnLmsNavigation();
 
   for (const plugin of plugins) {
     if (!plugin.matches(url)) continue;
@@ -1801,6 +1822,32 @@ browser.runtime.onMessage.addListener(((
 
   if (request.action === 'WORKSHOP_FOCUS_LMS') {
     respondWith(sendResponse, focusLmsTab(lmsOrigin));
+    return true;
+  }
+
+  // --- ОФЛАЙН-КОПИЯ LMS (см. offline/offline-sync.ts) ---
+  if (request.action === 'OFFLINE_STATUS') {
+    respondWith(sendResponse, offlineStatus());
+    return true;
+  }
+  if (request.action === 'OFFLINE_SYNC_NOW') {
+    // «Скачать всё»: без лимита до конца очереди. Не ждём конца — это
+    // минуты и часы, попап смотрит статус сам.
+    void runOfflineSync(true);
+    sendResponse({ success: true });
+    return false;
+  }
+  if (request.action === 'OFFLINE_STOP') {
+    stopOfflineSync();
+    sendResponse({ success: true });
+    return false;
+  }
+  if (request.action === 'OFFLINE_CLEAR') {
+    respondWith(sendResponse, clearOfflineCache());
+    return true;
+  }
+  if (request.action === 'OPEN_OFFLINE') {
+    respondWith(sendResponse, openExtensionTab('offline/offline.html', 'offlineTabId'));
     return true;
   }
 

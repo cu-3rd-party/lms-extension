@@ -914,6 +914,387 @@ if (metricsToggle) {
   void refreshMetricsToggle();
 }
 
+// --- СКРЫТЫЕ ИЗ ДЭШБОРДА ---
+//
+// Задания, убранные кнопкой-глазом во всплывашке дня дэшборда
+// (course-view/exams_dashboard.js): [{ id, name, courseName, deadline }] в
+// storage.local. «Вернуть» убирает запись — дэшборд подхватывает это сам через
+// storage.onChanged.
+const DASHBOARD_HIDDEN_KEY = 'dashboardHiddenTasks';
+const dashboardHiddenList = document.getElementById('dashboard-hidden-list');
+const dashboardHiddenEmpty = document.getElementById('dashboard-hidden-empty');
+const dashboardHiddenRestoreAll = document.getElementById('dashboard-hidden-restore-all');
+
+function formatHiddenDeadline(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+async function setDashboardHidden(list) {
+  await browser.storage.local.set({ [DASHBOARD_HIDDEN_KEY]: list });
+}
+
+async function renderDashboardHidden() {
+  if (!dashboardHiddenList) return;
+  const data = await browser.storage.local.get(DASHBOARD_HIDDEN_KEY);
+  const list = (Array.isArray(data[DASHBOARD_HIDDEN_KEY]) ? data[DASHBOARD_HIDDEN_KEY] : [])
+    .filter((entry) => entry && entry.id != null)
+    .sort((a, b) => String(a.deadline).localeCompare(String(b.deadline)));
+  dashboardHiddenList.replaceChildren(
+    ...list.map((entry) => {
+      const item = document.createElement('li');
+      item.className = 'dashboard-hidden__item';
+      const text = document.createElement('span');
+      text.className = 'dashboard-hidden__text';
+      const name = document.createElement('span');
+      name.className = 'dashboard-hidden__name';
+      name.textContent = entry.name || 'Задание';
+      name.title = entry.name || '';
+      const meta = document.createElement('span');
+      meta.className = 'dashboard-hidden__meta';
+      meta.textContent = [entry.courseName, formatHiddenDeadline(entry.deadline)]
+        .filter(Boolean)
+        .join(' · ');
+      text.append(name, meta);
+      const restore = document.createElement('button');
+      restore.type = 'button';
+      restore.className = 'dashboard-hidden__restore';
+      restore.textContent = 'Вернуть';
+      restore.addEventListener('click', async () => {
+        const current = await browser.storage.local.get(DASHBOARD_HIDDEN_KEY);
+        const rest = (current[DASHBOARD_HIDDEN_KEY] || []).filter((e) => e && e.id !== entry.id);
+        await setDashboardHidden(rest);
+      });
+      item.append(text, restore);
+      return item;
+    })
+  );
+  if (dashboardHiddenEmpty) dashboardHiddenEmpty.hidden = list.length > 0;
+  if (dashboardHiddenRestoreAll) dashboardHiddenRestoreAll.hidden = list.length < 2;
+}
+
+if (dashboardHiddenList) {
+  dashboardHiddenRestoreAll?.addEventListener('click', () => void setDashboardHidden([]));
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && DASHBOARD_HIDDEN_KEY in changes) void renderDashboardHidden();
+  });
+  void renderDashboardHidden();
+}
+
+// --- ОФЛАЙН-КОПИЯ LMS (src/offline/README.md) ---
+//
+// Тумблеры пишутся сразу, а не по закрытию меню: фон по ним заводит таймер
+// выгрузки, и ждать закрытия незачем. Значения по умолчанию — те же, что в
+// OFFLINE_SETTINGS (offline-sync.ts).
+const OFFLINE_TOGGLES = {
+  offlineCacheEnabled: ['offline-cache-toggle', false],
+  offlineCacheLongreads: ['offline-longreads-toggle', true],
+  offlineCacheHomework: ['offline-homework-toggle', true],
+  offlineCacheSolutions: ['offline-solutions-toggle', true],
+  offlineCacheTasks: ['offline-tasks-toggle', true],
+  offlineCacheTimetable: ['offline-timetable-toggle', true],
+};
+const offlineMaxFileSelect = document.getElementById('offline-max-file-select');
+const offlineStatusText = document.getElementById('offline-status');
+
+const offlineProgressBox = document.getElementById('offline-progress');
+const offlineSyncButton = document.getElementById('offline-sync-btn');
+const offlineLogBox = document.getElementById('offline-log');
+const offlineCoursesBox = document.getElementById('offline-courses');
+
+function formatOfflineBytes(bytes) {
+  if (bytes < 1024 * 1024) return `${bytes ? Math.max(1, Math.round(bytes / 1024)) : 0} КБ`;
+  return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} МБ`;
+}
+
+function offlineSpan(className, text) {
+  const span = document.createElement('span');
+  span.className = className;
+  span.textContent = text;
+  return span;
+}
+
+/** Прогресс по разделам: «Лонгриды 34 / 120» и полоска. */
+function renderOfflineProgress(progress, status) {
+  if (!offlineProgressBox) return;
+  const rows = [];
+  for (const item of progress || []) {
+    if (!item.total && !item.skipped) continue;
+    const row = document.createElement('div');
+    row.className = 'offline-terminal__row';
+    const extra = [
+      item.bytes ? formatOfflineBytes(item.bytes) : '',
+      item.skipped ? `больших пропущено: ${item.skipped}` : '',
+    ]
+      .filter(Boolean)
+      .join(', ');
+    row.append(
+      offlineSpan('', item.label + (extra ? ` (${extra})` : '')),
+      offlineSpan(item.done >= item.total ? 't-ok' : '', `${item.done} / ${item.total}`)
+    );
+    const bar = document.createElement('div');
+    bar.className = 'offline-terminal__bar';
+    const fill = document.createElement('span');
+    fill.style.width = `${item.total ? Math.round((item.done / item.total) * 100) : 100}%`;
+    bar.append(fill);
+    row.append(bar);
+    rows.push(row);
+  }
+  if (!rows.length)
+    rows.push(offlineSpan('t-muted', 'Пока нечего считать — нужна первая докачка.'));
+  if (status.hasData) {
+    // Размер копии — первой строкой терминала.
+    const size = document.createElement('div');
+    size.className = 'offline-terminal__row';
+    size.id = 'offline-size';
+    size.append(
+      offlineSpan('', 'Размер копии'),
+      offlineSpan('t-ok', formatOfflineBytes(status.bytes + status.dataBytes))
+    );
+    rows.unshift(size);
+  }
+  if (status.next?.length) {
+    const next = document.createElement('div');
+    next.className = 't-muted';
+    next.textContent = `Дальше: ${status.next[0]}${status.pending > 1 ? ` и ещё ${status.pending - 1}` : ''}`;
+    rows.push(next);
+  }
+  offlineProgressBox.replaceChildren(...rows);
+}
+
+const OFFLINE_LOG_MARK = { ok: '✓', err: '✗', skip: '–', info: '' };
+
+/** Лог: время, значок и строка. Листается вниз, если его не листали вверх. */
+function renderOfflineLog(lines) {
+  if (!offlineLogBox) return;
+  const atBottom =
+    offlineLogBox.scrollHeight - offlineLogBox.scrollTop - offlineLogBox.clientHeight < 20;
+  const nodes = (lines || []).map((line) => {
+    const row = document.createElement('div');
+    const time = new Date(line.t).toLocaleTimeString('ru-RU');
+    const mark = OFFLINE_LOG_MARK[line.level] ?? '';
+    row.append(
+      offlineSpan('t-time', `${time} `),
+      offlineSpan(`t-${line.level}`, mark ? `${mark} ${line.text}` : line.text)
+    );
+    return row;
+  });
+  if (!nodes.length) nodes.push(offlineSpan('t-muted', 'Лог пуст.'));
+  offlineLogBox.replaceChildren(...nodes);
+  if (atBottom) offlineLogBox.scrollTop = offlineLogBox.scrollHeight;
+}
+
+/** Галочки курсов. Перерисовываются, только когда поменялся сам список. */
+/**
+ * Выбор курсов. Пока курсы не выбраны (`coursesChosen: false`), галочки — черновик:
+ * сохраняются только кнопкой «Начать скачивание», и до неё плагин качает лишь
+ * список курсов. Потом каждая галочка сохраняется сразу. Перерисовка — только
+ * когда поменялся сам список, чтобы не сбивать галочки, которые ставят сейчас.
+ */
+let offlineCoursesSignature = '';
+let offlineCoursesChosen = false;
+let offlineCoursesAsked = false;
+const offlineCoursesActions = document.getElementById('offline-courses-actions');
+const offlineCoursesStart = document.getElementById('offline-courses-start');
+
+function offlineCourseInputs() {
+  return [...offlineCoursesBox.querySelectorAll('input[data-course-id]')];
+}
+
+function checkedOfflineCourses() {
+  return offlineCourseInputs().filter((input) => input.checked).length;
+}
+
+/**
+ * До первого выбора «Скачать всё» доступна, как только отмечен хоть один курс:
+ * нажатие сохранит выбор и начнёт скачивание — отдельно жать «Начать» не нужно.
+ */
+function updateOfflineStartButton() {
+  const count = checkedOfflineCourses();
+  if (offlineCoursesStart) {
+    offlineCoursesStart.disabled = count === 0;
+    offlineCoursesStart.textContent = count ? `Начать скачивание (${count})` : 'Начать скачивание';
+  }
+  if (offlineSyncButton && !offlineCoursesChosen && offlineSyncButton.dataset.mode !== 'stop') {
+    offlineSyncButton.disabled = count === 0;
+  }
+}
+
+function renderOfflineCourses(courses, chosen) {
+  if (!offlineCoursesBox || !courses?.length) return;
+  const signature = JSON.stringify([courses, chosen]);
+  if (signature === offlineCoursesSignature) return;
+  offlineCoursesSignature = signature;
+  offlineCoursesChosen = chosen;
+  const sorted = [...courses].sort((a, b) => String(a.name).localeCompare(String(b.name), 'ru'));
+  offlineCoursesBox.replaceChildren(
+    ...sorted.map((course) => {
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = course.enabled;
+      input.dataset.courseId = String(course.id);
+      input.addEventListener('change', () => {
+        if (offlineCoursesChosen) void saveOfflineCourses();
+        else updateOfflineStartButton();
+      });
+      label.append(input, document.createTextNode(course.name));
+      return label;
+    })
+  );
+  // «Отметить все / Снять все / Начать» нужны только до первого выбора.
+  if (offlineCoursesActions) offlineCoursesActions.hidden = chosen;
+  updateOfflineStartButton();
+}
+
+async function saveOfflineCourses() {
+  const ids = offlineCourseInputs()
+    .filter((input) => input.checked)
+    .map((input) => Number(input.dataset.courseId));
+  await browser.storage.sync.set({ offlineCourseIds: ids });
+  offlineCoursesSignature = '';
+  await refreshOfflineStatus();
+}
+
+document.getElementById('offline-courses-all')?.addEventListener('click', () => {
+  offlineCourseInputs().forEach((input) => (input.checked = true));
+  updateOfflineStartButton();
+});
+document.getElementById('offline-courses-none')?.addEventListener('click', () => {
+  offlineCourseInputs().forEach((input) => (input.checked = false));
+  updateOfflineStartButton();
+});
+offlineCoursesStart?.addEventListener('click', () => void saveOfflineCourses());
+
+async function refreshOfflineStatus() {
+  if (!offlineStatusText) return;
+  let status;
+  try {
+    status = await browser.runtime.sendMessage({ action: 'OFFLINE_STATUS' });
+  } catch (_error) {
+    return;
+  }
+  if (!status?.success) {
+    offlineStatusText.textContent = status?.error || '';
+    return;
+  }
+  const { state, pending, running, enabled } = status;
+  const lines = [];
+  lines.push(
+    status.hasData
+      ? `Копия занимает ${formatOfflineBytes(status.bytes + status.dataBytes)}: файлы — ${formatOfflineBytes(status.bytes)} (${status.files} шт.), тексты и списки — ${formatOfflineBytes(status.dataBytes)}.`
+      : 'Копия пока пуста.'
+  );
+  if (state?.lastSuccessAt) {
+    lines.push(`Последний раз докачано: ${new Date(state.lastSuccessAt).toLocaleString('ru-RU')}.`);
+  }
+  if (offlineSyncButton) {
+    offlineSyncButton.dataset.mode = status.full ? 'stop' : 'full';
+    offlineSyncButton.textContent = status.full ? 'Остановить' : 'Скачать всё';
+  }
+  if (offlineSyncButton) {
+    offlineSyncButton.disabled =
+      enabled && !status.coursesChosen && !status.full && checkedOfflineCourses() === 0;
+  }
+  // Включили, а списка курсов ещё нет (например, LMS тогда не отвечала) —
+  // просим его сразу, не дожидаясь таймера. Один раз за открытие меню.
+  if (
+    enabled &&
+    !status.coursesChosen &&
+    !status.courses?.length &&
+    !running &&
+    !offlineCoursesAsked
+  ) {
+    offlineCoursesAsked = true;
+    void browser.runtime.sendMessage({ action: 'OFFLINE_SYNC_NOW' });
+  }
+  if (enabled && !status.coursesChosen) {
+    lines.push(
+      status.courses?.length
+        ? 'Отметь курсы в блоке «Курсы» и нажми «Начать скачивание» или «Скачать всё» — до этого ничего не качается.'
+        : 'Загружаю список курсов… Нужна открытая вкладка LMS.'
+    );
+  } else if (enabled) {
+    if (status.full) lines.push('Скачиваю всё до конца…');
+    else if (running) lines.push('Сейчас докачивается…');
+    else if (pending) lines.push(`Осталось докачать: ${pending}.`);
+    else if (status.hasData) lines.push('Всё скачано.');
+  }
+  // Пока идёт заход, ошибка прошлого захода уже не актуальна.
+  if (!running && state?.reason === 'auth') {
+    lines.push('Чтобы докачать, войди в LMS.');
+  } else if (!running && state?.reason === 'down') {
+    lines.push(`LMS не отвечает (${state.lastError}). Попробую позже — а пока открой LMS офлайн.`);
+  }
+  offlineStatusText.textContent = lines.join(' ');
+  renderOfflineProgress(status.progress, status);
+  renderOfflineLog(status.log);
+  renderOfflineCourses(status.courses, status.coursesChosen);
+}
+
+if (offlineStatusText) {
+  browser.storage.sync.get([...Object.keys(OFFLINE_TOGGLES), 'offlineMaxFileMb']).then((data) => {
+    for (const [key, [id, fallback]] of Object.entries(OFFLINE_TOGGLES)) {
+      const input = document.getElementById(id);
+      if (input) input.checked = key in data ? !!data[key] : fallback;
+    }
+    if (offlineMaxFileSelect) offlineMaxFileSelect.value = String(data.offlineMaxFileMb ?? 250);
+  });
+
+  for (const [key, [id]] of Object.entries(OFFLINE_TOGGLES)) {
+    document.getElementById(id)?.addEventListener('change', (event) => {
+      void browser.storage.sync.set({ [key]: event.target.checked }).then(refreshOfflineStatus);
+    });
+  }
+  offlineMaxFileSelect?.addEventListener('change', () => {
+    void browser.storage.sync.set({ offlineMaxFileMb: Number(offlineMaxFileSelect.value) || 250 });
+  });
+
+  document.getElementById('offline-open-btn')?.addEventListener('click', () => {
+    browser.runtime.sendMessage({ action: 'OPEN_OFFLINE' });
+  });
+  // Одна кнопка на два действия: «Скачать всё», а пока оно идёт — «Остановить».
+  offlineSyncButton?.addEventListener('click', async () => {
+    if (offlineSyncButton.dataset.mode === 'stop') {
+      await browser.runtime.sendMessage({ action: 'OFFLINE_STOP' });
+      setTimeout(refreshOfflineStatus, 300);
+      return;
+    }
+    const enabled = document.getElementById('offline-cache-toggle')?.checked;
+    if (!enabled) {
+      offlineStatusText.textContent = 'Сначала включи «Сохранять копию LMS».';
+      return;
+    }
+    // Курсы отмечены, но выбор ещё не сохранён — сохраняем его здесь же.
+    if (!offlineCoursesChosen) {
+      if (!checkedOfflineCourses()) {
+        offlineStatusText.textContent = 'Отметь хотя бы один курс в блоке «Курсы».';
+        return;
+      }
+      await saveOfflineCourses();
+    }
+    await browser.runtime.sendMessage({ action: 'OFFLINE_SYNC_NOW' });
+    setTimeout(refreshOfflineStatus, 300);
+  });
+  document.getElementById('offline-clear-btn')?.addEventListener('click', async () => {
+    if (!confirm('Удалить офлайн-копию LMS со всеми скачанными файлами?')) return;
+    await browser.runtime.sendMessage({ action: 'OFFLINE_CLEAR' });
+    await refreshOfflineStatus();
+  });
+
+  void refreshOfflineStatus();
+  // Пока меню открыто, статус обновляется сам: заход выгрузки идёт минутами.
+  setInterval(() => {
+    if (!offlineStatusText.closest('.tab-panel')?.hidden) void refreshOfflineStatus();
+  }, 2000);
+}
+
 // --- СБРОС ВСЕХ НАСТРОЕК ---
 //
 // Раньше сброс писал в storage.sync свой список «значений по умолчанию»: он

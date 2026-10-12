@@ -40,6 +40,11 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   // Свой архив курсов из course_cards.js: спрятанный из списка курс прячем и
   // из дэшборда — он показывает то, что под ним в списке.
   const ARCHIVE_KEY = 'archivedCourseIds';
+  // Задания, которые студент убрал из дэшборда кнопкой в всплывашке:
+  // [{ id, name, courseName, deadline, hiddenAt }] в storage.local. Вернуть —
+  // в меню плагина, вкладка «Сроки» (popup.js). Хранится не только id, чтобы
+  // список в меню был читаемым без запроса к LMS.
+  const HIDDEN_TASKS_KEY = 'dashboardHiddenTasks';
   // Список курсов с прошлого захода (его обновляют course_cards.js и
   // _shared/course_names.js) — чтобы не ждать сеть при первой отрисовке.
   const META_CACHE_KEY = 'courseMetaCache';
@@ -53,6 +58,9 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
   // --- Дедлайны на две недели ---
   const DEADLINES_KEY = 'futureExamsDashboardDeadlines';
+  // Статус «Аудиторная» из меню (вкладка «Задания»): включён — аудиторная
+  // работа в дэшборд не попадает (см. isWork).
+  const SEMINAR_KEY = 'seminarStatusEnabled';
   // Все состояния: сданное тоже показываем — с галочкой, чтобы было видно,
   // сколько ещё впереди.
   const TASKS_API =
@@ -164,6 +172,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   let enabled = false;
   let showExams = false;
   let showDeadlines = false;
+  let hideSeminars = false;
   let isDark = false;
   /**
    * На сколько недель пролистано от текущей. Живёт, пока открыта страница:
@@ -171,6 +180,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
    */
   let weekShift = 0;
   let archivedKeys = new Set();
+  /** id заданий, убранных из дэшборда. */
+  let hiddenTaskIds = new Set();
   /** { schedule, config } — последнее загруженное расписание. */
   let scheduleData = null;
   let scheduleFailed = false;
@@ -182,6 +193,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   let coursesLoading = null;
   /** [{ id, name, courseId, courseName, deadline: Date, done }] — задания с дедлайном. */
   let tasks = null;
+  /** Ответ API как есть: при смене статуса «Аудиторная» задания пересобираются без запроса. */
+  let tasksPayload = null;
   let tasksFetchedAt = 0;
   let tasksFailed = false;
   let tasksLoading = null;
@@ -337,12 +350,21 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   }
 
   /** Нужно ли студенту что-то сдавать к этому дедлайну (см. NOT_WORK_*). */
+  /**
+   * Нужно ли это сдавать. Аудиторная работа (корзина «Аудиторная…/Семинар…/
+   * Активность…», если по названию это не ДЗ — то же правило, что у статуса
+   * «Аудиторная» в courses/tasks_fix.js) прячется, только если этот статус
+   * включён в меню плагина (`seminarStatusEnabled`): тогда студент сам сказал,
+   * что такие задачи для него — не дедлайны. Прячется вся, и сданная тоже, —
+   * иначе задача появлялась бы в дэшборде только после сдачи. Статус выключен
+   * (по умолчанию) — аудиторные считаются, как все.
+   */
   function isWork(task, exercise) {
-    if (task.submitAt || task.state === 'review') return true;
     const activity = (exercise.activity && exercise.activity.name) || '';
     const name = exercise.name || '';
-    if (NOT_WORK_ACTIVITY.test(activity) || NOT_WORK_NAME.test(name)) return false;
-    return !SEMINAR_ACTIVITY.test(activity) || looksLikeHomework(name);
+    if (hideSeminars && SEMINAR_ACTIVITY.test(activity) && !looksLikeHomework(name)) return false;
+    if (task.submitAt || task.state === 'review') return true;
+    return !NOT_WORK_ACTIVITY.test(activity) && !NOT_WORK_NAME.test(name);
   }
 
   /**
@@ -400,6 +422,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
     tasksLoading = (takePrefetched('tasks') || getJson(TASKS_API))
       .then((payload) => {
+        tasksPayload = payload;
         tasks = toTasks(payload);
         tasksFetchedAt = Date.now();
         tasksFailed = false;
@@ -480,6 +503,8 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       task.done = task.submitted || task.skipped;
       // Курс в своём архиве студента — его и в списке курсов не видно.
       if (isArchived({ id: task.courseId, name: task.courseName })) return;
+      // Убрано из дэшборда кнопкой в всплывашке.
+      if (hiddenTaskIds.has(task.id)) return;
       const day = byKey.get(dayKey(task.deadline));
       if (day) day.tasks.push(task);
     });
@@ -629,6 +654,66 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
     hideTimer = setTimeout(hidePopover, POPOVER_HIDE_DELAY_MS);
   }
 
+  // «Не показывать в дэшборде» — перечёркнутый глаз у задания в всплывашке.
+  const EYE_OFF_PATHS = [
+    'M3 3l18 18',
+    'M10.6 10.6a2 2 0 0 0 2.8 2.8',
+    'M9.9 4.2A9.7 9.7 0 0 1 12 4c5 0 9 4.5 10 8a12.6 12.6 0 0 1-2.6 3.8M6.6 6.6C4.3 8 2.7 10.1 2 12c1 3.5 5 8 10 8 1.9 0 3.6-.6 5.1-1.5',
+  ];
+
+  function hideButton(task) {
+    const button = element('button', 'culms-deadlines-popover__hide');
+    button.type = 'button';
+    button.title = 'Не показывать в дэшборде';
+    button.setAttribute('aria-label', `Не показывать «${task.name}» в дэшборде`);
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    for (const d of EYE_OFF_PATHS) {
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', d);
+      svg.appendChild(path);
+    }
+    button.appendChild(svg);
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void hideTask(task);
+    });
+    return button;
+  }
+
+  /**
+   * Спрашивает и убирает задание из дэшборда. Спрашиваем обычным confirm:
+   * задание пропадает из счётчиков, а вернуть его можно только из меню.
+   */
+  async function hideTask(task) {
+    const question =
+      `Не показывать в дэшборде «${task.name}»${task.courseName ? ` (${task.courseName})` : ''}?\n\n` +
+      'Вернуть можно в меню плагина → «Сроки» → «Скрытые из дэшборда».';
+    if (!window.confirm(question)) return;
+    hidePopover();
+    const data = await browser.storage.local.get(HIDDEN_TASKS_KEY);
+    const list = Array.isArray(data[HIDDEN_TASKS_KEY]) ? data[HIDDEN_TASKS_KEY] : [];
+    if (!list.some((entry) => entry && entry.id === task.id)) {
+      list.push({
+        id: task.id,
+        name: task.name,
+        courseName: task.courseName,
+        deadline: task.deadline.toISOString(),
+        hiddenAt: Date.now(),
+      });
+    }
+    hiddenTaskIds = new Set(list.map((entry) => entry && entry.id));
+    update();
+    await browser.storage.local.set({ [HIDDEN_TASKS_KEY]: list });
+  }
+
+  function hiddenIdsOf(value) {
+    return new Set((Array.isArray(value) ? value : []).map((entry) => entry && entry.id));
+  }
+
   function link(className, text, href) {
     const node = element('a', className, text);
     node.href = href;
@@ -672,6 +757,7 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
         item.appendChild(link('culms-deadlines-popover__name', task.name, task.url));
         // Своё название курса подставит course_names.js — этот класс он знает.
         item.appendChild(link('culms-deadlines-popover__course', task.courseName, task.courseUrl));
+        item.appendChild(hideButton(task));
         // Скип — не сдача: подписываем, чтобы зачёркнутое не путали со сданным.
         if (task.skipped) {
           item.appendChild(element('span', 'culms-deadlines-popover__status', 'Метод скипа'));
@@ -746,7 +832,13 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
   function hidePopover() {
     cancelHide();
     const popover = currentPopover();
-    if (popover) popover.remove();
+    // Сначала отвязываем id: remove() снимает фокус с кнопки внутри, а
+    // обработчик focusout зовёт hidePopover ещё раз — второй remove() того же
+    // узла бросал исключение (так ломалась кнопка «Не показывать»).
+    if (popover) {
+      popover.removeAttribute('id');
+      popover.remove();
+    }
     if (popoverCell) {
       popoverCell.removeAttribute('aria-expanded');
       popoverCell.removeAttribute('aria-controls');
@@ -1268,15 +1360,17 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
 
   async function init() {
     const [syncData, localData] = await Promise.all([
-      browser.storage.sync.get([SETTING_KEY, THEME_KEY, DEADLINES_KEY, ...LEVEL_KEYS]),
-      browser.storage.local.get([ARCHIVE_KEY, META_CACHE_KEY]),
+      browser.storage.sync.get([SETTING_KEY, THEME_KEY, DEADLINES_KEY, SEMINAR_KEY, ...LEVEL_KEYS]),
+      browser.storage.local.get([ARCHIVE_KEY, META_CACHE_KEY, HIDDEN_TASKS_KEY]),
     ]);
 
     isDark = !!syncData[THEME_KEY];
     showExams = !!syncData[SETTING_KEY];
     showDeadlines = !!syncData[DEADLINES_KEY];
+    hideSeminars = !!syncData[SEMINAR_KEY];
     thresholds = toThresholds(LEVEL_KEYS.map((key) => syncData[key]));
     archivedKeys = new Set(localData[ARCHIVE_KEY] || []);
+    hiddenTaskIds = hiddenIdsOf(localData[HIDDEN_TASKS_KEY]);
     const cached = toCourses(localData[META_CACHE_KEY]);
     if (cached.length) courses = cached;
 
@@ -1294,12 +1388,22 @@ if (typeof window.__culmsExamsDashboardInitialized === 'undefined') {
       if (DEADLINES_KEY in changes) showDeadlines = !!changes[DEADLINES_KEY].newValue;
       applySettings();
     }
+    if (area === 'sync' && SEMINAR_KEY in changes) {
+      hideSeminars = !!changes[SEMINAR_KEY].newValue;
+      if (tasksPayload) tasks = toTasks(tasksPayload);
+      update();
+    }
     if (area === 'sync' && LEVEL_KEYS.some((key) => key in changes)) {
       // Ключи меняются разом, но приезжают и по одному — берём все три.
       browser.storage.sync.get(LEVEL_KEYS).then((data) => {
         thresholds = toThresholds(LEVEL_KEYS.map((key) => data[key]));
         update();
       });
+    }
+    // Вернули задание в меню (или убрали в соседней вкладке LMS).
+    if (area === 'local' && HIDDEN_TASKS_KEY in changes) {
+      hiddenTaskIds = hiddenIdsOf(changes[HIDDEN_TASKS_KEY].newValue);
+      update();
     }
     if (area === 'local' && ARCHIVE_KEY in changes) {
       archivedKeys = new Set(changes[ARCHIVE_KEY].newValue || []);

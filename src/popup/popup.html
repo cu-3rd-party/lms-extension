@@ -566,6 +566,221 @@
         box-sizing: border-box;
       }
 
+      /* Офлайн-копия: терминал с прогрессом и логом. Тёмный в обеих темах. */
+      .offline-terminal {
+        margin-top: 10px;
+        padding: 10px 12px;
+        background: #0f1115;
+        color: #c9d1d9;
+        border-radius: 8px;
+        font:
+          12px/1.5 ui-monospace,
+          'Cascadia Mono',
+          Consolas,
+          monospace;
+      }
+
+      .offline-terminal__progress {
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #2a2f37;
+      }
+
+      .offline-terminal__row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0 10px;
+      }
+
+      .offline-terminal__bar {
+        grid-column: 1 / -1;
+        height: 3px;
+        margin: 2px 0 5px;
+        background: #2a2f37;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+
+      .offline-terminal__bar > span {
+        display: block;
+        height: 100%;
+        background: #3fb950;
+      }
+
+      .offline-terminal__log {
+        max-height: 220px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      .offline-terminal .t-time {
+        color: #6e7681;
+      }
+
+      .offline-terminal .t-ok {
+        color: #3fb950;
+      }
+
+      .offline-terminal .t-err {
+        color: #f85149;
+      }
+
+      .offline-terminal .t-skip {
+        color: #d29922;
+      }
+
+      .offline-terminal .t-info {
+        color: #58a6ff;
+      }
+
+      .offline-terminal .t-muted {
+        color: #8b949e;
+      }
+
+      /* Плашка «Функция находится в бете» — вкладка «Офлайн». Цвета — как у
+         .notice, тёмная тема — в popup_dark.css. */
+      .beta-banner {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 12px;
+        padding: 10px 12px;
+        background-color: #fff4d6;
+        border-radius: 8px;
+        font-size: 13px;
+        line-height: 1.4;
+        color: #5c4400;
+      }
+
+      .beta-banner__badge {
+        flex: none;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background-color: #f2b705;
+        color: #2b2000;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      /* Скрытые из дэшборда — список во вкладке «Сроки». */
+      .dashboard-hidden {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 8px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .dashboard-hidden__item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid #e3e5e8;
+        border-radius: 8px;
+      }
+
+      .dashboard-hidden__text {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .dashboard-hidden__name {
+        overflow: hidden;
+        font-size: 13px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .dashboard-hidden__meta {
+        font-size: 12px;
+        color: #80868b;
+      }
+
+      .dashboard-hidden__restore {
+        flex: none;
+        padding: 4px 10px;
+        border: 1px solid #d0d4d9;
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      #dashboard-hidden-restore-all[hidden] {
+        display: none;
+      }
+
+      /* Справка «Как это работает» во вкладке «Офлайн». */
+      .offline-help summary {
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .offline-help summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .offline-help summary h3 {
+        display: inline;
+      }
+
+      .offline-help summary h3::after {
+        content: ' ▸';
+        color: #80868b;
+      }
+
+      .offline-help[open] summary h3::after {
+        content: ' ▾';
+      }
+
+      .offline-help h4 {
+        margin: 14px 0 4px;
+        font-size: 13px;
+      }
+
+      .offline-help p,
+      .offline-help li {
+        margin: 4px 0;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .offline-help ol,
+      .offline-help ul {
+        margin: 4px 0;
+        padding-left: 20px;
+      }
+
+      /* .button-row задаёт display: flex и перебивает атрибут hidden. */
+      .offline-courses-actions[hidden] {
+        display: none;
+      }
+
+      .offline-courses {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-height: 240px;
+        overflow-y: auto;
+      }
+
+      .offline-courses label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
       .status-text {
         margin-top: 8px;
         min-height: 18px;
@@ -1077,6 +1292,20 @@
               считаются. Можно включить обе части или любую одну.
             </p>
           </div>
+
+          <!-- Задания, убранные из дэшборда кнопкой-глазом в всплывашке дня. -->
+          <div class="section">
+            <h3>Скрытые из дэшборда</h3>
+            <p class="course-hint">
+              Задания, которые ты убрал кнопкой с перечёркнутым глазом во всплывашке дня. Они не
+              считаются в днях дэшборда.
+            </p>
+            <ul class="dashboard-hidden" id="dashboard-hidden-list"></ul>
+            <p class="status-text" id="dashboard-hidden-empty">Скрытых заданий нет.</p>
+            <button id="dashboard-hidden-restore-all" class="action-button" hidden>
+              Вернуть все
+            </button>
+          </div>
         </section>
 
         <!-- ЗАДАНИЯ -->
@@ -1117,7 +1346,8 @@
               <span class="toggle-label"
                 >Статус «Аудиторная»
                 <span class="toggle-hint"
-                  >Чёрный чип и тёмная строка у аудиторных заданий</span
+                  >Чёрный чип и тёмная строка у аудиторных заданий; в дэшборде дедлайнов они не
+                  считаются</span
                 ></span
               >
               <label class="switch">
@@ -1223,6 +1453,215 @@
                 <span class="slider"></span>
               </label>
             </div>
+          </div>
+        </section>
+
+        <!-- ОФЛАЙН (src/offline/README.md) -->
+        <section class="tab-panel" data-tab="offline" data-title="Офлайн" hidden>
+          <h2 class="tab-title">Офлайн</h2>
+          <p class="tab-lead">Копия LMS на этом компьютере — на случай, если LMS не работает.</p>
+
+          <div class="beta-banner" id="offline-beta" role="note">
+            <span class="beta-banner__badge">Бета</span>
+            <span
+              >Функция находится в бете: что-то может работать не так. Если заметишь ошибку — напиши
+              нам.</span
+            >
+          </div>
+
+          <!-- Справка для студентов: что и когда качается и как сохранить копию. -->
+          <details class="section offline-help" id="offline-help">
+            <summary><h3>Как это работает</h3></summary>
+            <h4>Что это</h4>
+            <p>
+              Пока LMS работает, плагин понемногу сохраняет её на этот компьютер. Если LMS упадёт,
+              нажми «Открыть LMS офлайн» — откроется её упрощённая копия: курсы, лонгриды с файлами,
+              задания с твоими решениями и расписание. Интернет для этого не нужен.
+            </p>
+            <h4>Если LMS не открывается</h4>
+            <p>Кнопки плагина на странице LMS тогда нет. Попасть в копию можно так:</p>
+            <ul>
+              <li>
+                набери в адресной строке <code>my.centraluniversity.ru/offline</code> (работает и
+                <code>my.cu.ru/offline</code>);
+              </li>
+              <li>
+                или нажми значок плагина на панели браузера → «Офлайн» → «Открыть LMS офлайн».
+              </li>
+            </ul>
+            <h4>Как начать</h4>
+            <ol>
+              <li>Включи «Сохранять копию LMS» — подтянется список твоих курсов.</li>
+              <li>Отметь курсы, которые нужны.</li>
+              <li>
+                Нажми «Скачать всё», чтобы скачать сразу, или «Начать скачивание», чтобы копия
+                собиралась понемногу сама.
+              </li>
+            </ol>
+            <h4>Когда качается</h4>
+            <ul>
+              <li>
+                Сама — раз в 5 минут и каждый раз, когда открываешь LMS, по несколько запросов,
+                чтобы не грузить интернет. Первая полная копия так собирается за несколько часов.
+              </li>
+              <li>«Скачать всё» — сразу до конца, без пауз; «Остановить» прерывает.</li>
+              <li>
+                Нужно, чтобы ты был залогинен в LMS. Надёжнее всего — когда вкладка LMS открыта:
+                запросы идут через неё.
+              </li>
+              <li>
+                Лонгриды и условия заданий качаются один раз и потом не обновляются. Задания и
+                дедлайны обновляются раз в 2 часа, расписание — раз в сутки, решения — когда
+                меняется статус или оценка.
+              </li>
+              <li>Задания старше месяца не сохраняются. Видео и файлы больше лимита — тоже.</li>
+              <li>Если LMS не отвечает, плагин подождёт и попробует позже сам.</li>
+            </ul>
+            <p>
+              Что происходит прямо сейчас, видно в чёрном окне ниже: что скачано и сколько осталось.
+            </p>
+            <h4>Как сохранить копию на диск (дамп)</h4>
+            <ol>
+              <li>Нажми «Открыть LMS офлайн».</li>
+              <li>Справа вверху — «Сохранить копию на диск»: скачается один zip.</li>
+              <li>
+                Распакуй его куда угодно и открой «Открыть LMS офлайн.html» — плагин не нужен.
+              </li>
+            </ol>
+            <p>
+              В zip по папкам курсов лежат все файлы. Папку курса можно переслать другу как есть —
+              только убери из неё «Моё решение», если не хочешь делиться своими работами. Папку
+              <code>_offline</code> не пересылай: там твои данные для страницы.
+            </p>
+            <h4>Где хранится и кто видит</h4>
+            <p>
+              Копия лежит только в этом браузере, в хранилище плагина, и никуда не отправляется:
+              плагин ходит лишь в саму LMS и в её хранилище файлов. Другие браузеры и компьютеры её
+              не видят. «Удалить офлайн-копию» внизу стирает всё; удаление плагина — тоже.
+            </p>
+          </details>
+
+          <div class="section">
+            <h3>Офлайн-копия</h3>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Сохранять копию LMS<span class="toggle-hint"
+                  >Понемногу, пока LMS работает: несколько запросов раз в 5 минут и при открытии
+                  LMS. «Скачать всё» — сразу до конца, без пауз</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="offline-cache-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Курсы</h3>
+            <p class="course-hint" id="offline-courses-hint">
+              Скачиваются только отмеченные курсы. Пока курсы не выбраны, плагин ничего не качает.
+            </p>
+            <div class="offline-courses" id="offline-courses">
+              <p class="course-hint">
+                Список появится, когда включишь «Сохранять копию LMS» при открытой вкладке LMS.
+              </p>
+            </div>
+            <div class="button-row offline-courses-actions" id="offline-courses-actions" hidden>
+              <button id="offline-courses-all" class="action-button">Отметить все</button>
+              <button id="offline-courses-none" class="action-button">Снять все</button>
+              <button id="offline-courses-start" class="action-button">Начать скачивание</button>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Скачивание</h3>
+            <div class="button-row">
+              <button id="offline-open-btn" class="action-button">Открыть LMS офлайн</button>
+              <button id="offline-sync-btn" class="action-button">Скачать всё</button>
+            </div>
+            <p class="status-text" id="offline-status"></p>
+            <!-- Терминал: прогресс по разделам и лог выгрузки (offline-sync.ts). -->
+            <div class="offline-terminal" id="offline-terminal">
+              <div class="offline-terminal__progress" id="offline-progress"></div>
+              <div class="offline-terminal__log" id="offline-log"></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Что сохранять</h3>
+            <p class="course-hint">
+              Лонгриды и условия заданий скачиваются один раз и больше не обновляются. Задания и
+              дедлайны обновляются раз в 2 часа, расписание — раз в сутки.
+            </p>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Лонгриды<span class="toggle-hint">Текст, файлы и картинки материалов</span></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="offline-longreads-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Условия домашних заданий<span class="toggle-hint"
+                  >Описание и файлы к заданию</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="offline-homework-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Мои решения<span class="toggle-hint"
+                  >Отправленные файлы и оценка за них</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="offline-solutions-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label">Задания и дедлайны</span>
+              <label class="switch">
+                <input type="checkbox" id="offline-tasks-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-container">
+              <span class="toggle-label">Расписание</span>
+              <label class="switch">
+                <input type="checkbox" id="offline-timetable-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-container">
+              <span class="setting-label">Файлы больше этого не качать:</span>
+              <div class="dropdown-container">
+                <select class="dropdown-select" id="offline-max-file-select">
+                  <option value="10">10 МБ</option>
+                  <option value="25">25 МБ</option>
+                  <option value="50">50 МБ</option>
+                  <option value="100">100 МБ</option>
+                  <option value="250">250 МБ</option>
+                  <option value="500">500 МБ</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>На диск</h3>
+            <p class="course-hint">
+              В «LMS офлайн» есть кнопка «Сохранить копию на диск»: она скачивает zip с этой же
+              страницей и всеми файлами по папкам курсов. Его можно распаковать куда угодно и
+              открыть без плагина.
+            </p>
+            <button id="offline-clear-btn" class="btn-reset">Удалить офлайн-копию</button>
           </div>
         </section>
 

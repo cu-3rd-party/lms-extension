@@ -115,7 +115,6 @@ const TASKS = [
   task(0, 'ДЗ на сегодня', { hour: 23, minute: 59 }),
   // Завтра — один настоящий дедлайн и весь шум, который считать не надо.
   task(1, 'ДЗ 1'),
-  task(1, 'Seminar 1. Week 4', { activity: 'Аудиторная активность' }),
   task(1, 'Ознакомление с Кодексом этики', {
     course: { id: 1577, name: 'Ознакомление с локально-нормативными актами' },
     activity: 'Ознакомление',
@@ -139,6 +138,12 @@ const TASKS = [
   task(3, 'Контроль теоретических знаний 1', { hour: 20, minute: 30, state: 'review' }),
   task(3, 'HW. Week 3', {
     hour: 21,
+    course: { id: 1418, name: '🔴 Теория вероятностей. Основной уровень' },
+  }),
+  // Аудиторная работа. Статус «Аудиторная» в меню по умолчанию выключен —
+  // тогда она считается, как все задания; включён — прячется (отдельный тест).
+  task(13, 'Seminar 1. Week 6', {
+    activity: 'Аудиторная активность',
     course: { id: 1418, name: '🔴 Теория вероятностей. Основной уровень' },
   }),
   // Через шесть — семь, через девять — тринадцать.
@@ -269,7 +274,7 @@ test('14 дней с сегодняшнего: сдано/всего и цвет
       level: (cell.className.match(/culms-deadlines--l(\d)/) || [])[1],
     }))
   );
-  // Завтра шум (семинар, ознакомление, перезачёт, дорешивание, бонус, тест на
+  // Завтра шум (ознакомление, перезачёт, дорешивание, бонус, тест на
   // паре, архивные курсы) не считается — только «ДЗ 1».
   // Сдано из всех: у «Условной вероятности» через три дня — галочка.
   expect(read.map((day) => day.count)).toEqual([
@@ -286,7 +291,7 @@ test('14 дней с сегодняшнего: сдано/всего и цвет
     '',
     '2/2',
     '3/4',
-    '',
+    '0/1',
   ]);
   // Цвет — по числу несданных: через двенадцать дней из четырёх остался один
   // — зелёный, закрытый день — без цвета.
@@ -304,7 +309,7 @@ test('14 дней с сегодняшнего: сдано/всего и цвет
     '0',
     '0',
     '1',
-    '0',
+    '1',
   ]);
   // Всё сдано — день приглушён; остальные нет.
   await expect(dayCell(11)).toHaveClass(/culms-deadlines__day--closed/);
@@ -512,6 +517,70 @@ test('метод скипа: скипнутое задание считаетс�
   await expect(dayCell(0).locator('.culms-deadlines__count')).toHaveText('0/1');
 });
 
+test('кнопка-глаз убирает задание из дэшборда, вернуть — в меню, вкладка «Сроки»', async () => {
+  const count = () => dayCell(0).locator('.culms-deadlines__count');
+  await expect(count()).toHaveText('0/1');
+
+  await dayCell(0).hover();
+  const hide = popover().locator('.culms-deadlines-popover__hide');
+  await expect(hide).toHaveCount(1);
+  await expect(hide).toHaveAttribute('title', 'Не показывать в дэшборде');
+  await dayCell(3).hover();
+  await popover().screenshot({ path: 'test-results/deadline-load/popover-hide.png' });
+  await dayCell(0).hover();
+
+  // Сначала передумали — ничего не меняется.
+  page.once('dialog', (dialog) => void dialog.dismiss());
+  await hide.click();
+  await expect(count()).toHaveText('0/1');
+
+  let question = '';
+  page.once('dialog', (dialog) => {
+    question = dialog.message();
+    void dialog.accept();
+  });
+  await dayCell(0).hover();
+  await popover().locator('.culms-deadlines-popover__hide').click();
+  await expect(count()).toHaveText('');
+  expect(question).toContain('ДЗ на сегодня');
+  expect(question).toContain('«Сроки»');
+
+  // В меню — в списке скрытых; «Вернуть» возвращает задание на лету.
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+  await popup.getByRole('tab', { name: 'Сроки' }).click();
+  const item = popup.locator('.dashboard-hidden__item');
+  await expect(item).toHaveCount(1);
+  await expect(item).toContainText('ДЗ на сегодня');
+  await popup
+    .locator('#dashboard-hidden-list')
+    .locator('..')
+    .screenshot({ path: 'test-results/deadline-load/popup-hidden.png' });
+  await expect(popup.locator('#dashboard-hidden-empty')).toBeHidden();
+  await item.getByRole('button', { name: 'Вернуть' }).click();
+  await expect(item).toHaveCount(0);
+  await expect(popup.locator('#dashboard-hidden-empty')).toBeVisible();
+  await popup.close();
+  await expect(count()).toHaveText('0/1');
+});
+
+test('статус «Аудиторная» включён — аудиторная работа уходит из дэшборда на лету', async () => {
+  const counts = () =>
+    days().evaluateAll((cells) =>
+      cells.map((cell) => cell.querySelector('.culms-deadlines__count')?.textContent ?? '')
+    );
+  // По умолчанию статус выключен: семинар через 13 дней считается.
+  await expect.poll(async () => (await counts())[13]).toBe('0/1');
+
+  await writeStorage({ sync: { seminarStatusEnabled: true } });
+  await expect.poll(async () => (await counts())[13]).toBe('');
+  // Домашка в семинарской корзине остаётся домашкой.
+  expect((await counts())[2]).toBe('0/1');
+
+  await writeStorage({ sync: { seminarStatusEnabled: false } });
+  await expect.poll(async () => (await counts())[13]).toBe('0/1');
+});
+
 test('свои пороги цвета меняют дни и легенду на лету', async () => {
   const levels = () =>
     days().evaluateAll((cells) =>
@@ -529,7 +598,7 @@ test('свои пороги цвета меняют дни и легенду н�
   ]);
   await expect
     .poll(levels)
-    .toEqual(['1', '1', '1', '2', '0', '0', '3', '0', '0', '4', '0', '0', '1', '0']);
+    .toEqual(['1', '1', '1', '2', '0', '0', '3', '0', '0', '4', '0', '0', '1', '1']);
 
   // Пороги не по порядку (из чужого профиля) — каждый не меньше предыдущего + 1.
   await writeStorage({

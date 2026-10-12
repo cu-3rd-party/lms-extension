@@ -22,6 +22,8 @@ export default defineManifest({
     'cookies',
     'activeTab',
     'downloads',
+    // Офлайн-копия LMS докачивается по таймеру (src/offline/offline-sync.ts).
+    'alarms',
   ],
   host_permissions: [
     // Два домена LMS — полноценные зеркала одного приложения.
@@ -191,6 +193,15 @@ export default defineManifest({
         'plugins/attendance/attendance_course.js',
         'plugins/attendance/attendance.css',
         'plugins/_shared/fflate.umd.min.js',
+        // Страница offline LMS (src/offline/README.md).
+        'offline/offline.html',
+        'offline/offline.css',
+        'offline/offline_store.js',
+        'offline/offline_viewer.js',
+        'offline/offline_export.js',
+        'offline/fonts/inter-cyrillic.woff2',
+        'offline/fonts/inter-latin.woff2',
+        'offline/fonts/OFL.txt',
         'plugins/_shared/pdf-lib.min.js',
       ],
       matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],

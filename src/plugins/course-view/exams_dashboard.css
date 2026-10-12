@@ -438,9 +438,54 @@ html[data-culms-dashboard-pending] cu-courses-group {
 
 .culms-deadlines-popover__item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   column-gap: 8px;
   margin: 0;
+}
+
+/* «Не показывать в дэшборде» — перечёркнутый глаз справа от задания: на всю
+   высоту строки (название + курс), приглушён, ярче под курсором. */
+.culms-deadlines-popover__hide {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--culms-dp-muted);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.culms-deadlines-popover__item:hover .culms-deadlines-popover__hide,
+.culms-deadlines-popover__hide:focus-visible {
+  opacity: 1;
+}
+
+.culms-deadlines-popover__hide:hover {
+  color: var(--culms-dp-accent);
+  background: rgba(127, 127, 127, 0.15);
+}
+
+.culms-deadlines-popover__hide:focus-visible {
+  outline: 2px solid var(--culms-dp-accent);
+  outline-offset: 1px;
+}
+
+.culms-deadlines-popover__hide svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .culms-deadlines-popover__time {
