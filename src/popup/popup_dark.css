@@ -99,7 +99,8 @@ body.dark-theme .setting-group {
   border-left-color: #2b3a4d;
 }
 
-body.dark-theme .notice {
+body.dark-theme .notice,
+body.dark-theme .beta-banner {
   background-color: #4a3f1f;
   color: #f5e2a8;
 }

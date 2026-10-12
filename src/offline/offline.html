@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LMS офлайн</title>
+    <link rel="stylesheet" href="offline.css" />
+  </head>
+  <body>
+    <div id="app"><p class="empty">Загрузка…</p></div>
+    <!-- Порядок важен: хранилище → zip-библиотека → просмотрщик → экспорт. -->
+    <script src="offline_store.js"></script>
+    <script src="../plugins/_shared/fflate.umd.min.js"></script>
+    <script src="offline_viewer.js"></script>
+    <script src="offline_export.js"></script>
+  </body>
+</html>

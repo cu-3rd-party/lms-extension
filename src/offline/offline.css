@@ -1,0 +1,1104 @@
+/* offline.css — offline LMS в оформлении настоящей LMS.
+ *
+ * Размеры и цвета замерены на живой LMS (my.centraluniversity.ru, 12.10.2026,
+ * окно 1440×900, getComputedStyle):
+ *   - шапка 72px и меню 320px — белые, без рамок; пункт меню 40px, радиус 12,
+ *     500 14/20, #5a5e62, активный — синий на rgba(36,74,127,.06);
+ *   - «Мои курсы» — на сером #f4f4f5: белый «остров» с заголовком (радиус 24,
+ *     поля 24/32/32), под ним сетка карточек по 4 с зазором 8; карточка белая,
+ *     радиус 16, поля 16, значок категории 24px на #f4f4f5 (радиус 8),
+ *     категория 12/18 серым, название 500 14/20;
+ *   - остальные страницы белые: крошки 16/40 серым через «›», последняя синяя;
+ *     заголовок 700 32/40, -0.5px;
+ *   - курс: темы аккордеоном — строка 56px, радиус 12, круглая бирюзовая
+ *     иконка 36px (#55b1bb на #f1fafa), название 500 16/24; лонгриды —
+ *     строки 48px с отступом 64px, 16/24;
+ *   - лонгрид: без подложки, текст 16/24, абзацы через 16; вложение —
+ *     плашка с рамкой #cdcfd2 (inset 1px), радиус 16, поля 22/20, зелёная
+ *     иконка файла; задание — карточка с рамкой #cdcfd2, радиус 20, поля
+ *     32/20/32/32, бейдж статуса (точка + текст, радиус 4), название 600 20/28,
+ *     строки «Дедлайн» и «баллов» 16/24 с иконками 20px;
+ *   - «Мои задания»: вкладки-пилюли 40px, радиус 24, активная #323336 с
+ *     белым текстом, прочие #f4f4f5; таблица без шапки, строки через линию
+ *     #cdcfd2, название 16/24 и курс 14/20 #8a8e93, баллы и дедлайн 16/24.
+ * Шрифт — Inter, как в LMS; файлы лежат рядом (fonts/), офлайн их не скачать.
+ *
+ * Тот же файл служит странице расширения, корневой странице архива и
+ * страницам лонгридов в архиве (body.static — без шапки и меню). Тема — по
+ * системной: в архиве настроек плагина нет. */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('fonts/inter-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('fonts/inter-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --bg: #ffffff;
+  --bg-grey: #f4f4f5;
+  --panel: #ffffff;
+  --text: #1c1c1e;
+  --text-2: #5a5e62;
+  --text-3: #8a8e93;
+  --border: #cdcfd2;
+  --accent: #477df9;
+  --accent-hover: #6894fa;
+  --accent-text: rgba(252, 252, 253, 0.96);
+  --link: #526ed3;
+  --neutral: rgba(36, 74, 127, 0.06);
+  --neutral-hover: rgba(36, 74, 127, 0.08);
+  --chip: #f4f4f5;
+  --chip-active: #323336;
+  --chip-active-text: #ffffff;
+  --theme-icon: #55b1bb;
+  --theme-icon-bg: #f1fafa;
+  --file-icon: #00bc7d;
+  --danger: #b42318;
+  --badge-neutral: #f4f4f5;
+  --badge-neutral-dot: #8a8e93;
+  --badge-base: #ecfdff;
+  --badge-base-dot: #06aed4;
+  --badge-positive: #d0fae5;
+  --badge-positive-dot: #00bc7d;
+  --badge-negative: #fee4e2;
+  --badge-negative-dot: #f04438;
+  --font:
+    'Inter', -apple-system, 'BlinkMacSystemFont', system-ui, 'Roboto', 'Segoe UI', 'Helvetica Neue',
+    sans-serif;
+  color-scheme: light;
+}
+
+/* Тёмная тема — по палитре тёмной темы LMS (--*-dark в её :root). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1f1f1f;
+    --bg-grey: #141414;
+    --panel: #1f1f1f;
+    --text: #fcfcfd;
+    --text-2: #a9adb2;
+    --text-3: #8a8e93;
+    --border: #3d3d3d;
+    --accent: #477df9;
+    --accent-hover: #6894fa;
+    --accent-text: #ffffff;
+    --link: #6788ff;
+    --neutral: rgba(255, 255, 255, 0.1);
+    --neutral-hover: rgba(255, 255, 255, 0.16);
+    --chip: rgba(255, 255, 255, 0.1);
+    --chip-active: #fcfcfd;
+    --chip-active-text: #1c1c1e;
+    --theme-icon: #7fd0d8;
+    --theme-icon-bg: rgba(85, 177, 187, 0.16);
+    --file-icon: #3ccf8e;
+    --danger: #ff6b5e;
+    --badge-neutral: rgba(255, 255, 255, 0.1);
+    --badge-base: rgba(6, 174, 212, 0.18);
+    --badge-positive: rgba(0, 171, 71, 0.2);
+    --badge-negative: rgba(230, 63, 7, 0.22);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 0.875rem/1.25rem var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+svg.icon {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --- ОБОЛОЧКА: шапка 72px, меню 320px, содержимое --- */
+
+#app {
+  display: grid;
+  grid-template-columns: 20rem minmax(0, 1fr);
+  grid-template-rows: 4.5rem minmax(0, 1fr);
+  grid-template-areas:
+    'header header'
+    'nav main';
+  min-height: 100vh;
+}
+
+.header {
+  grid-area: header;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1rem;
+  background: var(--bg);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
+}
+
+.brand__name {
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+.brand__sub {
+  color: var(--text-3);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.nav {
+  grid-area: nav;
+  position: sticky;
+  top: 4.5rem;
+  align-self: start;
+  height: calc(100vh - 4.5rem);
+  overflow-y: auto;
+  padding: 1.5rem 1rem;
+  background: var(--bg);
+}
+
+.nav nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.nav nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 2.5rem;
+  padding: 0 0.25rem 0 0.875rem;
+  border-radius: 0.75rem;
+  color: var(--text-2);
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.nav nav a .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.nav nav a:hover {
+  background: var(--neutral);
+}
+
+.nav nav a.is-active {
+  background: var(--neutral);
+  color: var(--accent);
+}
+
+.view {
+  grid-area: main;
+  min-width: 0;
+  padding: 0 1.5rem 3rem;
+  background: var(--bg);
+}
+
+.view--grey {
+  padding: 1.5rem 2rem 3rem;
+  background: var(--bg-grey);
+}
+
+.page {
+  max-width: 66rem;
+}
+
+/* --- ТИПОГРАФИКА --- */
+
+h1 {
+  margin: 1rem 0 1.5rem;
+  font-weight: 700;
+  font-size: 2rem;
+  line-height: 2.5rem;
+  letter-spacing: -0.031rem;
+}
+
+h2 {
+  margin: 2rem 0 0.75rem;
+  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+h3,
+h4 {
+  margin: 0;
+}
+
+.muted {
+  color: var(--text-3);
+}
+
+.small {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+
+.lead {
+  margin: -1rem 0 1.5rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.danger {
+  color: var(--danger);
+}
+
+.empty,
+.note {
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  background: var(--chip);
+  color: var(--text-2);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+/* Хлебные крошки: 16/40, серые, «›» 16px с полями 8px, последняя — синяя. */
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 1rem 0 0.25rem;
+  color: var(--text-2);
+  font-size: 1rem;
+  line-height: 2.5rem;
+}
+
+.crumbs a {
+  color: var(--text-2);
+}
+
+.crumbs a:hover {
+  color: var(--accent);
+}
+
+.crumbs__sep.icon {
+  width: 1rem;
+  height: 1rem;
+  margin: 0 0.5rem;
+}
+
+.crumbs__last {
+  color: var(--accent);
+}
+
+/* --- КНОПКИ И ВКЛАДКИ --- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: var(--accent);
+  color: var(--accent-text);
+  font: 500 0.875rem/1.25rem var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:hover {
+  background: var(--accent-hover);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 1.5rem;
+  background: var(--chip);
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.tab:hover {
+  background: var(--neutral-hover);
+}
+
+.tab.is-active {
+  background: var(--chip-active);
+  color: var(--chip-active-text);
+}
+
+/* Бейдж статуса — точка и подпись на бледном фоне, как cu-task-state-badge. */
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: max-content;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--badge-neutral);
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+
+.state__dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: var(--badge-neutral-dot);
+}
+
+.state--base {
+  background: var(--badge-base);
+}
+
+.state--base .state__dot {
+  background: var(--badge-base-dot);
+}
+
+.state--positive {
+  background: var(--badge-positive);
+}
+
+.state--positive .state__dot {
+  background: var(--badge-positive-dot);
+}
+
+.state--negative {
+  background: var(--badge-negative);
+}
+
+.state--negative .state__dot {
+  background: var(--badge-negative-dot);
+}
+
+/* --- «МОИ КУРСЫ» --- */
+
+.island {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1.5rem 2rem 2rem;
+  border-radius: 1.5rem;
+  background: var(--panel);
+}
+
+.island h1 {
+  margin: 0;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.5rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 7.75rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.card:hover {
+  box-shadow: 0 0.25rem 1.5rem rgba(0, 0, 0, 0.08);
+}
+
+.card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card__icon {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.5rem;
+  background: var(--chip);
+  color: var(--chip-active);
+}
+
+.card__icon .icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.card__category {
+  color: var(--text-2);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+
+.card__title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.card__meta {
+  margin-top: auto;
+  color: var(--text-3);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+
+/* --- КУРС: ТЕМЫ АККОРДЕОНОМ --- */
+
+.page-title {
+  margin-top: 0;
+}
+
+.themes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 47.625rem;
+}
+
+.theme {
+  border-radius: 0.75rem;
+}
+
+.theme summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.theme summary::-webkit-details-marker {
+  display: none;
+}
+
+.theme summary:hover {
+  background: var(--neutral);
+}
+
+.theme__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--theme-icon-bg);
+  color: var(--theme-icon);
+}
+
+.theme__icon .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.theme__name {
+  flex: 1;
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.theme__chevron.icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--text-2);
+  transition: transform 0.2s;
+}
+
+.theme[open] .theme__chevron {
+  transform: rotate(180deg);
+}
+
+.longreads {
+  display: flex;
+  flex-direction: column;
+  padding: 0 1.25rem 0.5rem;
+}
+
+.longread-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.75rem;
+  min-height: 3rem;
+  padding: 0.75rem 0.75rem 0.75rem 4rem;
+  border-radius: 0.75rem;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.longread-link:hover {
+  background: var(--neutral);
+}
+
+.longread-link__meta {
+  color: var(--text-3);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.longread-link.is-missing .longread-link__name {
+  color: var(--text-3);
+}
+
+/* --- ЛОНГРИД --- */
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2.5rem;
+  margin-top: 0.25rem;
+  color: var(--text-2);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.back-link .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.back-link:hover {
+  color: var(--accent);
+}
+
+.longread-title {
+  margin: 1rem 0 1.5rem;
+}
+
+.longread {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.rich {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.rich--plain {
+  white-space: pre-wrap;
+}
+
+.rich p {
+  margin: 0 0 1rem;
+}
+
+.rich > :first-child {
+  margin-top: 0;
+}
+
+.rich > :last-child {
+  margin-bottom: 0;
+}
+
+.rich h1,
+.rich h2,
+.rich h3 {
+  margin: 1.5rem 0 0.75rem;
+  letter-spacing: normal;
+}
+
+.rich h1 {
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+}
+
+.rich h2 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
+
+.rich h3 {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+.rich a {
+  color: var(--link);
+  text-decoration: underline;
+}
+
+.rich img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+
+.rich table {
+  border-collapse: collapse;
+}
+
+.rich td,
+.rich th {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+}
+
+.rich pre,
+.rich code {
+  border-radius: 0.5rem;
+  background: var(--chip);
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.875rem;
+}
+
+.rich pre {
+  overflow-x: auto;
+  padding: 0.75rem 1rem;
+}
+
+.rich code {
+  padding: 0.125rem 0.25rem;
+}
+
+.rich pre code {
+  padding: 0;
+  background: none;
+}
+
+.rich blockquote {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 0.5rem 0.5rem 0;
+  background: var(--chip);
+}
+
+/* Вложение: плашка с рамкой, зелёная иконка, имя и расширение, скачивание. */
+.file {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 34.75rem;
+  min-height: 5.25rem;
+  padding: 1.375rem 1.25rem;
+  border-radius: 1rem;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.file__icon.icon {
+  color: var(--file-icon);
+}
+
+.file__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.file__name {
+  display: flex;
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.file__base {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file__type {
+  flex: none;
+}
+
+a.file__name:hover {
+  color: var(--accent);
+}
+
+.file__meta {
+  color: var(--text-3);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+
+.file__download {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  color: var(--text-2);
+}
+
+.file__download .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.file__download:hover {
+  background: var(--neutral);
+  color: var(--text);
+}
+
+.file--missing .file__icon.icon,
+.file--missing .file__name {
+  color: var(--text-3);
+}
+
+.image {
+  margin: 0;
+}
+
+.image img {
+  max-width: 100%;
+  border-radius: 0.75rem;
+}
+
+/* Задание: карточка с рамкой, как cu-student-task-preview. */
+.exercise {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 50rem;
+  padding: 2rem 1.25rem 2rem 2rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+}
+
+.exercise__name {
+  margin: -0.5rem 0 0;
+  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+.exercise__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.exercise__fact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-2);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.exercise__fact.danger {
+  color: var(--danger);
+}
+
+.exercise__fact .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.exercise .file {
+  max-width: none;
+}
+
+.solution {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  background: var(--chip);
+}
+
+.solution h4 {
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.solution p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.solution .file {
+  background: var(--panel);
+}
+
+/* --- ТАБЛИЦЫ («Мои задания» и прочие) --- */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.875rem 0.75rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table tbody tr + tr td,
+.table tbody tr + tr th,
+.table thead + tbody tr td {
+  border-top: 1px solid var(--border);
+}
+
+.table thead th {
+  color: var(--text-3);
+  font-weight: 400;
+  font-size: 0.875rem;
+}
+
+.table td a {
+  color: var(--text);
+}
+
+.table td a:hover {
+  color: var(--accent);
+}
+
+.table--kv th {
+  width: 40%;
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.table--kv td,
+.table--kv th {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.task-table__info {
+  width: 50%;
+}
+
+.task-table__name {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.task-table__course {
+  color: var(--text-3);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.task-table__score,
+.task-table__deadline {
+  color: var(--text-2);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  white-space: nowrap;
+}
+
+.task-table__deadline.danger {
+  color: var(--badge-negative-dot);
+}
+
+/* --- РАСПИСАНИЕ --- */
+
+.day h2 {
+  margin-top: 1.5rem;
+}
+
+.lesson {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.lesson__join {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--chip);
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.lesson__join:hover {
+  background: var(--neutral-hover);
+  color: var(--accent);
+}
+
+.lesson__time {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.lesson .small {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+/* --- СТРАНИЦА ЛОНГРИДА В АРХИВЕ: без шапки и меню --- */
+
+body.static .view {
+  padding: 1rem 1.5rem 4rem;
+}
+
+body.static .page {
+  max-width: 50rem;
+  margin: 0 auto;
+}
+
+/* --- УЗКИЙ ЭКРАН --- */
+
+@media (max-width: 63.99em) {
+  #app {
+    grid-template-columns: 15.5rem minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 47.99em) {
+  #app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      'header'
+      'nav'
+      'main';
+  }
+
+  .header {
+    position: static;
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
+  }
+
+  .header__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .nav {
+    position: static;
+    height: auto;
+    padding: 0.5rem;
+  }
+
+  .nav nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .nav nav a {
+    flex: none;
+  }
+
+  .view,
+  .view--grey {
+    padding: 0 1rem 3rem;
+  }
+
+  .view--grey {
+    padding-top: 1rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  .island {
+    padding: 1rem 1.25rem 1.25rem;
+  }
+
+  .exercise {
+    padding: 1.25rem 1rem;
+  }
+
+  .table {
+    display: block;
+    overflow-x: auto;
+  }
+}

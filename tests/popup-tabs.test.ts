@@ -17,7 +17,17 @@ import { LMS_URL, launchExtensionContext, resolveExtensionId } from './helpers/e
 
 test.describe.configure({ mode: 'serial', timeout: 60_000 });
 
-const TABS = ['Тема', 'Оформление', 'Курсы', 'Сроки', 'Задания', 'Оценки', 'Друзья', 'Настройки'];
+const TABS = [
+  'Тема',
+  'Оформление',
+  'Курсы',
+  'Сроки',
+  'Задания',
+  'Оценки',
+  'Друзья',
+  'Офлайн',
+  'Настройки',
+];
 
 // Все тумблеры меню — из объекта `toggles` в popup.js (два закомментированных
 // в разметке не в счёт). Каждый обязан жить ровно в одной вкладке.
@@ -45,6 +55,13 @@ const TOGGLES: Record<string, string> = {
   'contest-integration-toggle': 'Задания',
   'friends-toggle': 'Друзья',
   'hide-bonus-button-toggle': 'Друзья',
+  // Офлайн-копия: тоже пишутся сразу, не из `toggles`.
+  'offline-cache-toggle': 'Офлайн',
+  'offline-longreads-toggle': 'Офлайн',
+  'offline-homework-toggle': 'Офлайн',
+  'offline-solutions-toggle': 'Офлайн',
+  'offline-tasks-toggle': 'Офлайн',
+  'offline-timetable-toggle': 'Офлайн',
   // Не из `toggles`: пишется сразу, а не по закрытию меню (см. popup.js).
   'metrics-toggle': 'Настройки',
 };

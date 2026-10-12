@@ -143,6 +143,18 @@ if (typeof window.cuLmsSettings === 'undefined') {
     bool('hideBonusButtonEnabled', 'features'),
     // Статус «Аудиторная» в списке задач; по умолчанию выключен.
     bool('seminarStatusEnabled', 'features'),
+    // Офлайн-копия LMS (src/offline): общий тумблер, что сохранять и до какого
+    // размера качать файлы. Сама копия лежит в IndexedDB и в файл не попадает.
+    bool('offlineCacheEnabled', 'features'),
+    bool('offlineCacheLongreads', 'features', true),
+    bool('offlineCacheHomework', 'features', true),
+    bool('offlineCacheSolutions', 'features', true),
+    bool('offlineCacheTasks', 'features', true),
+    bool('offlineCacheTimetable', 'features', true),
+    range('offlineMaxFileMb', 'features', 1, 500, 250),
+    // id курсов, выбранных во вкладке «Офлайн». Нет ключа — ещё не выбирали, и
+    // ничего, кроме списка курсов, не качается.
+    { key: 'offlineCourseIds', area: 'sync', type: 'array', group: 'features' },
     bool('autoRenameEnabled', 'features'),
     choice('autoRenameTemplate', 'features', ['short', 'full'], 'short'),
     // Скрытие старых заданий в архиве задач (поле даты над его таблицей).
@@ -176,6 +188,8 @@ if (typeof window.cuLmsSettings === 'undefined') {
     data('shownArchivedTaskIds', 'personal', 'array'),
     // Сводная таблица ведомостей: id курсов, убранных из неё кнопкой в строке.
     data('gradebookHiddenCourseIds', 'personal', 'array'),
+    // Задания, убранные из дэшборда дедлайнов (course-view/exams_dashboard.js).
+    data('dashboardHiddenTasks', 'personal', 'array'),
     // Граница по дате, при которой сделаны эти исключения: при другой они
     // сбрасываются.
     {
@@ -227,6 +241,7 @@ if (typeof window.cuLmsSettings === 'undefined') {
     data('workshopTryOn', 'private', 'object'),
     data('workshopInstalled', 'private', 'object'),
     data('workshopTabId', 'private', 'number'),
+    data('offlineTabId', 'private', 'number'),
   ];
 
   const BY_KEY = new Map(REGISTRY.filter((e) => !e.prefix).map((entry) => [entry.key, entry]));
