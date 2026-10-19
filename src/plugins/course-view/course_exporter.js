@@ -225,15 +225,14 @@ async function gatherAllFiles(courseId, courseName, includeHomework = true, onPr
   return allFiles;
 }
 
+// Ссылка подписана хранилищем (Selectel): любой лишний параметр в query, например
+// ngsw-bypass, ломает подпись — хранилище отвечает 403. Качаем её как есть.
 async function downloadFileBuffer(url, retries = 3) {
-  const bypassUrl = new URL(url);
-  bypassUrl.searchParams.set('ngsw-bypass', 'true');
-
   for (let i = 0; i < retries; i++) {
     try {
       return await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('GET', bypassUrl.toString(), true);
+        xhr.open('GET', url, true);
         xhr.responseType = 'arraybuffer';
 
         // Отключаем кэширование
@@ -301,6 +300,7 @@ async function runZipExport(
   });
 
   let processedFiles = 0;
+  let addedFiles = 0;
   const existingPaths = new Set();
 
   for (const f of files) {
@@ -352,6 +352,7 @@ async function runZipExport(
       const zipFile = new fflate.ZipDeflate(filePath, { level: 6 });
       zip.add(zipFile);
       zipFile.push(new Uint8Array(buffer), true);
+      addedFiles++;
 
       buffer = null;
 
@@ -364,6 +365,9 @@ async function runZipExport(
       // не добавляя в zip.add(), поэтому fflate не будет его ждать.
     }
   }
+
+  // Пустой архив под видом успеха только запутает — пусть кнопка покажет ошибку.
+  if (addedFiles === 0) throw new Error(`None of ${files.length} files downloaded`);
 
   window.cuLmsLog('All files processed. Finalizing ZIP...');
   onProgress('Завершение...');
@@ -416,6 +420,7 @@ async function runPdfExport(courseId, courseName, includeHomework = false, onPro
   const mergedPdf = await PDFLib.PDFDocument.create();
 
   let processedFiles = 0;
+  let mergedFiles = 0;
   for (const f of pdfFiles) {
     processedFiles++;
     const percent = Math.round((processedFiles / pdfFiles.length) * 100);
@@ -425,6 +430,7 @@ async function runPdfExport(courseId, courseName, includeHomework = false, onPro
       let pdf = await PDFLib.PDFDocument.load(buffer);
       const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
       copiedPages.forEach((page) => mergedPdf.addPage(page));
+      mergedFiles++;
 
       // Явно зануляем временные объекты для освобождения памяти
       buffer = null;
@@ -438,6 +444,8 @@ async function runPdfExport(courseId, courseName, includeHomework = false, onPro
       window.cuLmsLog(`Error merging PDF ${f.fileName}:`, e);
     }
   }
+
+  if (mergedFiles === 0) throw new Error(`None of ${pdfFiles.length} PDF files merged`);
 
   onProgress('Сборка итогового PDF...');
   const pdfBytes = await mergedPdf.save();
