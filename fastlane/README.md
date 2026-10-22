@@ -69,6 +69,8 @@ Lane `release`:
 
 Результат: `$SAFARI_RELEASE_DIR/lms-extension-safari.dmg`.
 
+**Новая папка или файл в корне `dist/chrome/`.** Safari собирается не из `dist` целиком: каждая папка и файл верхнего уровня подключены в `project.pbxproj` отдельной записью (Resources → ссылка на `../../../dist/chrome/<имя>`). Если в `web_accessible_resources` появился новый верхний уровень (как `offline/`), его надо добавить и в Xcode-проект (четыре записи: `PBXBuildFile`, `PBXFileReference`, группа `Resources`, фаза копирования ресурсов), иначе в Safari страница открывается как «Safari Can't Find the File» (NSURLErrorDomain -1100), а в Chrome и Firefox всё работает. Это сторожит `tests/source/safari-resources.test.ts` (`bun test tests/source`).
+
 Fastlane требует явно заданный `SAFARI_RELEASE_DIR` для lanes `release` и `appcast`. В обоих Safari workflows он равен `${{ runner.temp }}/safari-release`: `.app`, DMG и appcast хранятся в каталоге текущей CI-джобы до загрузки в GitHub Release и Actions artifacts. Папка `build/release` больше не создаётся. Для локальной сборки выбери собственный каталог; автоматического переноса в системный временный каталог нет.
 
 Версия должна иметь вид `2.6.6` либо тег `v2.6.6`; название GitHub Release не используется. Ограничения `CFBundleVersion`: major 1–9999, minor и patch 0–99, без ведущих нулей. Для каждого обновления увеличивай версию: повторная сборка с тем же тегом не будет предлагаться как новая версия. Prerelease-теги не поддерживаются этой схемой.

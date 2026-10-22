@@ -27,6 +27,7 @@
 		7F11DBBB3048D89D003D8BBE /* chunks in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBB13048D89D003D8BBE /* chunks */; };
 		7F11DBBC3048D89D003D8BBE /* icons in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBB23048D89D003D8BBE /* icons */; };
 		7F11DBBD3048D89D003D8BBE /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBB33048D89D003D8BBE /* manifest.json */; };
+		7F11DBBF3048D89D003D8BBE /* offline in Resources */ = {isa = PBXBuildFile; fileRef = 7F11DBBE3048D89D003D8BBE /* offline */; };
 		7F86C3CA306ECC810067555A /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 7F86C3C9306ECC810067555A /* Sparkle */; };
 /* End PBXBuildFile section */
 
@@ -78,6 +79,7 @@
 		7F11DBB13048D89D003D8BBE /* chunks */ = {isa = PBXFileReference; lastKnownFileType = folder; name = chunks; path = ../../../dist/chrome/chunks; sourceTree = "<group>"; };
 		7F11DBB23048D89D003D8BBE /* icons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = icons; path = ../../../dist/chrome/icons; sourceTree = "<group>"; };
 		7F11DBB33048D89D003D8BBE /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = ../../../dist/chrome/manifest.json; sourceTree = "<group>"; };
+		7F11DBBE3048D89D003D8BBE /* offline */ = {isa = PBXFileReference; lastKnownFileType = folder; name = offline; path = ../../../dist/chrome/offline; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -164,6 +166,7 @@
 				7F11DBB13048D89D003D8BBE /* chunks */,
 				7F11DBB23048D89D003D8BBE /* icons */,
 				7F11DBB33048D89D003D8BBE /* manifest.json */,
+				7F11DBBE3048D89D003D8BBE /* offline */,
 			);
 			name = Resources;
 			path = "CU LMS Enhancer Extension";
@@ -282,6 +285,7 @@
 				7F11DBB93048D89D003D8BBE /* plugins in Resources */,
 				7F11DBB53048D89D003D8BBE /* browser-polyfill.js in Resources */,
 				7F11DBB43048D89D003D8BBE /* popup in Resources */,
+				7F11DBBF3048D89D003D8BBE /* offline in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
