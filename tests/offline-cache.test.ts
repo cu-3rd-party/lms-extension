@@ -564,6 +564,30 @@ test('страница «LMS офлайн»: курсы, лонгрид, зад�
   await page.close();
 });
 
+test('Safari: клик по файлу скачивает его, а не открывает blob в новой вкладке', async () => {
+  // Safari не открывает blob-ссылку страницы расширения в другой вкладке («Safari can't open the
+  // page blob:safari-web-extension://…», WebKitBlobResource error 1) — там файл скачивается ссылкой
+  // с `download`. В Chromium это поведение включается флагом.
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    (
+      window as unknown as { CU_LMS_OFFLINE_FILES_AS_DOWNLOADS: boolean }
+    ).CU_LMS_OFFLINE_FILES_AS_DOWNLOADS = true;
+  });
+  await page.goto(`chrome-extension://${extensionId}/offline/offline.html#/longread/13773`);
+
+  const link = page.locator('.file a.file__name', { hasText: 'Презентация' });
+  await expect(link).toHaveAttribute('href', /^blob:/);
+
+  const opened: string[] = [];
+  context.on('page', (p) => opened.push(p.url()));
+  const [download] = await Promise.all([page.waitForEvent('download'), link.click()]);
+  expect(download.suggestedFilename()).toMatch(/Презентация.*неделя 1\.pdf$/);
+  expect(opened).toEqual([]);
+
+  await page.close();
+});
+
 test('без меню: адрес /offline открывает офлайн-копию, остальное LMS не трогается', async () => {
   const page = await context.newPage();
   const offlinePage = new RegExp(`^chrome-extension://${extensionId}/offline/offline\.html`);

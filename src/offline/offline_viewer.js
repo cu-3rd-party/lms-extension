@@ -533,6 +533,31 @@
     }
   }
 
+  // Safari не открывает blob-ссылку, созданную на странице расширения, в другой вкладке:
+  // «Safari can't open the page blob:safari-web-extension://… (WebKitBlobResource error 1)» —
+  // у каждой страницы свой реестр blob'ов, и новая вкладка адрес не находит. Поэтому там клик по
+  // имени файла не открывает `target="_blank"`, а скачивает файл ссылкой с `download`: она
+  // живёт на этой же странице, и так же уже сохраняется zip-архив копии. Флаг — чтобы
+  // проверить такое поведение в Chromium (см. tests/offline-cache.test.ts).
+  function filesAsDownloads() {
+    return (
+      location.protocol === 'safari-web-extension:' ||
+      window.CU_LMS_OFFLINE_FILES_AS_DOWNLOADS === true
+    );
+  }
+
+  function bindFileDownloads() {
+    document.addEventListener('click', (event) => {
+      if (!filesAsDownloads()) return;
+      const link = event.target.closest && event.target.closest('a.file__name');
+      if (!link || !String(link.href).startsWith('blob:')) return;
+      const download = link.closest('.file')?.querySelector('a.file__download');
+      if (!download) return;
+      event.preventDefault();
+      download.click();
+    });
+  }
+
   // Бейдж статуса — как cu-task-state-badge: точка и подпись на бледном фоне.
   const STATE_TONE = {
     backlog: 'neutral',
@@ -1123,6 +1148,7 @@
     const model = buildModel(source);
     const ctx = { model, link: (ref) => source.fileHref(ref.key) };
     renderShell(model);
+    if (!STANDALONE) bindFileDownloads();
     window.addEventListener('hashchange', () => void renderView(ctx));
     await renderView(ctx);
     document.dispatchEvent(new CustomEvent('culms-offline-ready', { detail: { model } }));
