@@ -97,7 +97,7 @@ tests/
 └── workshop.test.ts             # мастерская тем: комната, публикация, примерка с откатом, установка по слоям, модерация
 ```
 
-Не всем браузерным тестам нужны логин и расширение: `pdf-viewer-firefox`,
+Не всем браузерным тестам нужны логин и расширение: `pdf-viewer-firefox`, `pdf-viewer-scans`,
 `tasks-hide-before-date`, `tasks-archive-hide`, `theme-editor-hex`, `popup-tabs` и
 `custom-background-editor` поднимают свою страницу и работают без куки. Последний отдаёт `theme-editor.html` с
 диска через `page.route` и подменяет `browser.storage` заглушкой. Первый раздаёт страницу расширения по http, два других
