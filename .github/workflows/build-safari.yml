@@ -1,6 +1,14 @@
 name: Build Safari
 
+# Основной репозиторий — git.cu3rd.ru/cu3rd/lms-extension (Forgejo Actions, .forgejo/workflows).
+# Этот workflow работает только в GitHub-зеркале: в Forgejo нет macOS-раннера.
+# Push-зеркало Forgejo приносит сюда релизный тег — по нему собираются, подписываются и
+# нотаризуются DMG и appcast и выкладываются в GitHub Release (на него смотрит SUFeedURL).
+# Release-джоба Forgejo ждёт эти файлы и копирует их в релиз git.cu3rd.ru.
+# Ручной запуск — только DMG в Actions artifacts, без изменения feed.
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -9,8 +17,17 @@ permissions:
 jobs:
   build-safari:
     name: Build Safari DMG
+    # prerelease-теги (vX.Y.Z-…) Safari не выпускают: схема версий CFBundleVersion их не допускает
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.ref_name, '-') }}
     runs-on: macos-latest
     environment: publish-safari
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-safari-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      RELEASE: ${{ github.ref_type == 'tag' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,6 +61,12 @@ jobs:
         env:
           SAFARI_RELEASE_DIR: ${{ runner.temp }}/safari-release
 
+      - name: Check Sparkle signing key
+        if: env.RELEASE == 'true'
+        run: bundle exec fastlane mac check_signing_key
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+
       - name: Import Developer ID certificate
         uses: apple-actions/import-codesign-certs@v7
         with:
@@ -56,6 +79,30 @@ jobs:
           FASTLANE_USER: ${{ secrets.APPLE_ID }}
           FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          SAFARI_RELEASE_TAG: ${{ env.RELEASE == 'true' && github.ref_name || '' }}
+
+      - name: Generate signed appcast
+        if: env.RELEASE == 'true'
+        run: bundle exec fastlane mac appcast
+        env:
+          SAFARI_RELEASE_TAG: ${{ github.ref_name }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+
+      # appcast загружается последним: по его появлению Forgejo понимает, что сборка готова
+      - name: Publish DMG and appcast to GitHub Release
+        if: env.RELEASE == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 ||
+            gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" \
+              --notes "Основной релиз: https://git.cu3rd.ru/cu3rd/lms-extension/releases/tag/$RELEASE_TAG"
+          gh release upload "$RELEASE_TAG" "$SAFARI_RELEASE_DIR/lms-extension-safari.dmg" --clobber
+          gh release upload "$RELEASE_TAG" "$SAFARI_RELEASE_DIR/appcast.xml" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4

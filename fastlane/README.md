@@ -71,9 +71,9 @@ Lane `release`:
 
 **Новая папка или файл в корне `dist/chrome/`.** Safari собирается не из `dist` целиком: каждая папка и файл верхнего уровня подключены в `project.pbxproj` отдельной записью (Resources → ссылка на `../../../dist/chrome/<имя>`). Если в `web_accessible_resources` появился новый верхний уровень (как `offline/`), его надо добавить и в Xcode-проект (четыре записи: `PBXBuildFile`, `PBXFileReference`, группа `Resources`, фаза копирования ресурсов), иначе в Safari страница открывается как «Safari Can't Find the File» (NSURLErrorDomain -1100), а в Chrome и Firefox всё работает. Это сторожит `tests/source/safari-resources.test.ts` (`bun test tests/source`).
 
-Fastlane требует явно заданный `SAFARI_RELEASE_DIR` для lanes `release` и `appcast`. В обоих Safari workflows он равен `${{ runner.temp }}/safari-release`: `.app`, DMG и appcast хранятся в каталоге текущей CI-джобы до загрузки в GitHub Release и Actions artifacts. Папка `build/release` больше не создаётся. Для локальной сборки выбери собственный каталог; автоматического переноса в системный временный каталог нет.
+Fastlane требует явно заданный `SAFARI_RELEASE_DIR` для lanes `release` и `appcast`. В **Build Safari** он равен `${{ runner.temp }}/safari-release`: `.app`, DMG и appcast хранятся в каталоге текущей CI-джобы до загрузки в GitHub Release и Actions artifacts. Папка `build/release` больше не создаётся. Для локальной сборки выбери собственный каталог; автоматического переноса в системный временный каталог нет.
 
-Версия должна иметь вид `2.6.6` либо тег `v2.6.6`; название GitHub Release не используется. Ограничения `CFBundleVersion`: major 1–9999, minor и patch 0–99, без ведущих нулей. Для каждого обновления увеличивай версию: повторная сборка с тем же тегом не будет предлагаться как новая версия. Prerelease-теги не поддерживаются этой схемой.
+Версия должна иметь вид `2.6.6` либо тег `v2.6.6`; название релиза не используется. Ограничения `CFBundleVersion`: major 1–9999, minor и patch 0–99, без ведущих нулей. Для каждого обновления увеличивай версию: повторная сборка с тем же тегом не будет предлагаться как новая версия. Prerelease-теги не поддерживаются этой схемой.
 
 ## Подписанный appcast
 
@@ -96,33 +96,34 @@ Lane `appcast` использует тот же `SAFARI_RELEASE_DIR`, что и 
 
 Локально DMG из предыдущей сборки должен соответствовать `SAFARI_RELEASE_TAG`. Lane проверяет это по версии внутри сгенерированного appcast.
 
-## GitHub Actions
+## CI
 
-В Environment **`publish-safari`** нужны secrets:
+Основной репозиторий — [git.cu3rd.ru/cu3rd/lms-extension](https://git.cu3rd.ru/cu3rd/lms-extension), релизы выпускает Forgejo Actions по пушу тега (см. [CONTRIBUTING.md](../CONTRIBUTING.md)). macOS-раннера в Forgejo нет, поэтому Safari собирается в GitHub-зеркале `cu-3rd-party/lms-extension` workflow **Build Safari** (`.github/workflows/build-safari.yml`, `macos-latest`). Forgejo этот workflow не видит: при наличии `.forgejo/workflows` каталог `.github/workflows` игнорируется. GitHub, в свою очередь, не видит `.forgejo/workflows`.
+
+Цепочка релиза:
+
+1. Тег `vX.Y.Z` пушится в Forgejo; push-зеркало сразу переносит его на GitHub.
+2. На GitHub пуш тега запускает **Build Safari**: проверка release tooling и соответствия `SPARKLE_PRIVATE_KEY` исходному `SUPublicEDKey`, сборка и notarization DMG с версией из тега, генерация и проверка appcast.
+3. **Build Safari** создаёт GitHub Release для тега, если его нет, и загружает в него DMG, затем `appcast.xml`. Повторный запуск заменяет assets того же тега. DMG также сохраняется в Actions artifacts.
+4. Джоба **Publish Safari** workflow **Release** в Forgejo раз в минуту проверяет `appcast.xml` в GitHub Release тега. Когда он появляется, скачивает DMG и appcast и прикрепляет их к релизу Forgejo. Если **Build Safari** упал (проверяется раз в 5 минут через публичный API GitHub) или не уложился в 60 минут, джоба падает. После исправления перезапусти **Build Safari** на GitHub, затем **Release** в Forgejo вручную с тем же `tag`.
+
+Токены между Forgejo и GitHub не нужны: зеркало публичное, Forgejo только читает его релизы.
+
+Feed URL `releases/latest/download/appcast.xml` по-прежнему указывает на GitHub и перенаправляет на asset последнего стабильного GitHub Release. Пока **Build Safari** нового тега не завершился, feed может временно возвращать 404. GitHub Pages не требуется.
+
+Prerelease-теги (`vX.Y.Z-…`) Safari не выпускают: **Build Safari** для них пропускается, джоба **Publish Safari** в Forgejo тоже. Ручной запуск **Build Safari** создаёт только DMG artifact (ZIP с DMG внутри), без GitHub Release, без изменения публичного feed и без требования приватного ключа Sparkle.
+
+Secrets для **Build Safari** лежат в GitHub-зеркале, в repository secrets (Environment **`publish-safari`** у job есть, но своих secrets не содержит):
 
 - `APPLE_ID` — Apple ID;
 - `APPLE_APP_SPECIFIC_PASSWORD` — app-specific password;
 - `APPLE_CERTIFICATE_BASE64` — `.p12` с Developer ID и private key в base64;
 - `APPLE_CERTIFICATE_PASSWORD` — пароль `.p12`;
+- `SPARKLE_PRIVATE_KEY` — экспортированный приватный ключ Sparkle.
 
-В repository secrets нужен `SPARKLE_PRIVATE_KEY` — экспортированный приватный ключ Sparkle. Его также можно хранить в Environment `publish-safari`.
+Variable: **`APPLE_TEAM_ID`**. Копии этих значений есть и в Forgejo, но Forgejo они не используются; при смене секрета обновляй его на GitHub. Secrets Chrome (`CHROME_*`) и Firefox (`AMO_*`) нужны только в Forgejo.
 
-Variable: **`APPLE_TEAM_ID`**.
-
-Workflow **Publish Release** при публикации стабильного GitHub Release:
-
-1. Проверяет release tooling и соответствие секрета исходному `SUPublicEDKey` до импорта сертификата; собирает и notarizes DMG с версией из тега.
-2. Генерирует и проверяет appcast.
-3. Загружает DMG в **Release assets**, затем загружает `appcast.xml`. Право `contents: write` есть только у Safari job. Повторный запуск заменяет assets того же тега.
-4. Сохраняет DMG и appcast также в Actions artifacts.
-
-Feed URL `releases/latest/download/appcast.xml` перенаправляет на asset последнего стабильного релиза. Все стабильные релизы должны содержать Safari assets. Пока Safari job нового релиза не завершился, feed может временно возвращать 404; после успешной загрузки он снова доступен. Если Safari job упал, исправь причину и перезапусти его. GitHub Pages не требуется.
-
-Drafts и prereleases не публикуют Safari-обновления. Ручной запуск **Publish Release** или **Build Safari** создаёт только DMG artifact, без изменения публичного feed и без требования приватного ключа Sparkle. Actions artifact скачивается как ZIP с DMG внутри.
-
-Safari job запускается независимо от Chrome и Firefox: `needs` не задан. Его условие явно разрешает ручной запуск или событие `release` с `prerelease == false`; отдельная проверка `draft` не нужна для триггера `release.published`. Шаг **Log release trigger** в Chrome job выводит только имя события, action, тег и флаги prerelease/draft. Секреты и полный payload не выводятся. Изменение workflow применяется к новому запуску с коммитом, содержащим исправление; повтор старого запуска не подхватывает новый workflow.
-
-Chrome и Firefox публикуются только при ручном запуске **Publish Release** с полем `tag` существующего релиза; ZIP и неподписанный XPI прикрепляются к этому релизу. Firefox отправляется в AMO без ожидания ревью. Подробности — в [CONTRIBUTING.md](../CONTRIBUTING.md). Поэтому шаг **Log release trigger** в Chrome job также выполняется только при ручном запуске; при событии `release` Chrome job пропускается.
+Изменение workflow применяется к новому запуску с коммитом, содержащим исправление; повтор старого запуска не подхватывает новый workflow. Для **Build Safari** это значит: тег должен указывать на коммит с нужной версией workflow.
 
 ## Интерфейс и проверка
 

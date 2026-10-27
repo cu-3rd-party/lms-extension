@@ -1,0 +1,162 @@
+name: Release
+
+# Релиз — пуш тега vX.Y.Z в git.cu3rd.ru (создавать теги может только команда lms-extension-devs).
+# Chrome и Firefox собираются здесь; Safari — на macOS-раннере GitHub через
+# .github/workflows/build-safari.yml (зеркало получает тот же тег), отсюда только забираем DMG.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Существующий тег (vX.Y.Z): перевыпустить релиз для него'
+        required: true
+        type: string
+
+jobs:
+  release:
+    name: Create release
+    runs-on: homelab-docker
+    container:
+      image: ghcr.io/catthehacker/ubuntu:act-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      stable: ${{ steps.version.outputs.stable }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Тег должен иметь вид vX.Y.Z или vX.Y.Z-suffix: $TAG" >&2
+            exit 1
+          fi
+          stable=true
+          [[ $TAG == *-* ]] && stable=false
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "stable=$stable" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+
+      - name: Create Forgejo release
+        run: bash .forgejo/scripts/release.sh ensure "$TAG"
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-chrome:
+    name: Publish Chrome
+    needs: release
+    runs-on: homelab-docker
+    container:
+      image: ghcr.io/catthehacker/ubuntu:act-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Set package version
+        run: |
+          bun -e "const fs=require('fs'),pkg=JSON.parse(fs.readFileSync('package.json','utf8'));pkg.version=process.env.VERSION;fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');"
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+
+      - name: Build & pack chrome
+        run: bun run release:chrome
+
+      - name: Attach ZIP to release
+        run: bash .forgejo/scripts/release.sh upload "$TAG" build/lms-extension-chrome.zip
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to Chrome Web Store
+        uses: browser-actions/release-chrome-extension@v0
+        with:
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          extension-path: build/lms-extension-chrome.zip
+          oauth-client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          oauth-client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          oauth-refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+
+  publish-firefox:
+    name: Publish Firefox
+    needs: release
+    runs-on: homelab-docker
+    container:
+      image: ghcr.io/catthehacker/ubuntu:act-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Set package version
+        run: |
+          bun -e "const fs=require('fs'),pkg=JSON.parse(fs.readFileSync('package.json','utf8'));pkg.version=process.env.VERSION;fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');"
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+
+      - name: Build & pack firefox
+        run: bun run release:firefox
+
+      - name: Attach unsigned XPI to release
+        run: bash .forgejo/scripts/release.sh upload "$TAG" build/lms-extension-firefox.xpi
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Ревью AMO идёт дольше, чем живёт раннер: ждём только валидацию,
+      # одобрение и подписанный XPI — уже в кабинете AMO.
+      - name: Submit to Firefox Add-ons
+        run: bunx web-ext sign --source-dir dist/firefox --channel listed --approval-timeout 0
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+
+  # macOS-раннера в Forgejo нет: DMG собирает, подписывает и нотаризует build-safari.yml
+  # на GitHub по тому же тегу и выкладывает в GitHub Release вместе с appcast
+  # (SUFeedURL установленных приложений смотрит туда). Здесь — только копия в релиз Forgejo.
+  publish-safari:
+    name: Publish Safari
+    needs: release
+    if: ${{ needs.release.outputs.stable == 'true' }}
+    runs-on: homelab-docker
+    container:
+      image: ghcr.io/catthehacker/ubuntu:act-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - name: Wait for Safari build on GitHub
+        run: bash .forgejo/scripts/safari-from-github.sh "$TAG" safari-release
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+
+      - name: Attach DMG and appcast to release
+        run: bash .forgejo/scripts/release.sh upload "$TAG" safari-release/lms-extension-safari.dmg safari-release/appcast.xml
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -11,7 +11,7 @@
 ## Быстрый старт
 
 ```bash
-git clone https://github.com/cu-3rd-party/lms-extension.git
+git clone https://git.cu3rd.ru/cu3rd/lms-extension.git
 cd lms-extension
 bun install
 ```
@@ -30,11 +30,19 @@ bun install
 | `bun run release:chrome`  | Собрать и упаковать `.zip` для Chrome Web Store    |
 | `bun run release:firefox` | Собрать и упаковать `.xpi` для Firefox Add-ons     |
 
-Джоб **Publish Chrome** в workflow **Publish Release** прикрепляет к GitHub Release `lms-extension-chrome.zip` и отправляет его в Chrome Web Store.
+Релизы собирает Forgejo Actions в [git.cu3rd.ru/cu3rd/lms-extension](https://git.cu3rd.ru/cu3rd/lms-extension) (основной репозиторий; GitHub — зеркало). Релиз — это пуш тега `vX.Y.Z` в Forgejo; создавать и удалять теги может только команда `lms-extension-devs`:
 
-Джоб **Publish Firefox** прикрепляет к GitHub Release неподписанный `lms-extension-firefox.xpi` и отправляет версию в AMO через `web-ext sign --approval-timeout 0`. Ревью он не ждёт: оно идёт дольше, чем живёт раннер. Подписанный XPI после одобрения скачивается из кабинета AMO.
+```sh
+git tag v2.8.5 && git push origin v2.8.5
+```
 
-Chrome и Firefox публикуются при публикации GitHub Release. Ручной запуск **Publish Release** публикует их, только если указан `tag` уже созданного релиза (`vX.Y.Z`): из тега берётся версия, к этому релизу прикрепляются файлы. Без `tag` ручной запуск собирает только Safari.
+Workflow **Release** (`.forgejo/workflows/release.yml`) создаёт по тегу релиз в Forgejo (тег вида `vX.Y.Z-beta.1` — prerelease) и запускает джобы:
+
+- **Publish Chrome** прикрепляет `lms-extension-chrome.zip` к релизу и отправляет его в Chrome Web Store.
+- **Publish Firefox** прикрепляет неподписанный `lms-extension-firefox.xpi` и отправляет версию в AMO через `web-ext sign --approval-timeout 0`. Ревью он не ждёт: оно идёт дольше, чем живёт раннер. Подписанный XPI после одобрения скачивается из кабинета AMO.
+- **Publish Safari** (только стабильные теги) ждёт сборку Safari на GitHub и копирует `lms-extension-safari.dmg` и `appcast.xml` в релиз Forgejo. macOS-раннера в Forgejo нет, поэтому DMG собирает `.github/workflows/build-safari.yml` на GitHub: зеркало получает тот же тег, и workflow сам выкладывает DMG и appcast в GitHub Release — на него смотрит Sparkle у установленных приложений. Подробности — в [fastlane/README.md](fastlane/README.md#ci).
+
+Версия расширения берётся из тега. Ручной запуск **Release** с полем `tag` существующего тега перевыпускает его: пересобирает Chrome и Firefox и заново копирует Safari-файлы из GitHub Release.
 
 ### Загрузить расширение в браузер
 
