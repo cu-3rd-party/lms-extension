@@ -33,9 +33,11 @@
   }
 
   function calculateWeekNumber(targetDate) {
-    const baseDate = new Date(2025, 8, 8); // 8 сентября 2025
-    const [day, month, year] = targetDate.split('.');
-    const currentDate = new Date(`${year}-${month}-${day}`);
+    const [day, month, year] = targetDate.split('.').map(Number);
+    const academicYear = month >= 9 ? year : year - 1;
+    const baseDate = new Date(Date.UTC(academicYear, 8, 1));
+    baseDate.setUTCDate(1 + ((8 - baseDate.getUTCDay()) % 7));
+    const currentDate = new Date(Date.UTC(year, month - 1, day));
     const timeDiff = currentDate.getTime() - baseDate.getTime();
     const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
     return Math.floor(daysDiff / 7) + 1;
