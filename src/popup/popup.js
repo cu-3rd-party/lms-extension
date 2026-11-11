@@ -123,6 +123,7 @@ const toggles = {
   courseOverviewTaskStatusToggle: document.getElementById('course-overview-task-status-toggle'),
   courseAttendanceBarToggle: document.getElementById('course-attendance-bar-toggle'),
   coursePossibleScoreToggle: document.getElementById('course-possible-score-toggle'),
+  courseCardScoreToggle: document.getElementById('course-card-score-toggle'),
   emojiHeartsEnabled: document.getElementById('emoji-hearts-toggle'),
   oldCoursesDesignToggle: document.getElementById('old-courses-design-toggle'),
   customCourseNamesToggle: document.getElementById('custom-course-names-toggle'),
@@ -144,6 +145,10 @@ const toggles = {
 const endOfCourseCalcLabel = document.getElementById('end-of-course-calc-label');
 const futureExamsDisplayContainer = document.getElementById('future-exams-display-container');
 const futureExamsDisplayFormat = document.getElementById('future-exams-display-format');
+const courseCardScoreFormatContainer = document.getElementById(
+  'course-card-score-format-container'
+);
+const courseCardScoreFormat = document.getElementById('course-card-score-format');
 const autoRenameFormatContainer = document.getElementById('auto-rename-format-container');
 const renameTemplateSelect = document.getElementById('rename-template-select');
 const reloadNotice = document.getElementById('reload-notice');
@@ -187,6 +192,7 @@ const DEADLINE_LEVEL_DEFAULTS = [3, 6, 10];
 const allKeys = [
   ...Object.keys(toggles),
   'futureExamsDisplayFormat',
+  'courseCardScoreFormat',
   'autoRenameTemplate',
   'akhCourseFilter',
   'contestCourseFilter',
@@ -455,7 +461,18 @@ function refreshToggleStates() {
 
     applyPopupTheme(isThemeEnabled);
     updateFormatDisplayVisibility(data.futureExamsDisplayFormat);
+    updateCardScoreFormatUI(data.courseCardScoreFormat);
   });
+}
+
+// Формат баллов на карточке: список виден, пока включён сам бейдж.
+function updateCardScoreFormatUI(format) {
+  if (toggles.courseCardScoreToggle && courseCardScoreFormatContainer) {
+    courseCardScoreFormatContainer.style.display = toggles.courseCardScoreToggle.checked
+      ? 'block'
+      : 'none';
+  }
+  if (courseCardScoreFormat && format) courseCardScoreFormat.value = format;
 }
 
 function updateFormatDisplayVisibility(displayFormat) {
@@ -527,6 +544,8 @@ allKeys.forEach((key) => {
         }
       } else if (key === 'futureExamsViewToggle') {
         updateFormatDisplayVisibility();
+      } else if (key === 'courseCardScoreToggle') {
+        updateCardScoreFormatUI();
       } else if (key === 'futureExamsDashboardDeadlines') {
         if (deadlineLevels) deadlineLevels.hidden = !isEnabled;
       } else if (key === 'autoRenameEnabled') {
@@ -558,6 +577,18 @@ if (futureExamsDisplayFormat) {
       if (reloadNotice) reloadNotice.style.display = 'block';
     } else {
       browser.storage.sync.set({ futureExamsDisplayFormat: selectedFormat });
+    }
+  });
+}
+
+if (courseCardScoreFormat) {
+  courseCardScoreFormat.addEventListener('change', () => {
+    const format = courseCardScoreFormat.value;
+    if (isInsideIframe) {
+      pendingChanges['courseCardScoreFormat'] = format;
+      if (reloadNotice) reloadNotice.style.display = 'block';
+    } else {
+      browser.storage.sync.set({ courseCardScoreFormat: format });
     }
   });
 }

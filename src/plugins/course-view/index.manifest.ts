@@ -24,6 +24,8 @@ const manifest = {
     // attendance_api.js — до полосы: она зовёт window.cuLmsAttendance
     'plugins/attendance/attendance_api.js',
     'plugins/course-view/course_attendance_bar.js',
+    // possible_score.js — до потребителя: он зовёт window.cuLmsPossibleScore
+    'plugins/_shared/possible_score.js',
     'plugins/course-view/course_possible_score.js',
     'plugins/_shared/fflate.umd.min.js',
     'plugins/_shared/pdf-lib.min.js',

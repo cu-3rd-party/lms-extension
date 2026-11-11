@@ -86,6 +86,15 @@ export default defineManifest({
       world: 'MAIN',
     },
     {
+      // Баллы на карточках «Мои курсы» должны появляться вместе с карточками, а не после
+      // них: плагины внедряются по onCompleted (страница уже нарисована), поэтому этот
+      // скрипт стартует раньше Angular и ставит бейдж в наблюдателе. См.
+      // course-view/course_card_score.js. Без включённого тумблера в попапе ничего не делает.
+      matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
+      js: ['plugins/_shared/possible_score.js', 'plugins/course-view/course_card_score.js'],
+      run_at: 'document_start',
+    },
+    {
       // Safari does not reliably expose SPA history changes through
       // webNavigation. The script is a no-op in Chrome and Firefox.
       matches: ['https://my.centraluniversity.ru/*', 'https://my.cu.ru/*'],
@@ -191,6 +200,8 @@ export default defineManifest({
         'plugins/course-view/course_attendance_bar.js',
         'plugins/course-view/course_attendance_bar.css',
         'plugins/course-view/course_possible_score.js',
+        'plugins/course-view/course_card_score.js',
+        'plugins/_shared/possible_score.js',
         'plugins/course-view/course_possible_score.css',
         'plugins/attendance/attendance_summary.js',
         'plugins/attendance/attendance_course.js',

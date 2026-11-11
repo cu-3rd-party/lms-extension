@@ -1191,6 +1191,31 @@
                 <span class="slider"></span>
               </label>
             </div>
+            <div class="toggle-container">
+              <span class="toggle-label"
+                >Баллы на карточках курсов
+                <span class="toggle-hint"
+                  >В правом нижнем углу карточки: накоплено и (ещё можно набрать)</span
+                ></span
+              >
+              <label class="switch">
+                <input type="checkbox" id="course-card-score-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div
+              class="toggle-container"
+              id="course-card-score-format-container"
+              style="display: none"
+            >
+              <span class="toggle-label">Формат баллов на карточке</span>
+              <div class="dropdown-container">
+                <select class="dropdown-select" id="course-card-score-format">
+                  <option value="left">Накоплено (ещё можно набрать)</option>
+                  <option value="possible">Накоплено / можно было набрать</option>
+                </select>
+              </div>
+            </div>
           </div>
         </section>
 

@@ -19,6 +19,8 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const plugins = resolve(__dirname, '..', 'src', 'plugins');
 const SCRIPT = readFileSync(resolve(plugins, 'course-view/course_possible_score.js'), 'utf8');
+// Формула лежит в общем модуле, его грузит и сам плагин (см. index.manifest.ts).
+const SHARED = readFileSync(resolve(plugins, '_shared/possible_score.js'), 'utf8');
 const CSS = readFileSync(resolve(plugins, 'course-view/course_possible_score.css'), 'utf8');
 
 const activity = { id: 1, name: 'ДЗ', weight: 0.5, maxExercisesCount: 4, bestScoresCount: 0 };
@@ -40,11 +42,15 @@ test('максимум считается только по проверенны
   });
   await page.goto('https://lms.test/learn/courses/view/actual/1142');
   await page.addStyleTag({ content: CSS });
+  await page.addScriptTag({ content: SHARED });
   await page.addScriptTag({ content: SCRIPT });
   const row = page.locator('.legend > .r:has-text("Еще можно набрать") + #culms-course-possible');
   await expect(row).toContainText('Можно было набрать');
   await expect(row).toContainText('2.5');
-  await expect(page.locator('.progress-bar > #culms-course-possible-mark')).toHaveCSS('left', '50px');
+  await expect(page.locator('.progress-bar > #culms-course-possible-mark')).toHaveCSS(
+    'left',
+    '50px'
+  );
   // Копия родной строки: тот же размер шрифта, что у соседней.
   await expect(row).toHaveCSS('font-size', '16px');
 });

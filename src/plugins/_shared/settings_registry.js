@@ -135,6 +135,9 @@ if (typeof window.cuLmsSettings === 'undefined') {
     bool('courseOverviewAutoscrollToggle', 'features'),
     bool('courseAttendanceBarToggle', 'features'),
     bool('coursePossibleScoreToggle', 'features'),
+    bool('courseCardScoreToggle', 'features'),
+    // Что во второй скобке бейджа на карточке: ещё можно набрать или можно было набрать к сегодняшнему дню.
+    choice('courseCardScoreFormat', 'features', ['left', 'possible'], 'left'),
     bool('courseExporterToggle', 'features'),
     bool('advancedStatementsEnabled', 'features'),
     bool('endOfCourseCalcEnabled', 'features'),
