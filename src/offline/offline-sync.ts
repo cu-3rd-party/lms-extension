@@ -6,7 +6,7 @@
 // заходы — раз в ALARM_MINUTES по `alarms` и при открытии страниц LMS (не
 // чаще NAV_MIN_GAP_MS). Первая полная выгрузка поэтому растягивается на часы,
 // а дальше за заход уходит пара запросов: лонгриды и условия заданий
-// скачиваются один раз и больше не обновляются, файлы — по ключу
+// перечитываются по сроку (longreadTtl), файлы — по ключу
 // `filename@version`. Первыми идут лонгриды, от новых к старым; задания старше
 // месяца не качаются. Пока студент не выбрал курсы в попапе
 // (`offlineCourseIds`), качается только список курсов — для выбора.
@@ -209,6 +209,66 @@ const isDue = (record: OfflineRecord | undefined, ttl: number, now: number) => {
 };
 
 /**
+ * Как часто перечитывать материалы лонгрида. Преподаватели дописывают в уже
+ * опубликованный лонгрид ДЗ, файлы и новые версии файлов, и чем свежее лонгрид,
+ * тем вероятнее правка. Раньше они не перечитывались никогда — и новое ДЗ в
+ * уже скачанной неделе не появлялось в копии.
+ */
+const LONGREAD_TTL_FRESH_MS = 3 * HOUR; // опубликован меньше двух недель назад
+const LONGREAD_TTL_RECENT_MS = DAY; // до двух месяцев, а также без даты публикации
+const LONGREAD_TTL_OLD_MS = 7 * DAY;
+
+export function longreadTtl(publishedAt: number, now: number): number {
+  if (!publishedAt) return LONGREAD_TTL_RECENT_MS;
+  const age = now - publishedAt;
+  if (age < 14 * DAY) return LONGREAD_TTL_FRESH_MS;
+  if (age < 60 * DAY) return LONGREAD_TTL_RECENT_MS;
+  return LONGREAD_TTL_OLD_MS;
+}
+
+/**
+ * Какие блоки попали в сохранённый лонгрид: при скачивании выбрасывается то, что
+ * студент выгружать не просил (`filterMaterials`). `L` — материалы, `H` — ДЗ.
+ */
+export const materialsFingerprint = (settings: Settings): string =>
+  `${settings.offlineCacheLongreads ? 'L' : ''}${settings.offlineCacheHomework ? 'H' : ''}`;
+
+/**
+ * Пора ли перечитать лонгрид. Да, если:
+ *  - включили раздел, которого при скачивании ещё не было (включил «Условия ДЗ»
+ *    после первой выгрузки — задания в сохранённых лонгридах так и не появятся);
+ *  - обзор курса показывает задание, которого нет в сохранённых материалах;
+ *  - прошёл срок по `longreadTtl`.
+ * Запись без отпечатка — от старой версии: по разделам её не трогаем, только по сроку.
+ */
+export function isLongreadStale(
+  saved: OfflineRecord,
+  longread: any,
+  publishedAt: number,
+  overviewAt: number,
+  settings: Settings,
+  now: number
+): boolean {
+  if (saved.error) return isDue(saved, Infinity, now);
+  if (saved.fp !== undefined) {
+    for (const flag of materialsFingerprint(settings)) {
+      if (!saved.fp.includes(flag)) return true;
+    }
+  }
+  // Один раз на обзор: если id задания в обзоре и в материалах не сходятся по
+  // иной причине, лонгрид не должен перечитываться при каждом заходе.
+  if (settings.offlineCacheHomework && (saved.fetchedAt || 0) < overviewAt) {
+    const stored = new Set(
+      (saved.data?.items || []).filter(isExercise).map((item: any) => Number(item.id))
+    );
+    if ((longread.exercises || []).some((exercise: any) => !stored.has(Number(exercise.id)))) {
+      return true;
+    }
+  }
+  return !saved.fetchedAt || now - saved.fetchedAt > longreadTtl(publishedAt, now);
+}
+
+/**
  * Задания старше месяца не нужны: ни подробности с решением, ни строка в
  * списке. Дата задания — дедлайн, без него — отправка или создание. Будущий
  * дедлайн — всегда нужен.
@@ -322,9 +382,16 @@ export function survey(
       done: 0,
       total: 0,
     };
-    const entries: { course: any; longread: any; at: number; order: number }[] = [];
+    const entries: {
+      course: any;
+      longread: any;
+      at: number;
+      order: number;
+      overviewAt: number;
+    }[] = [];
     for (const course of courses) {
-      const themes = records.get(`overview:${course.id}`)?.data?.themes || [];
+      const overview = records.get(`overview:${course.id}`);
+      const themes = overview?.data?.themes || [];
       for (const theme of themes) {
         (theme.longreads || []).forEach((longread: any, index: number) => {
           const hasExercises = (longread.exercises || []).length > 0;
@@ -337,22 +404,24 @@ export function survey(
             longread,
             at: Number.isFinite(at) ? at : 0,
             order: (theme.order ?? 0) * 1000 + index,
+            overviewAt: overview?.fetchedAt || 0,
           });
         });
       }
     }
     entries.sort((a, b) => b.at - a.at || b.order - a.order);
-    for (const { course, longread } of entries) {
+    for (const { course, longread, at, overviewAt } of entries) {
       const key = `longread:${longread.id}`;
       const saved = records.get(key);
       longreads.total += 1;
       if (saved?.data) longreads.done += 1;
-      if (!saved || isDue(saved, Infinity, now)) {
+      if (!saved || isLongreadStale(saved, longread, at, overviewAt, settings, now)) {
         jobs.push({
           type: 'json',
           key,
           path: `${API}/longreads/${longread.id}/materials?limit=10000`,
-          label: `Лонгрид «${longread.name}»${fmtCourse(course)}`,
+          fp: materialsFingerprint(settings),
+          label: `${saved ? 'Обновление: лонгрид' : 'Лонгрид'} «${longread.name}»${fmtCourse(course)}`,
         });
       }
       for (const ref of longreadFiles(saved?.data?.items, settings)) {
@@ -553,7 +622,21 @@ async function runJsonJob(origin: string, job: Extract<Job, { type: 'json' }>, s
   let value = data;
   if (job.key.startsWith('longread:')) value = filterMaterials(data, settings);
   if (job.key === 'tasks') value = recentTasks(data, now);
+  const previous = job.key.startsWith('longread:') ? await store.getRecord(job.key) : undefined;
   await store.putRecord({ key: job.key, data: value, fetchedAt: now, fp: job.fp });
+  if (previous?.data) {
+    // Перечитывание лонгрида: по логу видно, что в нём реально поменялось.
+    const before = previous.data.items?.length ?? 0;
+    const after = value?.items?.length ?? 0;
+    const same = JSON.stringify(previous.data) === JSON.stringify(value);
+    await log(
+      'ok',
+      same
+        ? `${job.label} — без изменений`
+        : `${job.label} — изменился, блоков: ${after} (было ${before})`
+    );
+    return;
+  }
   await log('ok', describe(job, value));
 }
 

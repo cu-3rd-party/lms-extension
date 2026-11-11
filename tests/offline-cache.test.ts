@@ -675,3 +675,54 @@ test('«Сохранить копию на диск»: zip открываетс�
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('уже скачанный лонгрид перечитывается: по сроку и при включении раздела', async () => {
+  const popup = await extensionPage('popup/popup.html');
+  const sync = async () => {
+    await popup.evaluate(() => chrome.runtime.sendMessage({ action: 'OFFLINE_SYNC_NOW' }));
+    await expect.poll(async () => (await status(popup)).running).toBe(false);
+  };
+  // Меняем «в LMS» то, что лежит в копии: преподаватель дописал файл в лонгрид.
+  const materials = API['/api/micro-lms/longreads/13773/materials'] as { items: unknown[] };
+  materials.items.push(fileItem(13773, 'Новая презентация.pdf', 800, 9));
+
+  // Свежая копия не перечитывается: лишний трафик ни к чему.
+  requested.length = 0;
+  await sync();
+  expect(requested).toEqual([]);
+
+  // Прошёл срок — лонгрид перечитан, новый файл скачан, лог говорит, что изменилось.
+  await (
+    await worker()
+  ).evaluate(async () => {
+    const store = (globalThis as any).cuLmsOfflineStore;
+    const record = await store.getRecord('longread:13773');
+    await store.putRecord({ ...record, fetchedAt: Date.now() - 2 * 24 * 60 * 60 * 1000 });
+  });
+  await sync();
+  expect(requested).toContain('/api/micro-lms/longreads/13773/materials?limit=10000');
+  expect(requested.some((r) => r.includes(encodeURIComponent('Новая презентация')))).toBe(true);
+  const refreshed = await status(popup);
+  expect(refreshed.progress.find((p: any) => p.key === 'longreadFiles')).toMatchObject({
+    done: 3,
+    total: 3,
+  });
+  const refreshLog = refreshed.log.map((line: any) => line.text).join('\n');
+  expect(refreshLog).toContain('Обновление: лонгрид «Лекция 1»');
+  expect(refreshLog).toContain('изменился, блоков: 5 (было 4)');
+
+  // Включили «Условия ДЗ» уже после выгрузки: в сохранённом лонгриде заданий не
+  // было (их выбросили при скачивании) — он перечитывается без ожидания срока.
+  await (
+    await worker()
+  ).evaluate(async () => {
+    const store = (globalThis as any).cuLmsOfflineStore;
+    const record = await store.getRecord('longread:16899');
+    await store.putRecord({ ...record, fp: 'L', data: { items: [] } });
+  });
+  requested.length = 0;
+  await sync();
+  expect(requested).toContain('/api/micro-lms/longreads/16899/materials?limit=10000');
+  expect(requested).not.toContain('/api/micro-lms/longreads/13773/materials?limit=10000');
+  await popup.close();
+});
