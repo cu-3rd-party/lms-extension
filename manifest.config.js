@@ -46,6 +46,8 @@ export default defineManifest({
     'https://lms.swap.cu3rd.ru/*',
     // https://github.com/cu-3rd-party/lms-workshop
     'https://lms.workshop.cu3rd.ru/*',
+    // Видеозаписи пар лежат в Контур.Толк (course-view/course_videos.js).
+    'https://centraluniversity.ktalk.ru/*',
   ],
   background:
     BROWSER === 'firefox'
@@ -164,6 +166,7 @@ export default defineManifest({
         'plugins/course-view/exams_dashboard.js',
         'plugins/course-view/exams_dashboard.css',
         'plugins/course-view/course_exporter.js',
+        'plugins/course-view/course_videos.js',
         'plugins/_shared/lms_materials_api.js',
         'plugins/_shared/apricot_api.js',
         'plugins/longreads/homework_weight_fix.js',

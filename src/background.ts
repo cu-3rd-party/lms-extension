@@ -110,6 +110,10 @@ type IncomingMessage =
   | { action: 'TABS_SEND_MESSAGE'; tabId: number; message: unknown }
   | { action: 'OPEN_PDF_VIEWER'; url: string; filename: string }
   | { action: 'DOWNLOAD_URL'; url: string; filename: string }
+  | { action: 'KTALK_RECORDING_INFO'; ids: string[] }
+  | { action: 'KTALK_DOWNLOAD'; url: string; filename: string }
+  | { action: 'KTALK_DOWNLOAD_STATUS'; id: number }
+  | { action: 'KTALK_CAPS' }
   | {
       action: 'DOWNLOAD_FILE';
       data: string | ArrayBuffer;
@@ -135,6 +139,93 @@ type IncomingMessage =
 // Единственный внешний хост, куда background пускает запросы биржи обмена
 // парами. https://github.com/cu-3rd-party/lms-swap-backend
 const SWAP_BACKEND_ORIGIN = 'https://lms.swap.cu3rd.ru';
+// Записи пар (course-view/course_videos.js).
+const KTALK_ORIGIN = 'https://centraluniversity.ktalk.ru';
+
+type KtalkInfoResult =
+  | { ok: true; items: unknown[] }
+  | { ok: false; status: number; error?: string };
+
+/**
+ * Работает внутри вкладки Толка (browser.scripting.executeScript сериализует
+ * функцию — она не должна ссылаться ни на что снаружи). Запрос идёт с
+ * cookie-сессией самого Толка, поэтому CORS не мешает.
+ */
+async function ktalkFetchInfo(ids: string[]): Promise<KtalkInfoResult> {
+  const items: unknown[] = [];
+  for (const id of ids) {
+    if (!/^[\w-]+$/.test(id)) {
+      items.push({ id, error: 'bad id' });
+      continue;
+    }
+    const response = await fetch('/api/recordings/' + id, {
+      credentials: 'include',
+      headers: { accept: 'application/json' },
+    });
+    // 401/403 — сессия Толка ещё не поднята: страница делает это сама, позже.
+    if (response.status === 401 || response.status === 403) {
+      return { ok: false, status: response.status };
+    }
+    if (!response.ok) {
+      items.push({ id, error: 'HTTP ' + response.status });
+      continue;
+    }
+    const data = await response.json();
+    const qualities = (data.qualities || [])
+      .filter((q: { status?: string; fileUrl?: string }) => q.status === 'complete' && q.fileUrl)
+      .map((q: { name: string; fileUrl: string; size?: { height?: number } }) => ({
+        name: q.name,
+        height: (q.size && q.size.height) || 0,
+        url: location.origin + q.fileUrl,
+      }));
+    items.push({ id, title: data.title, duration: data.duration, qualities });
+  }
+  return { ok: true, items };
+}
+
+/**
+ * Метаданные записей из Толка. Вход в Толк держится на cookie, которые
+ * страница плеера выпускает сама (POST /api/authorize/session по id_token из
+ * своего localStorage). Без неё прямой запрос или ссылка на файл — 403, даже
+ * если пользователь в Толке «залогинен». Поэтому открываем плеер в фоновой
+ * вкладке, ждём, пока сессия поднимется, и спрашиваем уже оттуда.
+ */
+async function ktalkRecordingInfo(ids: string[]): Promise<unknown[]> {
+  const first = ids.find((id) => /^[\w-]+$/.test(id));
+  if (!first) return ids.map((id) => ({ id, error: 'bad id' }));
+  const tab = await browser.tabs.create({
+    url: `${KTALK_ORIGIN}/recordings/${first}`,
+    active: false,
+  });
+  let lastStatus = 0;
+  let lastError = '';
+  try {
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      try {
+        const [injection] = await browser.scripting.executeScript({
+          target: { tabId: tab.id as number },
+          func: ktalkFetchInfo,
+          args: [ids],
+        });
+        const result = injection?.result as KtalkInfoResult | undefined;
+        if (result?.ok) return result.items;
+        if (result) lastStatus = result.status;
+      } catch (error) {
+        // Вкладка ещё грузится или переходит на вход — пробуем снова. Если так и не
+        // получится, причина (например, «Missing host permission» в Firefox) уйдёт в ошибку.
+        lastError = (error as Error).message;
+      }
+    }
+  } finally {
+    if (tab.id !== undefined) browser.tabs.remove(tab.id).catch(() => undefined);
+  }
+  throw new Error(
+    lastStatus
+      ? `Толк не пустил (HTTP ${lastStatus}): открой centraluniversity.ktalk.ru и войди`
+      : `Толк не ответил${lastError ? ` (${lastError})` : ''}: открой centraluniversity.ktalk.ru и войди`
+  );
+}
 
 // --- PLUGIN AUTO-DISCOVERY ---
 // All index.manifest.ts files are picked up automatically at build time.
@@ -1747,6 +1838,60 @@ browser.runtime.onMessage.addListener(((
           conflictAction: 'uniquify',
         })
       )
+    );
+    return true;
+  }
+  // Видеозаписи пар лежат в Контур.Толк, а не в LMS (course-view/course_videos.js).
+  // Страница LMS в Толк ходить не может (CORS), поэтому метаданные и скачивание —
+  // здесь. Хост зафиксирован: content-скрипт не должен гонять через background
+  // запросы куда угодно. Вход в Толк — обычная сессия пользователя в браузере.
+  if (request.action === 'KTALK_RECORDING_INFO') {
+    const ids = (request as { ids: string[] }).ids;
+    respondWith(
+      sendResponse,
+      ktalkRecordingInfo(ids).then((items) => ({ items }))
+    );
+    return true;
+  }
+  // Что умеет этот браузер: в Safari API загрузок нет (страница прячет скачивание).
+  if (request.action === 'KTALK_CAPS') {
+    sendResponse({ success: true, downloads: !!browser.downloads?.download });
+    return true;
+  }
+  if (request.action === 'KTALK_DOWNLOAD') {
+    const { url, filename } = request as { url: string; filename: string };
+    if (!url.startsWith(`${KTALK_ORIGIN}/recording-blob/`)) {
+      sendResponse({ success: false, error: 'запрещённый адрес' });
+      return true;
+    }
+    respondWith(
+      sendResponse,
+      Promise.resolve()
+        .then(() =>
+          browser.downloads.download({
+            url,
+            filename,
+            conflictAction: 'uniquify',
+            // Без этого при включённом «Всегда спрашивать, куда сохранять» браузер
+            // открывает окно выбора папки на каждой записи.
+            saveAs: false,
+          })
+        )
+        .then((id) => ({ id }))
+    );
+    return true;
+  }
+  // Страница опрашивает загрузку сама: ждать её здесь — минуты, а service worker
+  // за это время может выгрузиться вместе с открытым каналом сообщения.
+  if (request.action === 'KTALK_DOWNLOAD_STATUS') {
+    respondWith(
+      sendResponse,
+      browser.downloads.search({ id: (request as { id: number }).id }).then(([item]) => ({
+        state: item?.state ?? 'interrupted',
+        received: item?.bytesReceived ?? 0,
+        total: item?.totalBytes ?? 0,
+        error: item?.error,
+      }))
     );
     return true;
   }

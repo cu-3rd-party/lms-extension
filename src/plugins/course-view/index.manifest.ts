@@ -28,6 +28,7 @@ const manifest = {
     'plugins/_shared/fflate.umd.min.js',
     'plugins/_shared/pdf-lib.min.js',
     'plugins/course-view/course_exporter.js',
+    'plugins/course-view/course_videos.js',
   ],
 } satisfies PluginManifest;
 
