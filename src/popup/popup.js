@@ -1886,6 +1886,35 @@ async function downloadViaBackground(data, filename, mime, saveAs) {
   return true;
 }
 
+/**
+ * Safari: API загрузок нет, а ссылка на blob, созданный в попапе, не открывается —
+ * «Safari не может открыть страницу blob:safari-web-extension://… (WebKitBlobResource,
+ * ошибка 1)». Поэтому файл сохраняет вкладка LMS (DOWNLOAD_IN_TAB, src/save-in-page.ts):
+ * на обычной странице blob с `download` работает. true — файл передан вкладке.
+ */
+async function downloadInLmsTab(data, filename, mime) {
+  try {
+    const [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id || !isLmsUrl(tab.url)) return false;
+    const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
+    // По кускам: String.fromCharCode(...bytes) на сотнях килобайт падает по размеру стека.
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    const response = await browser.runtime.sendMessage({
+      action: 'DOWNLOAD_IN_TAB',
+      tabId: tab.id,
+      base64: btoa(binary),
+      filename,
+      mime,
+    });
+    return !!response?.success;
+  } catch (_error) {
+    return false;
+  }
+}
+
 async function saveProfileFile(profile) {
   const text = JSON.stringify(profile, null, 2);
   if (await downloadViaBackground(text, profileFileName(profile.kind), 'application/json', true)) {
@@ -1906,6 +1935,11 @@ async function saveProfileFile(profile) {
     }
   } catch (_error) {
     // Ниже обычная ссылка — она работает и без разрешения downloads.
+  }
+
+  // Safari: blob из попапа не открывается — сохраняем со страницы LMS.
+  if (await downloadInLmsTab(text, profileFileName(profile.kind), 'application/json')) {
+    return text.length;
   }
 
   const link = document.createElement('a');
@@ -2105,6 +2139,9 @@ async function downloadWorkbook(workbook, fileName) {
     await browser.downloads.download({ url, filename: fileName });
     return;
   }
+
+  // Safari: API загрузок нет, а blob из попапа не открывается — сохраняем со страницы LMS.
+  if (await downloadInLmsTab(data, fileName, mime)) return;
 
   const link = document.createElement('a');
   link.href = url;

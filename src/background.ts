@@ -3,6 +3,7 @@ import browser from 'webextension-polyfill';
 import type { PluginManifest } from './plugins/types';
 import { DEFAULT_LMS_ORIGIN, isLmsUrl, lmsOriginOf } from './plugins/lms-hosts';
 import { fetchAllGradesForExport } from './grades-export';
+import { saveBlobInPage } from './save-in-page';
 import { endTryOn, focusLmsTab, workshopIdentity } from './workshop-background';
 import { isGoal, maybeSendDaily, trackGoal, trackInstall } from './metrics';
 import {
@@ -127,6 +128,7 @@ type IncomingMessage =
   | { action: 'WORKSHOP_FOCUS_LMS' }
   | { action: 'WORKSHOP_TRYON_END'; keep: boolean }
   | { action: 'GRADES_EXPORT_EXECUTE'; tabId?: number; archived?: boolean }
+  | { action: 'DOWNLOAD_IN_TAB'; tabId: number; base64: string; filename: string; mime: string }
   | { action: 'OFFLINE_STATUS' }
   | { action: 'OFFLINE_SYNC_NOW' }
   | { action: 'OFFLINE_STOP' }
@@ -1999,6 +2001,29 @@ browser.runtime.onMessage.addListener(((
   if (request.action === 'WORKSHOP_TRYON_END') {
     const keep = (request as { keep?: unknown }).keep === true;
     respondWith(sendResponse, endTryOn(keep));
+    return true;
+  }
+
+  // Safari: API загрузок нет, а blob из попапа не открывается (WebKitBlobResource, ошибка 1).
+  // Файл сохраняет вкладка LMS — см. save-in-page.ts. Через background, а не из попапа:
+  // попап Safari закрывается, едва браузер что-то показывает, и работа не должна на нём висеть.
+  if (request.action === 'DOWNLOAD_IN_TAB') {
+    const { tabId, base64, filename, mime } = request as {
+      tabId: number;
+      base64: string;
+      filename: string;
+      mime: string;
+    };
+    respondWith(
+      sendResponse,
+      browser.scripting
+        .executeScript({
+          target: { tabId },
+          func: saveBlobInPage,
+          args: [base64, filename, mime],
+        })
+        .then(() => ({}))
+    );
     return true;
   }
 

@@ -65,6 +65,7 @@ Workflow **Release** (`.forgejo/workflows/release.yml`) создаёт по те
 src/
 ├── background.ts          # Service worker: роутер навигации, авто-инжекция плагинов
 ├── grades-export.ts       # Сбор оценок для Excel: выполняется во вкладке LMS, без замыканий
+├── save-in-page.ts        # Сохранение файла вкладкой LMS (Safari: без downloads и без blob из попапа), без замыканий
 ├── popup/                 # UI попапа расширения: вкладки слева, настройки справа
 │   ├── popup.html         # разметка вкладок (.tab-panel) и стили
 │   ├── popup.js           # логика настроек; кнопки вкладок строит из .tab-panel
