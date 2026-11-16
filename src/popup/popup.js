@@ -1906,11 +1906,14 @@ async function downloadViaSavePage(data, filename, mime) {
     await browser.storage.local.set({
       ['pendingSave:' + id]: { base64: btoa(binary), filename, mime, at: Date.now() },
     });
+    gradesLog(`файл в хранилище: base64 ${(binary.length * 1.34) | 0} симв., id=${id}`);
     const response = await browser.runtime.sendMessage({ action: 'OPEN_SAVE_PAGE', id });
+    gradesLog(`OPEN_SAVE_PAGE: ${JSON.stringify(response)}`);
     if (response && response.success) return true;
     await browser.storage.local.remove('pendingSave:' + id);
     return false;
-  } catch (_error) {
+  } catch (error) {
+    gradesLog(`downloadViaSavePage: ${error?.message || error}`);
     return false;
   }
 }
@@ -2039,6 +2042,73 @@ if (resetCourseIconsBtn) {
   });
 }
 
+// --- ЖУРНАЛ ВЫГРУЗКИ ОЦЕНОК ---
+// Пишется по шагам в storage.local: переживает перезагрузку страницы и закрытие попапа, поэтому
+// после сбоя (Safari: «this webpage was reloaded because a problem occurred») его видно в меню,
+// и его можно скопировать кнопкой. Нужен, пока выгрузка в Safari не проверена на живом браузере.
+const GRADES_LOG_KEY = 'gradesExportLog';
+const GRADES_LOG_LIMIT = 80;
+let gradesLogLines = [];
+let gradesLogChain = Promise.resolve();
+const gradesLogBox = document.getElementById('grades-export-log');
+const gradesLogCopy = document.getElementById('grades-export-log-copy');
+
+function renderGradesLog() {
+  if (gradesLogBox && gradesLogLines.length) gradesLogBox.textContent = gradesLogLines.join('\n');
+}
+
+function gradesLog(message) {
+  const time = new Date().toISOString().slice(11, 23);
+  gradesLogLines.push(`${time} ${message}`);
+  if (gradesLogLines.length > GRADES_LOG_LIMIT) gradesLogLines.shift();
+  renderGradesLog();
+  const snapshot = [...gradesLogLines];
+  gradesLogChain = gradesLogChain
+    .then(() => browser.storage.local.set({ [GRADES_LOG_KEY]: snapshot }))
+    .catch(() => {});
+}
+
+function startGradesLog(header) {
+  gradesLogLines = [];
+  gradesLog(header);
+}
+
+browser.storage.local
+  .get(GRADES_LOG_KEY)
+  .then((stored) => {
+    const lines = stored[GRADES_LOG_KEY];
+    if (Array.isArray(lines) && lines.length && !gradesLogLines.length) {
+      gradesLogLines = lines;
+      renderGradesLog();
+    }
+  })
+  .catch(() => {});
+
+if (gradesLogCopy) {
+  gradesLogCopy.addEventListener('click', async () => {
+    const text = gradesLogLines.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      gradesLogCopy.textContent = 'Скопировано';
+    } catch (_error) {
+      // Буфер недоступен (iframe, Safari) — выделяем текст, чтобы скопировать вручную.
+      const range = document.createRange();
+      range.selectNodeContents(gradesLogBox);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      gradesLogCopy.textContent = 'Выделено — скопируй вручную (Cmd+C)';
+    }
+  });
+}
+
+window.addEventListener('error', (event) => {
+  if (gradesLogLines.length) gradesLog(`window.error: ${event.message}`);
+});
+window.addEventListener('unhandledrejection', (event) => {
+  if (gradesLogLines.length) gradesLog(`unhandledrejection: ${event.reason}`);
+});
+
 if (gradesExportBtn) {
   gradesExportBtn.addEventListener('click', () => handleGradesExportClick(false));
 }
@@ -2069,6 +2139,10 @@ async function handleGradesExportClick(archived) {
   const fileName = archived ? 'grades-archive.xlsx' : 'grades.xlsx';
 
   try {
+    startGradesLog(
+      `старт: archived=${archived}, iframe=${isInsideIframe}, downloads=${!!browser.downloads?.download}, ` +
+        `UA=${navigator.userAgent}`
+    );
     setGradesExportBusy(true);
     setGradesExportStatus('Ищу активную вкладку LMS...');
 
@@ -2077,6 +2151,7 @@ async function handleGradesExportClick(archived) {
     }
 
     const [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
+    gradesLog(`вкладка: id=${tab?.id}, url=${tab?.url ? new URL(tab.url).host : 'не видна'}`);
     if (!tab?.id || !isLmsUrl(tab.url)) {
       throw new Error('Открой вкладку LMS (my.centraluniversity.ru или my.cu.ru) перед экспортом.');
     }
@@ -2088,11 +2163,16 @@ async function handleGradesExportClick(archived) {
     );
     // Оценки собирает функция из src/grades-export.ts: background запускает её
     // во вкладке LMS, и запросы к API идут оттуда с куками пользователя.
+    gradesLog('запрос сбора оценок: background → вкладка LMS');
     const response = await browser.runtime.sendMessage({
       action: 'GRADES_EXPORT_EXECUTE',
       tabId: tab.id,
       archived,
     });
+    gradesLog(
+      `ответ сбора: success=${response?.success}, курсов=${response?.result?.courses?.length}, ` +
+        `размер≈${JSON.stringify(response?.result || {}).length} симв.`
+    );
     if (!response?.success) {
       throw new Error(response?.error || 'Ошибка выполнения скрипта экспорта');
     }
@@ -2109,10 +2189,13 @@ async function handleGradesExportClick(archived) {
     }
 
     setGradesExportStatus(`Генерирую Excel: ${result.courses.length} курсов...`);
+    gradesLog('сборка книги Excel');
     await downloadWorkbook(generateGradesWorkbook(result.courses), fileName);
+    gradesLog('готово');
     setGradesExportStatus(`Готово: ${fileName} скачан.`, 'success');
   } catch (error) {
     console.error('[CU LMS] Grades export failed:', error);
+    gradesLog(`ОШИБКА: ${error?.message || error}\n${String(error?.stack || '').slice(0, 400)}`);
     setGradesExportStatus(error.message || 'Ошибка экспорта оценок.', 'error');
   } finally {
     setGradesExportBusy(false);
@@ -2128,20 +2211,30 @@ async function handleGradesExportClick(archived) {
  */
 async function downloadWorkbook(workbook, fileName) {
   const data = window.XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  gradesLog(`книга собрана: ${data.byteLength ?? data.length} байт`);
   const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  if (await downloadViaBackground(data, fileName, mime, false)) return;
+  if (await downloadViaBackground(data, fileName, mime, false)) {
+    gradesLog('скачивание: через background (Firefox)');
+    return;
+  }
   const blob = new Blob([data], { type: mime });
   const url = URL.createObjectURL(blob);
   // Браузер читает файл не мгновенно — ссылку держим живой с запасом.
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
   if (browser.downloads?.download) {
+    gradesLog('скачивание: downloads.download');
     await browser.downloads.download({ url, filename: fileName });
     return;
   }
 
   // Safari: API загрузок нет, а blob из попапа не открывается — сохраняем со страницы расширения.
-  if (await downloadViaSavePage(data, fileName, mime)) return;
+  gradesLog('скачивание: API загрузок нет, открываю страницу сохранения');
+  if (await downloadViaSavePage(data, fileName, mime)) {
+    gradesLog('страница сохранения открыта');
+    return;
+  }
+  gradesLog('страница сохранения не открылась — запасная ссылка с blob');
 
   const link = document.createElement('a');
   link.href = url;

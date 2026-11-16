@@ -1446,6 +1446,32 @@
             <div id="grades-export-status" class="status-text">
               Открой LMS (my.centraluniversity.ru или my.cu.ru) и нажми кнопку
             </div>
+            <details id="grades-export-log-box" style="margin-top: 8px">
+              <summary style="cursor: pointer">Лог последней выгрузки</summary>
+              <pre
+                id="grades-export-log"
+                style="
+                  margin: 6px 0;
+                  padding: 8px;
+                  max-height: 220px;
+                  overflow: auto;
+                  white-space: pre-wrap;
+                  word-break: break-all;
+                  font:
+                    11px/1.4 ui-monospace,
+                    Menlo,
+                    Consolas,
+                    monospace;
+                  user-select: text;
+                  -webkit-user-select: text;
+                "
+              >
+Пока пусто: нажми кнопку выгрузки.</pre
+              >
+              <button id="grades-export-log-copy" class="action-button" type="button">
+                Скопировать лог
+              </button>
+            </details>
           </div>
         </section>
 
