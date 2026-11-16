@@ -356,23 +356,6 @@ if (typeof window.isPluginPageLoaderInitialized === 'undefined') {
       if (shouldReload) location.reload();
     }
 
-    // Safari: меню в iframe не может скачать свой blob: — файл (выгрузка
-    // оценок, настроек) сохраняем отсюда, из контекста страницы LMS.
-    if (event.data && event.data.action === 'SAVE_FILE') {
-      const { data, filename, mime } = event.data;
-      if (typeof filename !== 'string' || data == null) return;
-      const url = URL.createObjectURL(new Blob([data], { type: mime || '' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.append(link);
-      link.click();
-      link.remove();
-      // Браузер мог ещё не начать читать blob — отпускаем с запасом.
-      setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
-      return;
-    }
-
     // Редактор тем и мастерская открываются отдельной вкладкой (её создаёт
     // background по запросу попапа) — здесь остаётся только убрать меню со
     // страницы, чтобы она была видна: пипетка и примерка работают по ней.

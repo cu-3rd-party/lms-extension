@@ -127,6 +127,7 @@ type IncomingMessage =
   | { action: 'WORKSHOP_FOCUS_LMS' }
   | { action: 'WORKSHOP_TRYON_END'; keep: boolean }
   | { action: 'GRADES_EXPORT_EXECUTE'; tabId?: number; archived?: boolean }
+  | { action: 'OPEN_SAVE_PAGE'; id: string }
   | { action: 'OFFLINE_STATUS' }
   | { action: 'OFFLINE_SYNC_NOW' }
   | { action: 'OFFLINE_STOP' }
@@ -2004,6 +2005,25 @@ browser.runtime.onMessage.addListener(((
 
   // Сбор оценок для Excel. Идёт через background, а не из попапа, — так
   // завели ради меню-iframe в Firefox (см. browserApi в popup.js).
+  // Safari: API загрузок нет, а blob из попапа и из меню на странице LMS не скачивается.
+  // Файл лежит в storage.local (`pendingSave:<id>`), а сохраняет его страница расширения
+  // в отдельной вкладке — см. plugins/_shared/save_file.js. Вкладку открывает background:
+  // попап Safari закрывается, едва браузер что-то показывает.
+  if (request.action === 'OPEN_SAVE_PAGE') {
+    const { id } = request as { id: string };
+    if (!/^[\w-]+$/.test(String(id))) {
+      sendResponse({ success: false, error: 'bad id' });
+      return true;
+    }
+    respondWith(
+      sendResponse,
+      browser.tabs
+        .create({ url: browser.runtime.getURL(`plugins/_shared/save_file.html?id=${id}`) })
+        .then(() => ({}))
+    );
+    return true;
+  }
+
   if (request.action === 'GRADES_EXPORT_EXECUTE') {
     const exportRequest = request as { tabId?: number; archived?: boolean };
     trackGoal(exportRequest.archived === true ? 'grades_export_archived' : 'grades_export');
