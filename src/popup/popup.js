@@ -1886,6 +1886,18 @@ async function downloadViaBackground(data, filename, mime, saveAs) {
   return true;
 }
 
+/**
+ * Safari, меню на странице LMS (iframe): API загрузок нет, а blob: со
+ * страницы расширения внутри чужого сайта Safari не скачивает. Файл отдаём
+ * странице — plugin_page_loader.js сохраняет его ссылкой с download из
+ * контекста LMS, как zip офлайн-копии. true — файл передан странице.
+ */
+function saveViaParentPage(data, filename, mime) {
+  if (!isInsideIframe) return false;
+  window.parent.postMessage({ action: 'SAVE_FILE', data, filename, mime }, '*');
+  return true;
+}
+
 async function saveProfileFile(profile) {
   const text = JSON.stringify(profile, null, 2);
   if (await downloadViaBackground(text, profileFileName(profile.kind), 'application/json', true)) {
@@ -1906,6 +1918,11 @@ async function saveProfileFile(profile) {
     }
   } catch (_error) {
     // Ниже обычная ссылка — она работает и без разрешения downloads.
+  }
+
+  if (saveViaParentPage(text, profileFileName(profile.kind), 'application/json')) {
+    URL.revokeObjectURL(url);
+    return text.length;
   }
 
   const link = document.createElement('a');
@@ -2042,9 +2059,16 @@ async function handleGradesExportClick(archived) {
       throw new Error('Модуль Excel не загрузился. Пересобери расширение и открой popup заново.');
     }
 
-    const [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id || !isLmsUrl(tab.url)) {
-      throw new Error('Открой вкладку LMS (my.centraluniversity.ru или my.cu.ru) перед экспортом.');
+    // Меню на странице LMS (iframe) уже стоит во вкладке LMS — её background
+    // берёт из sender.tab. tabs.query из iframe в Safari не находит вкладку.
+    let tab = null;
+    if (!isInsideIframe) {
+      [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id || !isLmsUrl(tab.url)) {
+        throw new Error(
+          'Открой вкладку LMS (my.centraluniversity.ru или my.cu.ru) перед экспортом.'
+        );
+      }
     }
 
     setGradesExportStatus(
@@ -2056,7 +2080,7 @@ async function handleGradesExportClick(archived) {
     // во вкладке LMS, и запросы к API идут оттуда с куками пользователя.
     const response = await browser.runtime.sendMessage({
       action: 'GRADES_EXPORT_EXECUTE',
-      tabId: tab.id,
+      tabId: tab?.id,
       archived,
     });
     if (!response?.success) {
@@ -2105,6 +2129,8 @@ async function downloadWorkbook(workbook, fileName) {
     await browser.downloads.download({ url, filename: fileName });
     return;
   }
+
+  if (saveViaParentPage(data, fileName, mime)) return;
 
   const link = document.createElement('a');
   link.href = url;

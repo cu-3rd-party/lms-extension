@@ -2009,8 +2009,9 @@ browser.runtime.onMessage.addListener(((
     trackGoal(exportRequest.archived === true ? 'grades_export_archived' : 'grades_export');
     (async () => {
       try {
-        // Вкладку LMS называет попап — он её уже проверил.
-        let tabId = exportRequest.tabId;
+        // Вкладку LMS называет попап — он её уже проверил. Меню на странице
+        // LMS (iframe) вкладку не ищет: она та, где стоит само меню.
+        let tabId = exportRequest.tabId ?? (sender as { tab?: { id?: number } })?.tab?.id;
         if (typeof tabId !== 'number') {
           const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
           tabId = tab?.id;
