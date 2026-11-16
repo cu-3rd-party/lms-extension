@@ -207,8 +207,6 @@ export default defineManifest({
         'plugins/attendance/attendance_course.js',
         'plugins/attendance/attendance.css',
         'plugins/_shared/fflate.umd.min.js',
-        'plugins/_shared/save_file.html',
-        'plugins/_shared/save_file.js',
         // Страница offline LMS (src/offline/README.md).
         'offline/offline.html',
         'offline/offline.css',

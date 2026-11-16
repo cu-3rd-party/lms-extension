@@ -127,7 +127,6 @@ type IncomingMessage =
   | { action: 'WORKSHOP_FOCUS_LMS' }
   | { action: 'WORKSHOP_TRYON_END'; keep: boolean }
   | { action: 'GRADES_EXPORT_EXECUTE'; tabId?: number; archived?: boolean }
-  | { action: 'OPEN_SAVE_PAGE'; id: string }
   | { action: 'OFFLINE_STATUS' }
   | { action: 'OFFLINE_SYNC_NOW' }
   | { action: 'OFFLINE_STOP' }
@@ -2000,26 +1999,6 @@ browser.runtime.onMessage.addListener(((
   if (request.action === 'WORKSHOP_TRYON_END') {
     const keep = (request as { keep?: unknown }).keep === true;
     respondWith(sendResponse, endTryOn(keep));
-    return true;
-  }
-
-  // Safari: API загрузок нет, а blob из попапа не открывается (WebKitBlobResource, ошибка 1),
-  // и вкладку LMS им трогать нельзя — она перезагружается. Файл лежит в storage.local
-  // (`pendingSave:<id>`), а сохраняет его страница расширения в отдельной вкладке — см.
-  // plugins/_shared/save_file.js. Вкладку открывает background: попап Safari закрывается,
-  // едва браузер что-то показывает.
-  if (request.action === 'OPEN_SAVE_PAGE') {
-    const { id } = request as { id: string };
-    if (!/^[\w-]+$/.test(String(id))) {
-      sendResponse({ success: false, error: 'bad id' });
-      return true;
-    }
-    respondWith(
-      sendResponse,
-      browser.tabs
-        .create({ url: browser.runtime.getURL(`plugins/_shared/save_file.html?id=${id}`) })
-        .then(() => ({}))
-    );
     return true;
   }
 
