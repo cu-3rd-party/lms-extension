@@ -1889,27 +1889,27 @@ async function downloadViaBackground(data, filename, mime, saveAs) {
 /**
  * Safari: API загрузок нет, а ссылка на blob, созданный в попапе, не открывается —
  * «Safari не может открыть страницу blob:safari-web-extension://… (WebKitBlobResource,
- * ошибка 1)». Поэтому файл сохраняет вкладка LMS (DOWNLOAD_IN_TAB, src/save-in-page.ts):
- * на обычной странице blob с `download` работает. true — файл передан вкладке.
+ * ошибка 1)». Запуск сохранения во вкладке LMS Safari тоже перезагружает. Поэтому файл
+ * кладётся в storage.local, а background открывает страницу расширения
+ * (plugins/_shared/save_file.html), где кнопка «Сохранить» скачивает его blob-ссылкой,
+ * как zip офлайн-копии. true — страница открыта.
  */
-async function downloadInLmsTab(data, filename, mime) {
+async function downloadViaSavePage(data, filename, mime) {
   try {
-    const [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id || !isLmsUrl(tab.url)) return false;
     const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
     // По кускам: String.fromCharCode(...bytes) на сотнях килобайт падает по размеру стека.
     let binary = '';
     for (let i = 0; i < bytes.length; i += 0x8000) {
       binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
     }
-    const response = await browser.runtime.sendMessage({
-      action: 'DOWNLOAD_IN_TAB',
-      tabId: tab.id,
-      base64: btoa(binary),
-      filename,
-      mime,
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    await browser.storage.local.set({
+      ['pendingSave:' + id]: { base64: btoa(binary), filename, mime, at: Date.now() },
     });
-    return !!response?.success;
+    const response = await browser.runtime.sendMessage({ action: 'OPEN_SAVE_PAGE', id });
+    if (response && response.success) return true;
+    await browser.storage.local.remove('pendingSave:' + id);
+    return false;
   } catch (_error) {
     return false;
   }
@@ -1937,8 +1937,8 @@ async function saveProfileFile(profile) {
     // Ниже обычная ссылка — она работает и без разрешения downloads.
   }
 
-  // Safari: blob из попапа не открывается — сохраняем со страницы LMS.
-  if (await downloadInLmsTab(text, profileFileName(profile.kind), 'application/json')) {
+  // Safari: blob из попапа не открывается — сохраняем со страницы расширения.
+  if (await downloadViaSavePage(text, profileFileName(profile.kind), 'application/json')) {
     return text.length;
   }
 
@@ -2140,8 +2140,8 @@ async function downloadWorkbook(workbook, fileName) {
     return;
   }
 
-  // Safari: API загрузок нет, а blob из попапа не открывается — сохраняем со страницы LMS.
-  if (await downloadInLmsTab(data, fileName, mime)) return;
+  // Safari: API загрузок нет, а blob из попапа не открывается — сохраняем со страницы расширения.
+  if (await downloadViaSavePage(data, fileName, mime)) return;
 
   const link = document.createElement('a');
   link.href = url;
