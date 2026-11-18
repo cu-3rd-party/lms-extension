@@ -1,6 +1,8 @@
-/* course_cards.css — старый дизайн карточек курсов: обложка + подпись снизу,
-   плюс свой архив курсов. Классы навешивает course_cards.js, поэтому без
-   включённого тумблера ни одно правило не срабатывает. */
+/* course_cards.css — оформление карточек LMS, режим обложек и архив курсов. */
+
+ul.course-list:not(.culms-old-design) > li.course-list__item > cu-course-card:hover {
+  overflow: visible;
+}
 
 ul.course-list.culms-old-design {
   display: grid !important;
